@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #1b1b1b;
+  background-color: #ffffff;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  @apply bg-surface text-secondary min-h-screen;
+}
+
+#root {
+  @apply min-h-screen bg-surface;
+}
+
+.card {
+  @apply bg-white shadow-sm border border-gray-200 rounded-xl;
+}
+
+.btn-primary {
+  @apply bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow hover:shadow-md transition;
+}
+
+.btn-ghost {
+  @apply text-secondary px-3 py-2 rounded-lg hover:bg-gray-100;
+}
+
+/* Print Media Queries */
+@media print {
+  body * {
+    display: none;
+  }
+
+  #receipt {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: black;
+  }
+
+  .no-print {
+    display: none !important;
+    visibility: hidden;
+  }
+}

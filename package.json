@@ -1,0 +1,20 @@
+{
+  "name": "pool_softwer",
+  "version": "1.0.0",
+  "description": "Raya Swimming Pool Management system",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "start": "npm run start --prefix server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "recharts": "^3.8.1"
+  }
+}
