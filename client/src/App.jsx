@@ -9,6 +9,7 @@ import TrainingPage from './components/TrainingPage.jsx';
 import BillsPage from './components/BillsPage.jsx';
 import Receipt from './components/Receipt.jsx';
 import ExpensePage from './components/ExpensePage.jsx';
+import BeverageSalesDashboard from './components/BeverageSalesDashboard.jsx';
 
 const SERVICE_TYPES = ['Daily Entry', 'Training', 'Membership'];
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
@@ -30,6 +31,7 @@ const Sidebar = ({ view, setView, user }) => {
     ? [
         { key: 'dashboard', label: 'Dashboard' },
         { key: 'billing', label: 'Bills / Receipts' },
+        { key: 'beverages', label: '🧃 Beverage Sales' },
         { key: 'training', label: 'Training' },
         { key: 'members', label: 'Memberships' },
         { key: 'packages', label: 'Packages' },
@@ -527,6 +529,10 @@ function App() {
               showToast={showToast} 
               setLastReceipt={handleSetLastReceipt}
             />
+          )}
+
+          {view === 'beverages' && (
+            <BeverageSalesDashboard token={token} />
           )}
 
           {view === 'training' && (

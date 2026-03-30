@@ -30,90 +30,105 @@ const validateSlot = (timeSlot, classSlot) => {
 };
 
 router.post('/students', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
-  const { name, phone, ageGroup, batchType, startDate, timeSlot, classSlot, discount = 0, amountPaid, paymentMethod = 'Cash' } = req.body;
-  const Student = getCompanyModel(req.companyDb, 'Student');
-  const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
-  const Transaction = getCompanyModel(req.companyDb, 'Transaction');
-  
-  if (!validateSlot(timeSlot, Number(classSlot))) {
-    return res.status(400).json({ message: 'Time slot and class slot mismatch' });
-  }
-  
-  const slotCount = await Student.countDocuments({
-    companyId: req.companyId,
-    classSlot,
-    status: 'active',
-    endDate: { $gte: new Date(startDate) },
-  });
-  
-  if (slotCount >= SLOT_LIMIT) {
-    return res.status(400).json({ message: 'Selected class slot is full (15 students)' });
-  }
+  try {
+    const { name, phone, ageGroup, batchType, startDate, timeSlot, classSlot, discount = 0, amountPaid, paymentMethod = 'Cash' } = req.body;
+    const Student = getCompanyModel(req.companyDb, 'Student');
+    const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
+    const Transaction = getCompanyModel(req.companyDb, 'Transaction');
+    
+    if (!validateSlot(timeSlot, Number(classSlot))) {
+      return res.status(400).json({ message: 'Time slot and class slot mismatch' });
+    }
+    
+    const slotCount = await Student.countDocuments({
+      companyId: req.companyId,
+      classSlot,
+      status: 'active',
+      endDate: { $gte: new Date(startDate) },
+    });
+    
+    if (slotCount >= SLOT_LIMIT) {
+      return res.status(400).json({ message: 'Selected class slot is full (15 students)' });
+    }
 
-  const { totalClasses, price, durationDays } = deriveBatchDetails({ ageGroup, batchType });
-  const endDate = addDays(startDate, durationDays);
-  
-  // Calculate final amount after discount
-  const discountAmount = Number(discount) || 0;
-  const finalAmount = Math.max(0, price - discountAmount);
-  const paidAmount = amountPaid !== undefined ? Number(amountPaid) : finalAmount;
-  const dueAmount = Math.max(0, finalAmount - paidAmount);
-  
-  const student = new Student({
-    companyId: req.companyId,
-    name,
-    phone,
-    ageGroup,
-    batchType,
-    timeSlot,
-    classSlot,
-    totalClasses,
-    remainingClasses: totalClasses,
-    price,
-    discount: discountAmount,
-    durationDays,
-    startDate,
-    endDate,
-    amountPaid: paidAmount,
-    due: dueAmount,
-  });
-  
-  if (dueAmount > 0) {
-    student.dueHistory = [{
+    const { totalClasses, price, durationDays } = deriveBatchDetails({ ageGroup, batchType });
+    const endDate = addDays(startDate, durationDays);
+    
+    // Calculate final amount after discount
+    const discountAmount = Number(discount) || 0;
+    const finalAmount = Math.max(0, price - discountAmount);
+    const paidAmount = amountPaid !== undefined ? Number(amountPaid) : finalAmount;
+    const dueAmount = Math.max(0, finalAmount - paidAmount);
+    
+    const student = new Student({
+      companyId: req.companyId,
+      name,
+      phone,
+      ageGroup,
+      batchType,
+      timeSlot,
+      classSlot,
+      totalClasses,
+      remainingClasses: totalClasses,
+      price,
+      discount: discountAmount,
+      durationDays,
+      startDate,
+      endDate,
+      amountPaid: paidAmount,
+      due: dueAmount,
+    });
+    
+    if (dueAmount > 0) {
+      student.dueHistory = [{
+        date: new Date(),
+        amount: dueAmount,
+        reason: 'Initial Purchase Due',
+        type: 'Due'
+      }];
+    }
+    
+    console.log(`[Training] Attempting to save Student: ${name} (Phone: ${phone}, Company: ${req.companyId})`);
+    await student.save();
+    console.log(`[Training] ✓ Student saved successfully with ID: ${student._id}`);
+
+    // Auto-create transaction
+    const transaction = new Transaction({
+      companyId: req.companyId,
+      name,
+      phone,
+      serviceType: 'Training',
+      amount: paidAmount,
+      paymentMethod,
       date: new Date(),
-      amount: dueAmount,
-      reason: 'Initial Purchase Due',
-      type: 'Due'
-    }];
+      receiptId: generateReceiptId(),
+      studentId: student._id,
+      transactionType: 'Purchase',
+      amountPaid: paidAmount,
+      dueAmount: dueAmount,
+      // Receipt context
+      price,
+      discount: discountAmount,
+      package: `${totalClasses} Classes`,
+      batch: batchType,
+      duration: durationDays,
+    });
+    
+    console.log(`[Training] Attempting to save Transaction for Student: ${name}`);
+    await transaction.save();
+    console.log(`[Training] ✓ Transaction saved successfully with ID: ${transaction._id}`);
+
+    return res.status(201).json({ student, transaction });
+  } catch (error) {
+    console.error(`[Training] ✗ ERROR in POST /students:`, error.message);
+    console.error(`[Training] Error details:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save student',
+      error: error.message,
+      details: error.errors || null,
+    });
   }
-  
-  await student.save();
-
-  // Auto-create transaction
-  const transaction = new Transaction({
-    companyId: req.companyId,
-    name,
-    phone,
-    serviceType: 'Training',
-    amount: paidAmount,
-    paymentMethod,
-    date: new Date(),
-    receiptId: generateReceiptId(),
-    studentId: student._id,
-    transactionType: 'Purchase',
-    amountPaid: paidAmount,
-    dueAmount: dueAmount,
-    // Receipt context
-    price,
-    discount: discountAmount,
-    package: `${totalClasses} Classes`,
-    batch: batchType,
-    duration: durationDays,
-  });
-  
-  await transaction.save();
-
-  return res.status(201).json({ student, transaction });
 });
 
 router.get('/students', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
@@ -123,41 +138,58 @@ router.get('/students', authRequired, requireRole('admin'), validateCompanyConte
 });
 
 router.post('/students/:id/classes', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
-  const { status, date } = req.body;
-  const Student = getCompanyModel(req.companyDb, 'Student');
-  const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
-  
-  const student = await Student.findOne({ _id: req.params.id, companyId: req.companyId });
-  if (!student) return res.status(404).json({ message: 'Student not found' });
-  const recordDate = new Date(date || new Date());
-  if (recordDate > student.endDate) {
-    student.status = 'expired';
-    await student.save();
-    return res.status(400).json({ message: 'Student is expired' });
-  }
-  if (status === 'Makeup' && student.makeupUsed >= 2) {
-    return res.status(400).json({ message: 'Max 2 makeup classes reached' });
-  }
-  if (student.remainingClasses <= 0) {
-    student.status = 'expired';
-    await student.save();
-    return res.status(400).json({ message: 'No remaining classes' });
-  }
+  try {
+    const { status, date } = req.body;
+    const Student = getCompanyModel(req.companyDb, 'Student');
+    const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
+    
+    const student = await Student.findOne({ _id: req.params.id, companyId: req.companyId });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    const recordDate = new Date(date || new Date());
+    if (recordDate > student.endDate) {
+      student.status = 'expired';
+      console.log(`[Training] Attempting to update Student status to expired (ID: ${student._id})`);
+      await student.save();
+      return res.status(400).json({ message: 'Student is expired' });
+    }
+    if (status === 'Makeup' && student.makeupUsed >= 2) {
+      return res.status(400).json({ message: 'Max 2 makeup classes reached' });
+    }
+    if (student.remainingClasses <= 0) {
+      student.status = 'expired';
+      console.log(`[Training] Attempting to update Student status to expired (ID: ${student._id})`);
+      await student.save();
+      return res.status(400).json({ message: 'No remaining classes' });
+    }
 
-  const record = new ClassRecord({ companyId: req.companyId, student: student._id, status, date: recordDate });
-  await record.save();
+    const record = new ClassRecord({ companyId: req.companyId, student: student._id, status, date: recordDate });
+    console.log(`[Training] Attempting to save ClassRecord: ${status} for Student ${student._id}`);
+    await record.save();
+    console.log(`[Training] ✓ ClassRecord saved successfully with ID: ${record._id}`);
 
-  if (status === 'Attended' || status === 'Makeup') {
-    student.remainingClasses = Math.max(0, student.remainingClasses - 1);
+    if (status === 'Attended' || status === 'Makeup') {
+      student.remainingClasses = Math.max(0, student.remainingClasses - 1);
+    }
+    if (status === 'Makeup') {
+      student.makeupUsed += 1;
+    }
+    if (recordDate > student.endDate || student.remainingClasses === 0) {
+      student.status = 'expired';
+    }
+    console.log(`[Training] Attempting to update Student after ClassRecord (ID: ${student._id})`);
+    await student.save();
+    console.log(`[Training] ✓ Student updated successfully (Remaining: ${student.remainingClasses})`);
+    return res.status(201).json({ record, student });
+  } catch (error) {
+    console.error(`[Training] ✗ ERROR in POST /students/:id/classes:`, error.message);
+    console.error(`[Training] Error details:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save class record',
+      error: error.message,
+      details: error.errors || null,
+    });
   }
-  if (status === 'Makeup') {
-    student.makeupUsed += 1;
-  }
-  if (recordDate > student.endDate || student.remainingClasses === 0) {
-    student.status = 'expired';
-  }
-  await student.save();
-  return res.status(201).json({ record, student });
 });
 
 router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {

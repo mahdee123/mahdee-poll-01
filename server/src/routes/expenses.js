@@ -35,11 +35,19 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
       note: note ? note.trim() : '',
     });
 
+    console.log(`[Expense] Attempting to save Expense: ${title} (Category: ${category}, Amount: ${amount}, Company: ${req.companyId})`);
     await expense.save();
+    console.log(`[Expense] ✓ Expense saved successfully with ID: ${expense._id}`);
     return res.status(201).json({ expense });
   } catch (err) {
-    console.error('Error creating expense:', err);
-    return res.status(500).json({ message: 'Server error', detail: err.message });
+    console.error(`[Expense] ✗ ERROR in POST /:`, err.message);
+    console.error(`[Expense] Error details:`, err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save expense',
+      error: err.message,
+      details: err.errors || null,
+    });
   }
 });
 

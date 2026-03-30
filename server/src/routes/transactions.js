@@ -49,10 +49,19 @@ router.post('/', authRequired, requireRole('admin', 'manager'), validateCompanyC
       numberOfPersons: numberOfPersons || 1,
     });
 
+    console.log(`[Transaction] Attempting to save Transaction: ${name} (${serviceType}, Amount: ${amount}, Company: ${req.companyId})`);
     await transaction.save();
+    console.log(`[Transaction] ✓ Transaction saved successfully with ID: ${transaction._id}`);
     return res.status(201).json({ transaction });
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    console.error(`[Transaction] ✗ ERROR in POST /:`, error.message);
+    console.error(`[Transaction] Error details:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save transaction',
+      error: error.message,
+      details: error.errors || null,
+    });
   }
 });
 

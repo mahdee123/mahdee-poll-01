@@ -30,7 +30,7 @@ const StatCard = ({ title, value }) => (
 const formatDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 export default function MembershipPage({ token, showToast, setLastReceipt, setView }) {
-  const [stats, setStats] = useState({ newToday: 0, newMonth: 0, activeMembers: 0, revenueMonth: 0, totalDuePending: 0, monthlyCollection: 0 });
+  const [stats, setStats] = useState({ newToday: 0, newMonth: 0, activeMembers: 0, incomeMonth: 0, totalDuePending: 0, monthlyCollection: 0 });
   const [members, setMembers] = useState([]);
   
   // Filters
@@ -101,6 +101,17 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
   const paidAmount = form.amountPaid !== null && form.amountPaid !== '' ? Number(form.amountPaid) : finalPayable;
   const dueAmount = Math.max(0, finalPayable - paidAmount);
 
+  // Calculate totals from members list
+  const totalsDue = members.reduce((sum, m) => sum + (m.totalDue || 0), 0);
+  const totalsCollected = members.reduce((sum, m) => {
+    const planPrice = PLAN_PRICING[m.plan]?.final || 0;
+    const collected = planPrice - (m.totalDue || 0);
+    return sum + Math.max(0, collected);
+  }, 0);
+
+  // Income from collected amounts (override stats.incomeMonth with actual collected data)
+  const incomeFromCollected = totalsCollected;
+
   const endDate = useMemo(() => {
     const start = new Date(form.startDate);
     const durationDays = PLAN_DURATION[form.plan] || 30;
@@ -161,7 +172,7 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
         <StatCard title="New Members Today" value={stats.newToday} />
         <StatCard title="New Members This Month" value={stats.newMonth} />
         <StatCard title="Active Memberships" value={stats.activeMembers} />
-        <StatCard title="Revenue (This Month)" value={`৳ ${stats.revenueMonth.toLocaleString()}`} />
+        <StatCard title="Income (This Month)" value={`৳ ${incomeFromCollected.toLocaleString()}`} />
       </div>
 
       {/* New Stats: Due & Collection */}
@@ -172,7 +183,7 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
         </div>
         <div className="card p-4 bg-green-50 border border-green-200">
           <span className="text-xs text-green-600 font-medium uppercase">Monthly Collection</span>
-          <span className="text-3xl font-bold text-green-700">৳ {stats.monthlyCollection?.toLocaleString() || 0}</span>
+          <span className="text-3xl font-bold text-green-700">৳ {incomeFromCollected?.toLocaleString() || 0}</span>
         </div>
       </div>
 
@@ -202,6 +213,7 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
                 <th className="p-3">Plan</th>
                 <th className="p-3">Status</th>
                 <th className="p-3">Due Amount</th>
+                <th className="p-3">Collected Amount</th>
                 <th className="p-3">Last Payment</th>
                 <th className="p-3">Action</th>
               </tr>
@@ -229,6 +241,9 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
                     ) : (
                       '-'
                     )}
+                  </td>
+                  <td className="p-3 font-medium text-green-700">
+                    ৳{(PLAN_PRICING[m.plan]?.final - m.totalDue || 0).toLocaleString()}
                   </td>
                   <td className="p-3 text-sm text-gray-500">{m.lastPaymentDate ? formatDate(m.lastPaymentDate) : '-'}</td>
                   <td className="p-3">
@@ -270,7 +285,15 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
                 </tr>
               ))}
               {members.length === 0 && (
-                <tr><td colSpan="7" className="p-4 text-center text-gray-500">No members found.</td></tr>
+                <tr><td colSpan="8" className="p-4 text-center text-gray-500">No members found.</td></tr>
+              )}
+              {members.length > 0 && (
+                <tr className="border-t-2 border-b bg-gray-100 font-bold text-gray-800">
+                  <td colSpan="4" className="p-3 text-right">TOTAL:</td>
+                  <td className="p-3 text-red-600">৳{totalsDue.toLocaleString()}</td>
+                  <td className="p-3 text-green-700">৳{totalsCollected.toLocaleString()}</td>
+                  <td colSpan="2"></td>
+                </tr>
               )}
             </tbody>
           </table>

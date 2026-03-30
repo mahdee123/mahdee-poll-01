@@ -30,64 +30,79 @@ const calculateMemberDue = (member) => {
 };
 
 router.post('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
-  const { name, phone, address, plan, startDate, amountPaid, paymentMethod, price = 0, discount = 0 } = req.body;
-  const durationDays = PLAN_PRESETS[plan];
-  const endDate = addDays(startDate, durationDays);
-  
-  // Calculate amount paid (default: full price after discount)
-  const finalAmount = price - discount;
-  const paidAmount = amountPaid !== undefined ? Number(amountPaid) : finalAmount;
-  const purchaseDue = Math.max(0, finalAmount - paidAmount);
-  
-  const Member = getCompanyModel(req.companyDb, 'Member');
-  const Transaction = getCompanyModel(req.companyDb, 'Transaction');
-  
-  const member = new Member({ 
-    companyId: req.companyId,
-    name, 
-    phone, 
-    address, 
-    plan, 
-    startDate, 
-    endDate,
-    amountPaid: paidAmount,
-    totalDue: purchaseDue
-  });
-  
-  if (purchaseDue > 0) {
-    member.dueHistory = [{
+  try {
+    const { name, phone, address, plan, startDate, amountPaid, paymentMethod, price = 0, discount = 0 } = req.body;
+    const durationDays = PLAN_PRESETS[plan];
+    const endDate = addDays(startDate, durationDays);
+    
+    // Calculate amount paid (default: full price after discount)
+    const finalAmount = price - discount;
+    const paidAmount = amountPaid !== undefined ? Number(amountPaid) : finalAmount;
+    const purchaseDue = Math.max(0, finalAmount - paidAmount);
+    
+    const Member = getCompanyModel(req.companyDb, 'Member');
+    const Transaction = getCompanyModel(req.companyDb, 'Transaction');
+    
+    const member = new Member({ 
+      companyId: req.companyId,
+      name, 
+      phone, 
+      address, 
+      plan, 
+      startDate, 
+      endDate,
+      amountPaid: paidAmount,
+      totalDue: purchaseDue
+    });
+    
+    if (purchaseDue > 0) {
+      member.dueHistory = [{
+        date: new Date(),
+        amount: purchaseDue,
+        reason: 'Initial Purchase Due',
+        type: 'Due'
+      }];
+    }
+    
+    console.log(`[Membership] Attempting to save Member: ${name} (Phone: ${phone}, Plan: ${plan}, Company: ${req.companyId})`);
+    await member.save();
+    console.log(`[Membership] ✓ Member saved successfully with ID: ${member._id}`);
+
+    const transaction = new Transaction({
+      companyId: req.companyId,
+      name,
+      phone,
+      serviceType: 'Membership',
+      amount: paidAmount,
+      paymentMethod: paymentMethod || 'Cash',
+      receiptId: generateReceiptId(),
       date: new Date(),
-      amount: purchaseDue,
-      reason: 'Initial Purchase Due',
-      type: 'Due'
-    }];
+      memberId: member._id,
+      transactionType: 'Purchase',
+      amountPaid: paidAmount,
+      dueAmount: purchaseDue,
+      // Receipt context
+      price,
+      discount,
+      plan,
+      duration: durationDays,
+      startDate
+    });
+    console.log(`[Membership] Attempting to save Transaction for Member: ${name}`);
+    await transaction.save();
+    console.log(`[Membership] ✓ Transaction saved successfully with ID: ${transaction._id}`);
+
+    return res.status(201).json({ member, transaction });
+  } catch (error) {
+    console.error(`[Membership] ✗ ERROR in POST /:`, error.message);
+    console.error(`[Membership] Error details:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save membership',
+      error: error.message,
+      details: error.errors || null,
+    });
   }
-  
-  await member.save();
-
-  const transaction = new Transaction({
-    companyId: req.companyId,
-    name,
-    phone,
-    serviceType: 'Membership',
-    amount: paidAmount,
-    paymentMethod: paymentMethod || 'Cash',
-    receiptId: generateReceiptId(),
-    date: new Date(),
-    memberId: member._id,
-    transactionType: 'Purchase',
-    amountPaid: paidAmount,
-    dueAmount: purchaseDue,
-    // Receipt context
-    price,
-    discount,
-    plan,
-    duration: durationDays,
-    startDate
-  });
-  await transaction.save();
-
-  return res.status(201).json({ member, transaction });
 });
 
 router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
@@ -102,28 +117,36 @@ router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext,
   const newMonth = await Member.countDocuments({ companyId: req.companyId, createdAt: { $gte: monthStart } });
   const activeMembers = await Member.countDocuments({ companyId: req.companyId, status: 'Active' });
 
-  // Revenue from membership purchases
-  const memberRevenue = await Transaction.aggregate([
+  // Revenue from membership purchases (this month)
+  const memberIncome = await Transaction.aggregate([
     { $match: { companyId: req.companyId, serviceType: 'Membership', transactionType: 'Purchase', date: { $gte: monthStart } } },
     { $group: { _id: null, total: { $sum: '$amount' } } }
   ]);
-  const revenueMonth = memberRevenue[0]?.total || 0;
+  console.log(`[DEBUG Stats] Total Income (This Month):`, memberIncome);
+  const incomeMonth = memberIncome[0]?.total || 0;
 
-  // Total pending due for non-inactive members
-  const expiredMembers = await Member.find({ companyId: req.companyId, status: 'Expired' });
+  // Total pending due - sum all totalDue from all members (regardless of status)
+  const allMembers = await Member.find({ companyId: req.companyId });
   let totalDuePending = 0;
-  expiredMembers.forEach(member => {
-    totalDuePending += calculateMemberDue(member);
+  console.log(`[DEBUG Stats] Members with dues:`);
+  
+  allMembers.forEach(m => {
+    if (m.totalDue > 0) {
+      console.log(`  ✓ ${m.name} (${m.status}): ${m.totalDue}৳`);
+      totalDuePending += m.totalDue;
+    }
   });
+  console.log(`[DEBUG Stats] TOTAL PENDING DUE: ${totalDuePending}৳`);
 
-  // Monthly collection (payments this month)
+  // Monthly collection (all membership payments this month: DuePayment + MonthlyPayment)
   const monthlyPayments = await Transaction.aggregate([
-    { $match: { companyId: req.companyId, serviceType: 'Membership', transactionType: 'MonthlyPayment', date: { $gte: monthStart } } },
+    { $match: { companyId: req.companyId, serviceType: 'Membership', transactionType: { $in: ['DuePayment', 'MonthlyPayment'] }, date: { $gte: monthStart } } },
     { $group: { _id: null, total: { $sum: '$amount' } } }
   ]);
+  console.log(`[DEBUG Stats] Monthly collection result (DuePayment + MonthlyPayment):`, monthlyPayments);
   const monthlyCollection = monthlyPayments[0]?.total || 0;
 
-  return res.json({ newToday, newMonth, activeMembers, revenueMonth, totalDuePending, monthlyCollection });
+  return res.json({ newToday, newMonth, activeMembers, incomeMonth, totalDuePending, monthlyCollection });
 });
 
 router.get('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {

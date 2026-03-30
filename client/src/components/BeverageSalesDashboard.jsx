@@ -1,0 +1,477 @@
+import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../api';
+import BeverageProductManager from './BeverageProductManager';
+import InventoryPurchaseForm from './InventoryPurchaseForm';
+import BeverageSalesForm from './BeverageSalesForm';
+
+export default function BeverageSalesDashboard({ token }) {
+  const [products, setProducts] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [stats, setStats] = useState({
+    today: { revenue: 0, profit: 0, quantitySold: 0, transactionCount: 0 },
+    month: { revenue: 0, profit: 0, quantitySold: 0, transactionCount: 0 },
+    inventory: { totalProducts: 0, totalInventoryValue: 0, products: [] },
+    productBreakdown: [],
+  });
+
+  const [activeModal, setActiveModal] = useState(null); // 'products', 'purchase', 'sale', null
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    productId: '',
+    paymentMethod: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Helper function to make authenticated requests
+  const fetchWithToken = async (url, options = {}) => {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `API error: ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  // Fetch all data on mount and every 30 seconds
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [productsRes, statsRes, salesRes] = await Promise.all([
+          fetchWithToken(`${API_BASE_URL}/beverages/products`),
+          fetchWithToken(`${API_BASE_URL}/beverages/sales/stats`),
+          fetchWithToken(
+            `${API_BASE_URL}/beverages/sales${
+              filters.startDate || filters.endDate || filters.productId || filters.paymentMethod
+                ? '?' +
+                  new URLSearchParams({
+                    ...(filters.startDate && { startDate: filters.startDate }),
+                    ...(filters.endDate && { endDate: filters.endDate }),
+                    ...(filters.productId && { productId: filters.productId }),
+                    ...(filters.paymentMethod && { paymentMethod: filters.paymentMethod }),
+                  }).toString()
+                : ''
+            }`
+          ),
+        ]);
+
+        setProducts(productsRes.products || []);
+        setStats(statsRes);
+        setSales(salesRes.sales || []);
+      } catch (err) {
+        console.error('Error loading beverage data:', err);
+        setError(err.message || 'Failed to load beverage data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      loadData();
+      const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [filters, token]);
+
+  const handleAddProduct = async (formData) => {
+    try {
+      const response = await fetchWithToken(`${API_BASE_URL}/beverages/products`, {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      setProducts([...products, response.product]);
+      setActiveModal(null);
+    } catch (err) {
+      console.error('Error adding product:', err);
+      alert(`Failed to add product: ${err.message}`);
+    }
+  };
+
+  const handleUpdateProduct = async (productId, formData) => {
+    try {
+      const response = await fetchWithToken(`${API_BASE_URL}/beverages/products/${productId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(formData),
+      });
+      setProducts(products.map((p) => (p._id === productId ? response.product : p)));
+      setActiveModal(null);
+    } catch (err) {
+      console.error('Error updating product:', err);
+      alert(`Failed to update product: ${err.message}`);
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    try {
+      await fetchWithToken(`${API_BASE_URL}/beverages/products/${productId}`, {
+        method: 'DELETE',
+      });
+      setProducts(products.filter((p) => p._id !== productId));
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      alert(`Failed to delete product: ${err.message}`);
+    }
+  };
+
+  const handleRecordPurchase = async (formData) => {
+    try {
+      const response = await fetchWithToken(`${API_BASE_URL}/beverages/inventory/purchase`, {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      setProducts(products.map((p) => (p._id === formData.productId ? response.product : p)));
+      setActiveModal(null);
+    } catch (err) {
+      console.error('Error recording purchase:', err);
+      alert(`Failed to record purchase: ${err.message}`);
+    }
+  };
+
+  const handleRecordSale = async (formData) => {
+    try {
+      const response = await fetchWithToken(`${API_BASE_URL}/beverages/sales`, {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      setProducts(products.map((p) => (p._id === formData.productId ? response.product : p)));
+      setSales([response.sale, ...sales]);
+      setActiveModal(null);
+    } catch (err) {
+      console.error('Error recording sale:', err);
+      alert(`Failed to record sale: ${err.message}`);
+    }
+  };
+
+  const handleDeleteSale = async (saleId) => {
+    if (!window.confirm('Delete this sale? Inventory will be restored.')) return;
+
+    try {
+      await fetchWithToken(`${API_BASE_URL}/beverages/sales/${saleId}`, {
+        method: 'DELETE',
+      });
+      setSales(sales.filter((s) => s._id !== saleId));
+      // Refresh products to get updated stock
+      const resp = await fetchWithToken(`${API_BASE_URL}/beverages/products`);
+      setProducts(resp.products || []);
+    } catch (err) {
+      console.error('Error deleting sale:', err);
+      alert(`Failed to delete sale: ${err.message}`);
+    }
+  };
+
+  const formatDate = (date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formatTime = (date) => new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  if (!token) {
+    return (
+      <div className="p-6 text-center text-red-500">
+        <p>Authentication required. Please log in again.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-500">
+        <p>Error: {error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Reload
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        <p>Loading beverage data...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
+      </div>
+
+      {/* Top Stats */}
+      <div className="grid md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-gray-600">Today Revenue</p>
+          <p className="text-2xl font-bold text-blue-600">{stats.today.revenue.toFixed(0)} ৳</p>
+          <p className="text-xs text-gray-500 mt-1">{stats.today.transactionCount} transactions</p>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-gray-600">Today Profit</p>
+          <p className="text-2xl font-bold text-green-600">{stats.today.profit.toFixed(0)} ৳</p>
+          <p className="text-xs text-gray-500 mt-1">{stats.today.quantitySold} units sold</p>
+        </div>
+
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <p className="text-sm text-gray-600">This Month Revenue</p>
+          <p className="text-2xl font-bold text-purple-600">{stats.month.revenue.toFixed(0)} ৳</p>
+          <p className="text-xs text-gray-500 mt-1">{stats.month.transactionCount} transactions</p>
+        </div>
+
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <p className="text-sm text-gray-600">This Month Profit</p>
+          <p className="text-2xl font-bold text-orange-600">{stats.month.profit.toFixed(0)} ৳</p>
+          <p className="text-xs text-gray-500 mt-1">{stats.month.quantitySold} units sold</p>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={() => setActiveModal('products')}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+        >
+          🛠️ Manage Products
+        </button>
+        <button
+          onClick={() => setActiveModal('purchase')}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-medium"
+        >
+          📦 Record Purchase
+        </button>
+        <button
+          onClick={() => setActiveModal('sale')}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium"
+        >
+          💰 Record Sale
+        </button>
+      </div>
+
+      {/* Inventory Status Section */}
+      <div className="bg-white border rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">📊 Inventory Status</h2>
+
+        {products.length === 0 ? (
+          <div className="text-center p-8 text-gray-500">
+            <p>No products yet. Create your first beverage product!</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {products.map((product) => (
+              <div
+                key={product._id}
+                className={`p-4 border rounded-lg ${product.currentStock === 0 ? 'bg-red-50 border-red-300' : product.currentStock < 10 ? 'bg-yellow-50 border-yellow-300' : 'bg-green-50 border-green-300'}`}
+              >
+                <h4 className="font-semibold text-gray-800">{product.name}</h4>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>
+                    📦 Stock: <span className="font-bold text-lg">{product.currentStock}</span> {product.unit}s
+                  </p>
+                  <p className="text-gray-600">
+                    💰 Cost: {product.costPrice} ৳ | Sell: {product.sellingPrice} ৳
+                  </p>
+                  <p className="text-gray-600">
+                    💵 Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳
+                  </p>
+                </div>
+                {product.currentStock === 0 && <p className="mt-2 text-xs text-red-600 font-semibold">⚠️ Out of stock!</p>}
+                {product.currentStock < 10 && product.currentStock > 0 && (
+                  <p className="mt-2 text-xs text-yellow-700 font-semibold">⚠️ Low stock warning</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4 p-3 bg-gray-100 rounded-lg">
+          <p className="text-sm text-gray-700">
+            📦 <strong>{stats.inventory.totalProducts}</strong> products |{' '}
+            <strong>Total Inventory Value: {stats.inventory.totalInventoryValue.toFixed(0)} ৳</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* Product Profit Breakdown */}
+      {stats.productBreakdown.length > 0 && (
+        <div className="bg-white border rounded-lg p-6">
+          <h2 className="text-lg font-semibold mb-4">📈 Today's Performance by Product</h2>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-4 py-2 text-left">Product</th>
+                  <th className="px-4 py-2 text-center">Stock</th>
+                  <th className="px-4 py-2 text-right">Sold Today</th>
+                  <th className="px-4 py-2 text-right">Revenue</th>
+                  <th className="px-4 py-2 text-right">Cost</th>
+                  <th className="px-4 py-2 text-right">Profit</th>
+                  <th className="px-4 py-2 text-right">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.productBreakdown.map((item) => (
+                  <tr key={item.productId} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
+                    <td className="px-4 py-2 text-center text-gray-600">{item.currentStock} {item.currentStock === 1 ? 'unit' : 'units'}</td>
+                    <td className="px-4 py-2 text-right text-gray-600">{item.quantitySoldToday}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                      {item.revenueToday.toFixed(0)} ৳
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-600">{item.totalCost ? item.totalCost.toFixed(0) : 0} ৳</td>
+                    <td className="px-4 py-2 text-right font-bold text-green-600">
+                      {item.profitToday.toFixed(0)} ৳
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-600">{item.profitMarginToday}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Sales History with Filters */}
+      <div className="bg-white border rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">📜 Sales History</h2>
+
+        {/* Filters */}
+        <div className="mb-4 grid md:grid-cols-4 gap-3">
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="Start Date"
+          />
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="End Date"
+          />
+          <select
+            value={filters.productId}
+            onChange={(e) => setFilters({ ...filters, productId: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">All Products</option>
+            {products.map((p) => (
+              <option key={p._id} value={p._id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filters.paymentMethod}
+            onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">All Payment Methods</option>
+            <option value="Cash">Cash</option>
+            <option value="Bank">Bank</option>
+            <option value="bKash">bKash</option>
+          </select>
+        </div>
+
+        {/* Sales List */}
+        {sales.length === 0 ? (
+          <div className="text-center p-8 text-gray-500">
+            <p>No sales recorded yet.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-4 py-2 text-left">Date & Time</th>
+                  <th className="px-4 py-2 text-left">Product</th>
+                  <th className="px-4 py-2 text-center">Qty</th>
+                  <th className="px-4 py-2 text-right">Price/Unit</th>
+                  <th className="px-4 py-2 text-right">Total</th>
+                  <th className="px-4 py-2 text-right">Profit</th>
+                  <th className="px-4 py-2 text-center">Payment</th>
+                  <th className="px-4 py-2 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sales.map((sale) => (
+                  <tr key={sale._id} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-600">
+                      <div className="text-sm">{formatDate(sale.date)}</div>
+                      <div className="text-xs text-gray-500">{formatTime(sale.date)}</div>
+                    </td>
+                    <td className="px-4 py-2 font-semibold text-gray-800">{sale.productName}</td>
+                    <td className="px-4 py-2 text-center font-semibold">{sale.quantity}</td>
+                    <td className="px-4 py-2 text-right text-gray-600">{sale.sellingPricePerUnit} ৳</td>
+                    <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                      {sale.totalAmount.toFixed(0)} ৳
+                    </td>
+                    <td className="px-4 py-2 text-right font-bold">
+                      <span className="text-green-600">{sale.profit.toFixed(0)} ৳</span>
+                      <div className="text-xs text-gray-500">{sale.profitMargin.toFixed(1)}%</div>
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                        {sale.paymentMethod}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <button
+                        onClick={() => handleDeleteSale(sale._id)}
+                        className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {activeModal === 'products' && (
+        <BeverageProductManager
+          products={products}
+          onAdd={handleAddProduct}
+          onUpdate={handleUpdateProduct}
+          onDelete={handleDeleteProduct}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal === 'purchase' && (
+        <InventoryPurchaseForm
+          products={products}
+          onClose={() => setActiveModal(null)}
+          onSave={handleRecordPurchase}
+        />
+      )}
+
+      {activeModal === 'sale' && (
+        <BeverageSalesForm
+          products={products}
+          onClose={() => setActiveModal(null)}
+          onSave={handleRecordSale}
+        />
+      )}
+    </div>
+  );
+}

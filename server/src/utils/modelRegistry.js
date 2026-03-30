@@ -126,6 +126,54 @@ const createSchemas = () => ({
     },
     { timestamps: true }
   ),
+
+  BeverageProduct: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      name: { type: String, required: true },
+      costPrice: { type: Number, required: true, min: 0 },
+      sellingPrice: { type: Number, required: true, min: 0 },
+      currentStock: { type: Number, required: true, default: 0, min: 0 },
+      unit: { type: String, default: 'Bottle' },
+      description: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  BeverageSale: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      productName: { type: String, required: true },
+      quantity: { type: Number, required: true, min: 1 },
+      costPricePerUnit: { type: Number, required: true, min: 0 },
+      sellingPricePerUnit: { type: Number, required: true, min: 0 },
+      totalAmount: { type: Number, required: true },
+      totalCost: { type: Number, required: true },
+      profit: { type: Number, required: true },
+      profitMargin: { type: Number, required: true },
+      paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'], required: true },
+      date: { type: Date, default: Date.now, required: true, index: true },
+      receiptId: { type: String, unique: true, index: true },
+      notes: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  BeverageInventory: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      transactionType: { type: String, enum: ['Purchase', 'Sale'], required: true },
+      quantity: { type: Number, required: true },
+      pricePerUnit: { type: Number, required: true, min: 0 },
+      runningBalance: { type: Number, required: true, min: 0 },
+      reference: { type: String },
+      date: { type: Date, default: Date.now, required: true, index: true },
+      notes: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
 });
 
 /**
