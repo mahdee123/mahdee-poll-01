@@ -13,6 +13,7 @@ import BeverageSalesPage from './components/BeverageSalesPage.jsx';
 import ReconciliationReport from './components/ReconciliationReport.jsx';
 import CashMovementPage from './components/CashMovementPage.jsx';
 import InitialOpeningBalanceModal from './components/InitialOpeningBalanceModal.jsx';
+import DailyTransactionBreakdown from './components/DailyTransactionBreakdown.jsx';
 
 const SERVICE_TYPES = ['Daily Entry', 'Training', 'Membership'];
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
@@ -92,13 +93,36 @@ const Sidebar = ({ view, setView, user }) => {
   );
 };
 
-const StatCard = ({ title, value, hint }) => (
-  <div className="card p-4 flex flex-col gap-2">
-    <span className="text-sm text-gray-500">{title}</span>
-    <span className="text-2xl font-semibold text-secondary">{value}</span>
-    {hint ? <span className="text-xs text-gray-400">{hint}</span> : null}
-  </div>
-);
+const StatCard = ({ title, value, hint, highlight }) => {
+  const isIncome = title.includes('Income');
+  const isExpense = title.includes('Expense');
+  const isBalance = title.includes('Balance');
+  const isRightAlign = isIncome || isExpense;
+  
+  const highlightClasses = highlight || isIncome || isExpense
+    ? isIncome 
+      ? 'border-4 border-green-400 bg-green-50 shadow-lg'
+      : isExpense
+      ? 'border-4 border-red-400 bg-red-50 shadow-lg'
+      : ''
+    : '';
+
+  return (
+    <div className={`card p-4 flex flex-col gap-2 transition ${isRightAlign ? 'text-right' : 'text-left'} ${highlightClasses}`}>
+      <span className={`text-sm font-medium ${isIncome ? 'text-green-600' : isExpense ? 'text-red-600' : 'text-gray-500'}`}>
+        {title}
+      </span>
+      <span className={`text-2xl font-bold ${isIncome ? 'text-green-700' : isExpense ? 'text-red-700' : 'text-secondary'}`}>
+        {value}
+      </span>
+      {hint ? (
+        <span className={`text-xs ${isIncome ? 'text-green-500' : isExpense ? 'text-red-500' : 'text-gray-400'}`}>
+          {hint}
+        </span>
+      ) : null}
+    </div>
+  );
+};
 
 
 
@@ -320,6 +344,7 @@ function App() {
   const [packageForm, setPackageForm] = useState({ name: '', type: 'Training', price: '', durationDays: 30, totalClasses: 16 });
   const [dateFilter, setDateFilter] = useState({ range: 'today', startDate: '', endDate: '' });
   const [sectionFilters, setSectionFilters] = useState({ 'daily-entry': true, 'training': true, 'membership': true, 'bills': true, 'beverages': true });
+  const [dailyTransactionFilters, setDailyTransactionFilters] = useState({ categories: ['Bill', 'Training', 'Membership', 'Beverage'], paymentMethod: 'all' });
 
   // Opening balance modal states
   const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
@@ -328,7 +353,7 @@ function App() {
 
   // Removed students, trainingSummary, remainingList states (now in TrainingPage)
   const [packages, setPackages] = useState([]);
-  const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, billIncome: 0, beveragesIncome: 0, totalExpense: 0, expenseByCategory: {}, netCash: 0, timeline: [], distribution: [], dailyBalance: null });
+  const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, billIncome: 0, beveragesIncome: 0, totalExpense: 0, expenseByCategory: {}, netCash: 0, timeline: [], distribution: [], dailyBalance: null, dailyTransactionBreakdown: [] });
 
   const showToast = (message) => setToast({ message });
 
@@ -413,6 +438,14 @@ function App() {
         query += `&sections=${selectedSections.join(',')}`;
       }
 
+      // Add daily transaction filters (categories and payment method)
+      if (dailyTransactionFilters.categories.length > 0) {
+        query += `&categories=${dailyTransactionFilters.categories.join(',')}`;
+      }
+      if (dailyTransactionFilters.paymentMethod && dailyTransactionFilters.paymentMethod !== 'all') {
+        query += `&paymentMethod=${dailyTransactionFilters.paymentMethod}`;
+      }
+
       const requests = [
         apiRequest(`/reports/income${query}`, { token: tk }),
       ];
@@ -451,6 +484,12 @@ function App() {
     } finally {
       setIsInitializingBalance(false);
     }
+  };
+
+  const handleDailyTransactionFiltersChange = (newFilters) => {
+    setDailyTransactionFilters(newFilters);
+    // Trigger refresh with new filters
+    refreshAll(token, dateFilter, user?.role, sectionFilters);
   };
 
   const submitBill = async () => {
@@ -604,12 +643,16 @@ function App() {
                 </div>
               )}
 
-              {/* Main Line Chart */}
+              {/* Daily Transaction Breakdown */}
               <div className="card p-4">
-                <div className="mb-2">
-                  <h3 className="text-lg font-semibold">Income Over Time</h3>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold">Daily Transactions</h3>
                 </div>
-                <IncomeChart points={report.timeline} />
+                <DailyTransactionBreakdown 
+                  data={report.dailyTransactionBreakdown} 
+                  filters={dailyTransactionFilters}
+                  onFiltersChange={handleDailyTransactionFiltersChange}
+                />
               </div>
 
               {/* Bottom Breakdown Row */}

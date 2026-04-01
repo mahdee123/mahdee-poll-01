@@ -105,7 +105,7 @@ const getOpeningBalance = async (req, companyDb) => {
 };
 
 router.get('/income', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
-  const { range = 'today', startDate, endDate, sections } = req.query;
+  const { range = 'today', startDate, endDate, sections, categories, paymentMethod } = req.query;
   const { from, to } = resolveRange(range, startDate, endDate);
   const match = { companyId: req.companyId };
   if (from && to) {
@@ -116,6 +116,14 @@ router.get('/income', authRequired, requireRole('admin', 'manager'), validateCom
   const selectedSections = sections 
     ? sections.split(',').map(s => s.trim())
     : ['daily-entry', 'training', 'membership', 'bills', 'beverages'];
+
+  // Parse category filter for daily breakdown (defaults to all if not provided)
+  const selectedCategories = categories
+    ? categories.split(',').map(c => c.trim())
+    : ['Bill', 'Training', 'Membership', 'Beverage'];
+
+  // Parse payment method filter (defaults to all if not provided or is 'all')
+  const selectedPaymentMethod = paymentMethod && paymentMethod !== 'all' ? paymentMethod : null;
 
   // Get income transactions
   const Transaction = getCompanyModel(req.companyDb, 'Transaction');
@@ -219,6 +227,88 @@ router.get('/income', authRequired, requireRole('admin', 'manager'), validateCom
     }))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+  // Build daily transaction breakdown by category
+  const dailyBreakdownMap = {};
+  
+  // Add transactions to breakdown, filtered by category and payment method
+  filteredTransactions.forEach((t) => {
+    const dateKey = new Date(t.date).toISOString().split('T')[0];
+    
+    // Map serviceType to display name and check if it's in selected categories
+    let categoryName = null;
+    if (t.serviceType === 'Bill' && selectedCategories.includes('Bill')) categoryName = 'Bill';
+    else if (t.serviceType === 'Training' && selectedCategories.includes('Training')) categoryName = 'Training';
+    else if (t.serviceType === 'Membership' && selectedCategories.includes('Membership')) categoryName = 'Membership';
+    
+    if (!categoryName) return;
+    
+    // Filter by payment method if specified
+    if (selectedPaymentMethod && t.paymentMethod !== selectedPaymentMethod) return;
+    
+    if (!dailyBreakdownMap[dateKey]) {
+      dailyBreakdownMap[dateKey] = {
+        date: dateKey,
+        categories: {
+          Bill: { amount: 0, count: 0 },
+          Training: { amount: 0, count: 0 },
+          Membership: { amount: 0, count: 0 },
+          Beverage: { amount: 0, count: 0 }
+        },
+        paymentMethods: {
+          Cash: 0,
+          Bank: 0,
+          bKash: 0
+        }
+      };
+    }
+    
+    dailyBreakdownMap[dateKey].categories[categoryName].amount += t.amount;
+    dailyBreakdownMap[dateKey].categories[categoryName].count += 1;
+    
+    if (t.paymentMethod) {
+      dailyBreakdownMap[dateKey].paymentMethods[t.paymentMethod] =
+        (dailyBreakdownMap[dateKey].paymentMethods[t.paymentMethod] || 0) + t.amount;
+    }
+  });
+  
+  // Add beverage sales to breakdown if beverages are in selected categories
+  if (selectedCategories.includes('Beverage')) {
+    beverageSales.forEach((sale) => {
+      const dateKey = new Date(sale.date).toISOString().split('T')[0];
+      
+      // Filter by payment method if specified
+      if (selectedPaymentMethod && sale.paymentMethod !== selectedPaymentMethod) return;
+      
+      if (!dailyBreakdownMap[dateKey]) {
+        dailyBreakdownMap[dateKey] = {
+          date: dateKey,
+          categories: {
+            Bill: { amount: 0, count: 0 },
+            Training: { amount: 0, count: 0 },
+            Membership: { amount: 0, count: 0 },
+            Beverage: { amount: 0, count: 0 }
+          },
+          paymentMethods: {
+            Cash: 0,
+            Bank: 0,
+            bKash: 0
+          }
+        };
+      }
+      
+      dailyBreakdownMap[dateKey].categories.Beverage.amount += sale.totalAmount;
+      dailyBreakdownMap[dateKey].categories.Beverage.count += 1;
+      
+      if (sale.paymentMethod) {
+        dailyBreakdownMap[dateKey].paymentMethods[sale.paymentMethod] =
+          (dailyBreakdownMap[dateKey].paymentMethods[sale.paymentMethod] || 0) + sale.totalAmount;
+      }
+    });
+  }
+  
+  const dailyTransactionBreakdown = Object.values(dailyBreakdownMap)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
   const distribution = [
     ...(selectedSections.includes('daily-entry') ? [{ name: 'Daily Entry', value: entryIncome }] : []),
     ...(selectedSections.includes('training') ? [{ name: 'Training', value: trainingIncome }] : []),
@@ -252,6 +342,7 @@ router.get('/income', authRequired, requireRole('admin', 'manager'), validateCom
     netCash,
     timeline,
     distribution,
+    dailyTransactionBreakdown,
   };
 
   if (dailyBalance) {
