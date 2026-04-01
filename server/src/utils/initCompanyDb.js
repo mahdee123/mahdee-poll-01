@@ -23,6 +23,7 @@ export const initializeCompanyDatabase = async (companyId, mongoUri) => {
     const Transaction = companyDb.model('Transaction');
     const Expense = companyDb.model('Expense');
     const ClassRecord = companyDb.model('ClassRecord');
+    const CashMovement = companyDb.model('CashMovement');
 
     // Create indexes
     await Member.collection.createIndex({ companyId: 1 });
@@ -46,6 +47,10 @@ export const initializeCompanyDatabase = async (companyId, mongoUri) => {
 
     await ClassRecord.collection.createIndex({ companyId: 1 });
     await ClassRecord.collection.createIndex({ student: 1 });
+
+    await CashMovement.collection.createIndex({ companyId: 1 });
+    await CashMovement.collection.createIndex({ date: -1 });
+    await CashMovement.collection.createIndex({ type: 1 });
 
     console.log(`✓ Company database initialized for ${companyId}`);
   } catch (err) {

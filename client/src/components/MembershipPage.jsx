@@ -29,18 +29,92 @@ const StatCard = ({ title, value }) => (
 
 const formatDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
+const calculateMonthlyDue = (member) => {
+  const now = new Date();
+  const endDate = new Date(member.endDate);
+  if (endDate < now) {
+    const monthsSinceExpiry = Math.ceil((now - endDate) / (1000 * 60 * 60 * 24 * 30));
+    const monthlyFee = member.monthlyFeeAmount || 2000;
+    return Math.max(1, monthsSinceExpiry) * monthlyFee;
+  }
+  return 0;
+};
+
 export default function MembershipPage({ token, showToast, setLastReceipt, setView }) {
   const [stats, setStats] = useState({ newToday: 0, newMonth: 0, activeMembers: 0, incomeMonth: 0, totalDuePending: 0, monthlyCollection: 0 });
   const [members, setMembers] = useState([]);
   
   // Filters
   const [filters, setFilters] = useState({ search: '', status: '', plan: '', startDate: '', endDate: '' });
+  const [dateRangeType, setDateRangeType] = useState('daily'); // daily, weekly, monthly, custom
+  const today = new Date().toISOString().split('T')[0];
+  const [customStartDate, setCustomStartDate] = useState(today);
+  const [customEndDate, setCustomEndDate] = useState(today);
+
+  // Helper function to calculate date range
+  const getDateRange = (type) => {
+    const now = new Date();
+    let startDate = '';
+    let endDate = now.toISOString().split('T')[0];
+    
+    switch(type) {
+      case 'daily':
+        startDate = endDate; // Today only
+        break;
+      case 'weekly':
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 7);
+        startDate = weekAgo.toISOString().split('T')[0];
+        break;
+      case 'monthly':
+        const monthAgo = new Date(now);
+        monthAgo.setMonth(now.getMonth() - 1);
+        startDate = monthAgo.toISOString().split('T')[0];
+        break;
+      case 'custom':
+        startDate = customStartDate;
+        endDate = customEndDate;
+        break;
+      default:
+        startDate = endDate; // Default to today
+    }
+    
+    return { startDate, endDate };
+  };
+
+  // Update filters when date range changes
+  const handleDateRangeChange = (type) => {
+    setDateRangeType(type);
+    if (type !== 'custom') {
+      const { startDate, endDate } = getDateRange(type);
+      setFilters({...filters, startDate, endDate});
+    }
+  };
+
+  // Update filters when custom date changes
+  const handleCustomDateChange = () => {
+    if (customStartDate && customEndDate) {
+      setFilters({...filters, startDate: customStartDate, endDate: customEndDate});
+    }
+  };
+
+  // Get label for new members based on date range
+  const getNewMembersLabel = () => {
+    switch(dateRangeType) {
+      case 'daily': return 'New Members Today';
+      case 'weekly': return 'New Members (7 Days)';
+      case 'monthly': return 'New Members (30 Days)';
+      case 'custom': return filters.startDate === filters.endDate ? 'New Members (This Date)' : 'New Members (Date Range)';
+      default: return 'New Members (Month)';
+    }
+  };
 
   // Form Modal State (REVERTED TO MODAL)
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [companyDefaultFee, setCompanyDefaultFee] = useState(2000);
   const [form, setForm] = useState({
     name: '', phone: '', address: '', plan: 'Monthly', startDate: new Date().toISOString().split('T')[0],
-    extraDiscount: 0, amountPaid: null, paymentMethod: 'Cash'
+    extraDiscount: 0, amountPaid: null, paymentMethod: 'Cash', monthlyFeeAmount: null
   });
 
   // Profile Modal State
@@ -50,11 +124,12 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
   // Collect Payment Modal State
   const [collectModalOpen, setCollectModalOpen] = useState(false);
   const [selectedMemberForCollection, setSelectedMemberForCollection] = useState(null);
+  const [isCollectingMonthlyDue, setIsCollectingMonthlyDue] = useState(false);
 
   const loadData = async () => {
     try {
       const [statsRes, membersRes] = await Promise.all([
-        apiRequest('/memberships/stats', { token }),
+        apiRequest(`/memberships/stats?startDate=${filters.startDate}&endDate=${filters.endDate}`, { token }),
         apiRequest(`/memberships?search=${filters.search}&status=${filters.status}&plan=${filters.plan}&startDate=${filters.startDate}&endDate=${filters.endDate}`, { token })
       ]);
       setStats(statsRes);
@@ -64,8 +139,9 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
     }
   };
 
-  const handleCollectClick = (member) => {
+  const handleCollectClick = (member, isMonthly = false) => {
     setSelectedMemberForCollection(member);
+    setIsCollectingMonthlyDue(isMonthly);
     setCollectModalOpen(true);
   };
 
@@ -78,6 +154,14 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
     let active = true;
     const fetchIt = async () => {
       try {
+        // Fetch company default fee
+        const settingsRes = await apiRequest('/memberships/settings/company-default', { token });
+        if (active) {
+          setCompanyDefaultFee(settingsRes.defaultMemberFee);
+          // Update form with company default
+          setForm(f => ({...f, monthlyFeeAmount: settingsRes.defaultMemberFee}));
+        }
+
         const [statsRes, membersRes] = await Promise.all([
           apiRequest('/memberships/stats', { token }),
           apiRequest(`/memberships?search=${filters.search}&status=${filters.status}&plan=${filters.plan}&startDate=${filters.startDate}&endDate=${filters.endDate}`, { token })
@@ -109,8 +193,9 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
     return sum + Math.max(0, collected);
   }, 0);
 
-  // Income from collected amounts (override stats.incomeMonth with actual collected data)
+  // Income from collected amounts - use actual collected data from members
   const incomeFromCollected = totalsCollected;
+  const totalCollection = totalsCollected;
 
   const endDate = useMemo(() => {
     const start = new Date(form.startDate);
@@ -140,7 +225,7 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
       setIsModalOpen(false);
 
       // Reset form
-      setForm({ name: '', phone: '', address: '', plan: 'Monthly', startDate: new Date().toISOString().split('T')[0], extraDiscount: 0, amountPaid: null, paymentMethod: 'Cash' });
+      setForm({ name: '', phone: '', address: '', plan: 'Monthly', startDate: new Date().toISOString().split('T')[0], extraDiscount: 0, amountPaid: null, paymentMethod: 'Cash', monthlyFeeAmount: null });
       loadData();
 
       // Handle print if requested
@@ -167,41 +252,55 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
         <button className="btn-primary" onClick={() => setIsModalOpen(true)}>➕ Add New Member</button>
       </div>
 
+      {/* Stats Date Range Filter */}
+      <div className="flex flex-col gap-2 items-start">
+        <span className="text-sm font-medium text-gray-600">Stats Date Range:</span>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => handleDateRangeChange('daily')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${dateRangeType === 'daily' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>📅 Today</button>
+          <button onClick={() => handleDateRangeChange('weekly')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${dateRangeType === 'weekly' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>📊 Weekly</button>
+          <button onClick={() => handleDateRangeChange('monthly')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${dateRangeType === 'monthly' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>📈 Monthly</button>
+          <button onClick={() => setDateRangeType('custom')} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${dateRangeType === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>📆 Custom</button>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="New Members Today" value={stats.newToday} />
+        <StatCard title={getNewMembersLabel()} value={stats.newInRange} />
         <StatCard title="New Members This Month" value={stats.newMonth} />
         <StatCard title="Active Memberships" value={stats.activeMembers} />
-        <StatCard title="Income (This Month)" value={`৳ ${incomeFromCollected.toLocaleString()}`} />
+        <StatCard title="Income (Daily)" value={`৳ ${incomeFromCollected?.toLocaleString() || 0}`} />
       </div>
 
       {/* New Stats: Due & Collection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-4 bg-orange-50 border border-orange-200">
           <span className="text-xs text-orange-600 font-medium uppercase">Total Pending Due</span>
-          <span className="text-3xl font-bold text-orange-700">৳ {stats.totalDuePending?.toLocaleString() || 0}</span>
+          <span className="text-3xl font-bold text-orange-700">৳ {totalsDue?.toLocaleString() || 0}</span>
         </div>
         <div className="card p-4 bg-green-50 border border-green-200">
-          <span className="text-xs text-green-600 font-medium uppercase">Monthly Collection</span>
-          <span className="text-3xl font-bold text-green-700">৳ {incomeFromCollected?.toLocaleString() || 0}</span>
+          <span className="text-xs text-green-600 font-medium uppercase">Collection (Daily)</span>
+          <span className="text-3xl font-bold text-green-700">৳ {totalCollection?.toLocaleString() || 0}</span>
         </div>
       </div>
 
       {/* Members List */}
       <div className="card p-4">
         <h3 className="text-lg font-semibold mb-4">Members List</h3>
-        <div className="flex flex-col md:flex-row gap-3 mb-4">
-          <input className="border rounded-lg px-3 py-2 flex-1" placeholder="Search name or phone..." value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
-          <select className="border rounded-lg px-3 py-2" value={filters.plan} onChange={(e) => setFilters({...filters, plan: e.target.value})}>
-            <option value="">All Plans</option>
-            {Object.keys(PLAN_PRICING).map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <select className="border rounded-lg px-3 py-2" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
-            <option value="">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Expired">Expired</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+        <div className="flex flex-col gap-3 mb-4">
+          {/* Search and Filter Row */}
+          <div className="flex flex-col md:flex-row gap-3">
+            <input className="border rounded-lg px-3 py-2 flex-1" placeholder="Search name or phone..." value={filters.search} onChange={(e) => setFilters({...filters, search: e.target.value})} />
+            <select className="border rounded-lg px-3 py-2" value={filters.plan} onChange={(e) => setFilters({...filters, plan: e.target.value})}>
+              <option value="">All Plans</option>
+              {Object.keys(PLAN_PRICING).map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select className="border rounded-lg px-3 py-2" value={filters.status} onChange={(e) => setFilters({...filters, status: e.target.value})}>
+              <option value="">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Expired">Expired</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto text-sm">
@@ -214,7 +313,7 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
                 <th className="p-3">Status</th>
                 <th className="p-3">Due Amount</th>
                 <th className="p-3">Collected Amount</th>
-                <th className="p-3">Last Payment</th>
+                <th className="p-3">Monthly Due (When Expired)</th>
                 <th className="p-3">Action</th>
               </tr>
             </thead>
@@ -245,13 +344,19 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
                   <td className="p-3 font-medium text-green-700">
                     ৳{(PLAN_PRICING[m.plan]?.final - m.totalDue || 0).toLocaleString()}
                   </td>
-                  <td className="p-3 text-sm text-gray-500">{m.lastPaymentDate ? formatDate(m.lastPaymentDate) : '-'}</td>
+                  <td className="p-3 font-medium text-orange-700">
+                    {calculateMonthlyDue(m) > 0 ? '৳ ' + calculateMonthlyDue(m).toLocaleString() : '-'}
+                  </td>
                   <td className="p-3">
                     <ActionDropdown
                       actions={[
                         ...(m.totalDue > 0 ? [{
                           label: '💰 Collect Due',
-                          onClick: () => handleCollectClick(m),
+                          onClick: () => handleCollectClick(m, false),
+                        }] : []),
+                        ...(calculateMonthlyDue(m) > 0 ? [{
+                          label: '📅 Collect Monthly Due',
+                          onClick: () => handleCollectClick(m, true),
                         }] : []),
                         {
                           label: 'View Profile',
@@ -366,6 +471,16 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1 text-gray-600">
+                      Monthly Fee (when membership expires)
+                      <span className="text-xs text-gray-500 font-normal"> - ৳{companyDefaultFee} default</span>
+                    </label>
+                    <input type="number" className="w-full border rounded-lg px-3 py-2" value={form.monthlyFeeAmount || companyDefaultFee} onChange={(e) => setForm({...form, monthlyFeeAmount: Number(e.target.value) || companyDefaultFee})} min="1" />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="bg-blue-50 text-blue-900 border border-blue-100 rounded-lg p-3">
                      <span className="font-semibold">Total Payable:</span>
@@ -412,9 +527,12 @@ export default function MembershipPage({ token, showToast, setLastReceipt, setVi
         memberId={selectedMemberForCollection?._id}
         memberName={selectedMemberForCollection?.name}
         totalDue={selectedMemberForCollection?.totalDue}
+        monthlyDue={selectedMemberForCollection ? calculateMonthlyDue(selectedMemberForCollection) : 0}
+        isMonthlyDue={isCollectingMonthlyDue}
         onClose={() => {
           setCollectModalOpen(false);
           setSelectedMemberForCollection(null);
+          setIsCollectingMonthlyDue(false);
         }}
         onSuccess={handleCollectPaymentSuccess}
         showToast={showToast}

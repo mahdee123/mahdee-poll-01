@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 
 export default function BeverageSalesForm({ products = [], onClose, onSave }) {
-  const [formData, setFormData] = useState({
+  // Form state for adding items
+  const [staging, setStaging] = useState({
     productId: '',
     quantity: 1,
     sellingPricePerUnit: '',
+  });
+
+  // Shared transaction details
+  const [shared, setShared] = useState({
     paymentMethod: 'Cash',
     date: new Date().toISOString().split('T')[0],
     notes: '',
   });
 
+  // Array of items in the cart
+  const [items, setItems] = useState([]);
+
+  // Calculation state
   const [calculation, setCalculation] = useState({
     totalAmount: 0,
     totalCost: 0,
@@ -17,75 +26,170 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
     profitMargin: 0,
   });
 
-  const selectedProduct = products.find((p) => p._id === formData.productId);
+  const [error, setError] = useState('');
+
+  const selectedProduct = products.find((p) => p._id === staging.productId);
 
   // Update selling price when product changes
   useEffect(() => {
     if (selectedProduct) {
-      setFormData((prev) => ({
+      setStaging((prev) => ({
         ...prev,
         sellingPricePerUnit: selectedProduct.sellingPrice,
       }));
     }
   }, [selectedProduct]);
 
-  // Recalculate whenever relevant fields change
+  // Recalculate totals whenever items change
   useEffect(() => {
-    if (selectedProduct && formData.quantity && formData.sellingPricePerUnit) {
-      const totalAmount = formData.quantity * formData.sellingPricePerUnit;
-      const totalCost = formData.quantity * selectedProduct.costPrice;
-      const profit = totalAmount - totalCost;
-      const profitMargin = totalAmount > 0 ? (profit / totalAmount) * 100 : 0;
-
+    if (items.length === 0) {
       setCalculation({
-        totalAmount,
-        totalCost,
-        profit,
-        profitMargin,
+        totalAmount: 0,
+        totalCost: 0,
+        profit: 0,
+        profitMargin: 0,
       });
+      return;
     }
-  }, [selectedProduct, formData.quantity, formData.sellingPricePerUnit]);
 
-  const handleInputChange = (e) => {
+    let totalAmount = 0;
+    let totalCost = 0;
+    let totalProfit = 0;
+
+    items.forEach((item) => {
+      totalAmount += item.lineTotal;
+      totalCost += item.lineCost;
+      totalProfit += item.lineProfit;
+    });
+
+    const profitMargin = totalAmount > 0 ? (totalProfit / totalAmount) * 100 : 0;
+
+    setCalculation({
+      totalAmount,
+      totalCost,
+      profit: totalProfit,
+      profitMargin,
+    });
+  }, [items]);
+
+  const handleStagingChange = (e) => {
     const { name, value } = e.target;
     const processed = ['quantity', 'sellingPricePerUnit'].includes(name) ? parseFloat(value) || '' : value;
-    setFormData({ ...formData, [name]: processed });
+    setStaging({ ...staging, [name]: processed });
+    setError('');
+  };
+
+  const handleSharedChange = (e) => {
+    const { name, value } = e.target;
+    setShared({ ...shared, [name]: value });
+  };
+
+  const handleAddItem = () => {
+    if (!staging.productId) {
+      setError('Please select a product');
+      return;
+    }
+    if (!staging.quantity || staging.quantity <= 0) {
+      setError('Quantity must be greater than 0');
+      return;
+    }
+    if (!staging.sellingPricePerUnit || staging.sellingPricePerUnit < 0) {
+      setError('Selling price must be valid');
+      return;
+    }
+    if (selectedProduct.currentStock < staging.quantity) {
+      setError(`Insufficient inventory for "${selectedProduct.name}". Available: ${selectedProduct.currentStock} ${selectedProduct.unit}s`);
+      return;
+    }
+
+    // Check if product already in cart - update quantity instead of adding duplicate
+    const existingIndex = items.findIndex((i) => i.productId === staging.productId);
+    if (existingIndex !== -1) {
+      const newQuantity = items[existingIndex].quantity + staging.quantity;
+      if (selectedProduct.currentStock < newQuantity) {
+        setError(`Total quantity exceeds stock. Available: ${selectedProduct.currentStock} ${selectedProduct.unit}s`);
+        return;
+      }
+      const newItems = [...items];
+      newItems[existingIndex] = {
+        ...newItems[existingIndex],
+        quantity: newQuantity,
+        lineTotal: newQuantity * staging.sellingPricePerUnit,
+        lineCost: newQuantity * selectedProduct.costPrice,
+        lineProfit: newQuantity * staging.sellingPricePerUnit - newQuantity * selectedProduct.costPrice,
+      };
+      setItems(newItems);
+    } else {
+      // Add new item
+      const lineTotal = staging.quantity * staging.sellingPricePerUnit;
+      const lineCost = staging.quantity * selectedProduct.costPrice;
+      const lineProfit = lineTotal - lineCost;
+
+      const newItem = {
+        productId: staging.productId,
+        productName: selectedProduct.name,
+        quantity: staging.quantity,
+        unit: selectedProduct.unit,
+        costPricePerUnit: selectedProduct.costPrice,
+        sellingPricePerUnit: staging.sellingPricePerUnit,
+        lineTotal,
+        lineCost,
+        lineProfit,
+      };
+
+      setItems([...items, newItem]);
+    }
+
+    // Reset staging
+    setStaging({
+      productId: '',
+      quantity: 1,
+      sellingPricePerUnit: '',
+    });
+    setError('');
+  };
+
+  const handleRemoveItem = (index) => {
+    setItems(items.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!formData.productId) {
-      alert('Please select a product');
-      return;
-    }
-    if (!formData.quantity || formData.quantity <= 0) {
-      alert('Quantity must be greater than 0');
-      return;
-    }
-    if (!formData.sellingPricePerUnit || formData.sellingPricePerUnit < 0) {
-      alert('Selling price must be valid');
-      return;
-    }
-    if (selectedProduct.currentStock < formData.quantity) {
-      alert(`Insufficient inventory! Available: ${selectedProduct.currentStock} ${selectedProduct.unit}s`);
+    if (items.length === 0) {
+      setError('Add at least one product to the cart');
       return;
     }
 
-    onSave({
-      ...formData,
-      quantity: parseInt(formData.quantity),
-      sellingPricePerUnit: parseFloat(formData.sellingPricePerUnit),
-    });
+    const formattedItems = items.map((item) => ({
+      productId: item.productId,
+      quantity: parseInt(item.quantity),
+      sellingPricePerUnit: parseFloat(item.sellingPricePerUnit),
+    }));
 
-    setFormData({
+    const saleData = {
+      items: formattedItems,
+      paymentMethod: shared.paymentMethod,
+      date: shared.date,
+      notes: shared.notes,
+    };
+    
+    console.log('[Debug] BeverageSalesForm submitting:', saleData);
+    onSave(saleData);
+
+    // Reset form
+    setItems([]);
+    setStaging({
       productId: '',
       quantity: 1,
       sellingPricePerUnit: '',
+    });
+    setShared({
       paymentMethod: 'Cash',
       date: new Date().toISOString().split('T')[0],
       notes: '',
     });
+    setError('');
     setCalculation({
       totalAmount: 0,
       totalCost: 0,
@@ -96,7 +200,7 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">💰 Record Beverage Sale</h2>
@@ -107,113 +211,159 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Product Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🧃 Select Product to Sell *</label>
-            <select
-              name="productId"
-              value={formData.productId}
-              onChange={handleInputChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-              required
+          {/* Error Alert */}
+          {error && (
+            <div className="p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm">
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* Add Product Section */}
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 className="font-semibold text-gray-800 mb-4">🛒 Add Product</h3>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              {/* Product Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">🧃 Select Product *</label>
+                <select
+                  name="productId"
+                  value={staging.productId}
+                  onChange={handleStagingChange}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">-- Choose a product --</option>
+                  {products.map((product) => (
+                    <option key={product._id} value={product._id}>
+                      {product.name} ({product.unit}) - Stock: {product.currentStock}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantity Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">📍 Quantity *</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={staging.quantity}
+                  onChange={handleStagingChange}
+                  placeholder="0"
+                  min="1"
+                  step="1"
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  disabled={!selectedProduct}
+                />
+              </div>
+
+              {/* Selling Price */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  💵 Selling Price per {selectedProduct?.unit} (Taka) *
+                </label>
+                <input
+                  type="number"
+                  name="sellingPricePerUnit"
+                  value={staging.sellingPricePerUnit}
+                  onChange={handleStagingChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  disabled={!selectedProduct}
+                />
+              </div>
+
+              {/* Stock Info */}
+              {selectedProduct && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                  <p className="text-gray-700">
+                    <strong>Cost Price:</strong> {selectedProduct.costPrice} BDT
+                  </p>
+                  <p className={`text-gray-700 ${selectedProduct.currentStock === 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}`}>
+                    <strong>Available Stock:</strong> {selectedProduct.currentStock} {selectedProduct.unit}s
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Add Button */}
+            <button
+              type="button"
+              onClick={handleAddItem}
+              disabled={!selectedProduct || selectedProduct.currentStock === 0}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <option value="">-- Choose a product --</option>
-              {products.map((product) => (
-                <option key={product._id} value={product._id}>
-                  {product.name} ({product.unit}) - Stock: {product.currentStock}
-                </option>
-              ))}
-            </select>
+              ➕ Add to Cart
+            </button>
           </div>
 
-          {/* Stock Warning */}
-          {selectedProduct && selectedProduct.currentStock === 0 && (
-            <div className="p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm">
-              ⚠️ <strong>No stock available!</strong> Please record a purchase first.
+          {/* Items Table */}
+          {items.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="border px-3 py-2 text-left text-sm font-semibold">Product</th>
+                    <th className="border px-3 py-2 text-center text-sm font-semibold">Qty</th>
+                    <th className="border px-3 py-2 text-right text-sm font-semibold">Cost/Unit</th>
+                    <th className="border px-3 py-2 text-right text-sm font-semibold">Price/Unit</th>
+                    <th className="border px-3 py-2 text-right text-sm font-semibold">Line Total</th>
+                    <th className="border px-3 py-2 text-right text-sm font-semibold">Line Profit</th>
+                    <th className="border px-3 py-2 text-center text-sm font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="border px-3 py-2 text-sm">{item.productName}</td>
+                      <td className="border px-3 py-2 text-center text-sm">{item.quantity} {item.unit}</td>
+                      <td className="border px-3 py-2 text-right text-sm">{item.costPricePerUnit} BDT</td>
+                      <td className="border px-3 py-2 text-right text-sm">{item.sellingPricePerUnit} BDT</td>
+                      <td className="border px-3 py-2 text-right text-sm font-semibold">{item.lineTotal.toFixed(2)} BDT</td>
+                      <td className="border px-3 py-2 text-right text-sm font-semibold text-green-600">{item.lineProfit.toFixed(2)} BDT</td>
+                      <td className="border px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* Product Info Display */}
-          {selectedProduct && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-gray-800 mb-2">📊 Product Info</h4>
-              <p className="text-sm text-gray-700">
-                <strong>Available Stock:</strong>{' '}
-                <span className={selectedProduct.currentStock === 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                  {selectedProduct.currentStock} {selectedProduct.unit}s
-                </span>
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Cost Price:</strong> {selectedProduct.costPrice} BDT per {selectedProduct.unit}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Default Selling Price:</strong> {selectedProduct.sellingPrice} BDT per {selectedProduct.unit}
-              </p>
-            </div>
-          )}
-
-          {/* Sale Details */}
+          {/* Shared Transaction Details */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📅 Sale Date</label>
               <input
                 type="date"
                 name="date"
-                value={formData.date}
-                onChange={handleInputChange}
+                value={shared.date}
+                onChange={handleSharedChange}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">📍 Quantity to Sell *</label>
-              <input
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleInputChange}
-                placeholder="0"
-                min="1"
-                step="1"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
-                disabled={!selectedProduct}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                💵 Selling Price per {selectedProduct?.unit} (Taka) *
-              </label>
-              <input
-                type="number"
-                name="sellingPricePerUnit"
-                value={formData.sellingPricePerUnit}
-                onChange={handleInputChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
-                disabled={!selectedProduct}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                (Default price is {selectedProduct?.sellingPrice} BDT, change if needed)
-              </p>
-            </div>
-
-            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">💳 Payment Method</label>
-              <div className="flex gap-3">
+              <div className="flex gap-3 mt-2">
                 {['Cash', 'Bank', 'bKash'].map((method) => (
                   <label key={method} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="paymentMethod"
                       value={method}
-                      checked={formData.paymentMethod === method}
-                      onChange={handleInputChange}
+                      checked={shared.paymentMethod === method}
+                      onChange={handleSharedChange}
                       className="w-4 h-4"
                     />
                     <span className="text-sm">{method}</span>
@@ -221,33 +371,28 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
                 ))}
               </div>
             </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">📝 Notes (Optional)</label>
+              <textarea
+                name="notes"
+                value={shared.notes}
+                onChange={handleSharedChange}
+                placeholder="e.g., Customer name, special notes"
+                rows="2"
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
           </div>
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">📝 Notes (Optional)</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="e.g., Customer name, special notes"
-              rows="2"
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            />
-          </div>
-
-          {/* Profit Calculation */}
+          {/* Summary Box */}
           {calculation.totalAmount > 0 && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-gray-800 mb-3">💹 Sale Summary & Profit</h4>
+              <h4 className="font-semibold text-gray-800 mb-3">💹 Transaction Summary</h4>
               <div className="space-y-2 text-sm mb-3">
                 <div className="flex justify-between">
-                  <span>Quantity:</span>
-                  <span className="font-semibold">{formData.quantity} {selectedProduct?.unit}s</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Unit Selling Price:</span>
-                  <span className="font-semibold">{formData.sellingPricePerUnit} BDT</span>
+                  <span>Total Items:</span>
+                  <span className="font-semibold">{items.length} product(s)</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total Revenue:</span>
@@ -259,10 +404,9 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
                 </div>
               </div>
               <div className="border-t pt-2 flex justify-between items-center bg-white p-2 rounded">
-                <span className="font-bold">Profit:</span>
+                <span className="font-bold">💳 Total Payment:</span>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-green-600">{calculation.profit.toFixed(2)} BDT</p>
-                  <p className="text-xs text-gray-600">{calculation.profitMargin.toFixed(1)}% margin</p>
+                  <p className="text-lg font-bold text-green-600">{calculation.totalAmount.toFixed(2)} BDT</p>
                 </div>
               </div>
             </div>
@@ -279,7 +423,7 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
             </button>
             <button
               type="submit"
-              disabled={!selectedProduct || selectedProduct.currentStock === 0}
+              disabled={items.length === 0}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               ✓ Record Sale

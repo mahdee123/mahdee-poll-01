@@ -13,6 +13,56 @@ const addDays = (date, days) => {
   return d;
 };
 
+// ====== DATE RANGE RESOLUTION ======
+const resolveRange = (range, customStartDate, customEndDate) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (range === 'custom') {
+    // Custom range
+    const startDate = new Date(customStartDate);
+    const endDate = new Date(customEndDate);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+  
+  if (range === 'today') {
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate: today, endDate };
+  }
+  
+  if (range === 'yesterday') {
+    const startDate = addDays(today, -1);
+    const endDate = new Date(startDate);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+  
+  if (range === 'thisWeek') {
+    // Get start of week (Sunday = 0)
+    const startDate = new Date(today);
+    const day = startDate.getDay();
+    startDate.setDate(startDate.getDate() - day);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+  
+  if (range === 'thisMonth') {
+    const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+  
+  // Default to today
+  const endDate = new Date(today);
+  endDate.setHours(23, 59, 59, 999);
+  return { startDate: today, endDate };
+};
+
 const deriveBatchDetails = ({ ageGroup, batchType }) => {
   const preset = BATCH_PRESETS[batchType];
   const key = ageGroup === '4-8' ? 'kids' : 'adults';
@@ -133,7 +183,26 @@ router.post('/students', authRequired, requireRole('admin'), validateCompanyCont
 
 router.get('/students', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
   const Student = getCompanyModel(req.companyDb, 'Student');
-  const students = await Student.find({ companyId: req.companyId }).sort({ createdAt: -1 });
+  const { search, batch } = req.query;
+  
+  // Build query - always show all students regardless of date (date filtering only for stats)
+  const query = { companyId: req.companyId };
+  
+  // Add search filter
+  if (search) {
+    const searchLower = search.toLowerCase();
+    query.$or = [
+      { name: { $regex: searchLower, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } }
+    ];
+  }
+  
+  // Add batch filter
+  if (batch) {
+    query.batchType = batch;
+  }
+  
+  const students = await Student.find(query).sort({ createdAt: -1 });
   return res.json({ students });
 });
 
@@ -195,26 +264,53 @@ router.post('/students/:id/classes', authRequired, requireRole('admin'), validat
 router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Student = getCompanyModel(req.companyDb, 'Student');
   const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
+  const { range = 'today', startDate: customStartDate, endDate: customEndDate } = req.query;
   
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  monthEnd.setHours(23, 59, 59, 999);
   
-  const students = await Student.find({ companyId: req.companyId, endDate: { $gte: today } });
-  const classRecords = await ClassRecord.find({ companyId: req.companyId, date: { $gte: addDays(today, -30) } }).populate('student', 'classSlot');
+  // Resolve date range for filtering stats
+  const { startDate, endDate } = resolveRange(range, customStartDate, customEndDate);
   
-  // Calculate training income and due for this month
-  const monthStudents = await Student.find({
-    companyId: req.companyId,
-    createdAt: { $gte: monthStart, $lte: monthEnd }
+  // For stats, filter students by creation date in selected range
+  const filteredStudents = await Student.find({ 
+    companyId: req.companyId, 
+    createdAt: { $gte: startDate, $lte: endDate }
   });
-  const trainingIncome = monthStudents.reduce((sum, s) => sum + (s.amountPaid || 0), 0);
-  const trainingDue = monthStudents.reduce((sum, s) => sum + (s.due || 0), 0);
+  
+  // For class records, use last 30 days from today
+  const classRecords = await ClassRecord.find({ 
+    companyId: req.companyId, 
+    date: { $gte: addDays(today, -30) } 
+  }).populate('student', 'classSlot');
+  
+  // Get ALL active students for summary display (not filtered by range)
+  const allActiveStudents = await Student.find({
+    companyId: req.companyId,
+    status: 'active',
+    endDate: { $gte: today }
+  });
+
+  // Calculate stats from date-filtered students
+  const newToday = filteredStudents.filter((s) => {
+    const created = new Date(s.createdAt);
+    created.setHours(0, 0, 0, 0);
+    return created.getTime() === today.getTime();
+  }).length;
+
+  const newMonth = filteredStudents.filter((s) => {
+    return new Date(s.createdAt) >= monthStart;
+  }).length;
+
+  const activeStudents = allActiveStudents.length;
+
+  const revenueMonth = filteredStudents.reduce((sum, s) => sum + (s.price || 0), 0);
+  const trainingIncome = filteredStudents.reduce((sum, s) => sum + (s.amountPaid || 0), 0);
+  const trainingDue = filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0);
 
   const summary = [1, 2, 3, 4].map((slot) => {
-    const slotStudents = students.filter((s) => s.classSlot === slot);
+    const slotStudents = allActiveStudents.filter((s) => s.classSlot === slot);
     const slotRecords = classRecords.filter((r) => r.student.classSlot === slot);
     const attended = slotRecords.filter((r) => r.status === 'Attended').length;
     const missed = slotRecords.filter((r) => r.status === 'Missed').length;
@@ -231,7 +327,7 @@ router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validate
     };
   });
 
-  const remainingByStudent = students.map((s) => ({
+  const remainingByStudent = allActiveStudents.map((s) => ({
     id: s._id,
     name: s.name,
     phone: s.phone,
@@ -240,7 +336,7 @@ router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validate
     endDate: s.endDate,
   }));
 
-  return res.json({ summary, remainingByStudent, trainingIncome, trainingDue });
+  return res.json({ summary, remainingByStudent, newToday, newMonth, activeStudents, revenueMonth, trainingIncome, trainingDue });
 });
 
 router.get('/students/:id/progress', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {

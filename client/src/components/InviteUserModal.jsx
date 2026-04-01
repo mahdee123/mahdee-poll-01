@@ -3,9 +3,11 @@ import { useState } from 'react';
 export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) {
   const [formData, setFormData] = useState({
     managerEmail: '',
-    managerName: ''
+    managerName: '',
+    managerPassword: ''
   });
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -27,13 +29,21 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
       setError('Name is required');
       return;
     }
+    if (!formData.managerPassword.trim()) {
+      setError('Password is required');
+      return;
+    }
+    if (formData.managerPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
 
     try {
       await onInvite(formData);
-      setFormData({ managerEmail: '', managerName: '' });
+      setFormData({ managerEmail: '', managerName: '', managerPassword: '' });
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to invite user');
+      setError(err.message || 'Failed to create manager account');
     }
   };
 
@@ -42,9 +52,9 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Invite Team Member</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Create Manager Account</h2>
         <p className="text-gray-600 text-sm mb-4">
-          Invite a manager to help manage your pool membership business
+          Create a manager account to help manage your pool membership business
         </p>
 
         {error && (
@@ -82,6 +92,33 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             />
+            <p className="text-xs text-gray-500 mt-1">Email must be unique</p>
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-medium text-sm mb-1">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="managerPassword"
+                value={formData.managerPassword}
+                onChange={handleChange}
+                placeholder="Minimum 6 characters"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                disabled={loading}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">At least 6 characters</p>
           </div>
 
           <div className="flex gap-2 pt-4">
@@ -98,7 +135,7 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
               disabled={loading}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
             >
-              {loading ? 'Sending...' : 'Send Invite'}
+              {loading ? 'Creating...' : 'Create Account'}
             </button>
           </div>
         </form>

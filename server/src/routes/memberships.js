@@ -4,6 +4,7 @@ import { authRequired, requireRole } from '../middleware/auth.js';
 import { validateCompanyContext } from '../middleware/tenantContext.js';
 import { generateReceiptId } from '../utils/ids.js';
 import { getCompanyModel } from '../utils/modelRegistry.js';
+import Company from '../models/Company.js';
 
 const router = express.Router();
 
@@ -22,7 +23,8 @@ const calculateMemberDue = (member) => {
   if (member.status === 'Expired') {
     const now = new Date();
     const monthsSinceExpiry = Math.floor((now - new Date(member.endDate)) / (1000 * 60 * 60 * 24 * 30));
-    const calculatedDue = Math.max(0, monthsSinceExpiry) * 2000;
+    const monthlyFee = member.monthlyFeeAmount || 2000; // Use member's fee or fallback to default
+    const calculatedDue = Math.max(0, monthsSinceExpiry) * monthlyFee;
     return Math.max(member.totalDue, calculatedDue);
   }
   
@@ -31,7 +33,7 @@ const calculateMemberDue = (member) => {
 
 router.post('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
   try {
-    const { name, phone, address, plan, startDate, amountPaid, paymentMethod, price = 0, discount = 0 } = req.body;
+    const { name, phone, address, plan, startDate, amountPaid, paymentMethod, price = 0, discount = 0, monthlyFeeAmount } = req.body;
     const durationDays = PLAN_PRESETS[plan];
     const endDate = addDays(startDate, durationDays);
     
@@ -43,8 +45,15 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
     const Member = getCompanyModel(req.companyDb, 'Member');
     const Transaction = getCompanyModel(req.companyDb, 'Transaction');
     
+    // Get company default fee if not provided or invalid
+    let finalMonthlyFee = Number(monthlyFeeAmount);
+    if (!finalMonthlyFee || finalMonthlyFee <= 0) {
+      const company = await Company.findById(req.user.companyId);
+      finalMonthlyFee = company?.defaultMemberFee || 2000;
+    }
+    
     const member = new Member({ 
-      companyId: req.companyId,
+      companyId: req.user.companyId,
       name, 
       phone, 
       address, 
@@ -52,7 +61,8 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
       startDate, 
       endDate,
       amountPaid: paidAmount,
-      totalDue: purchaseDue
+      totalDue: purchaseDue,
+      monthlyFeeAmount: finalMonthlyFee
     });
     
     if (purchaseDue > 0) {
@@ -64,12 +74,12 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
       }];
     }
     
-    console.log(`[Membership] Attempting to save Member: ${name} (Phone: ${phone}, Plan: ${plan}, Company: ${req.companyId})`);
+    console.log(`[Membership] Attempting to save Member: ${name} (Phone: ${phone}, Plan: ${plan}, Company: ${req.companyId}, Monthly Fee: ${finalMonthlyFee})`);
     await member.save();
     console.log(`[Membership] ✓ Member saved successfully with ID: ${member._id}`);
 
     const transaction = new Transaction({
-      companyId: req.companyId,
+      companyId: req.user.companyId,
       name,
       phone,
       serviceType: 'Membership',
@@ -106,27 +116,43 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
 });
 
 router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+  const { startDate, endDate } = req.query;
   const now = new Date();
-  const todayStart = new Date(now.setHours(0, 0, 0, 0));
+  
+  // Use provided date range or default to month view
+  let rangeStart, rangeEnd;
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // If custom range provided, use it
+  if (startDate && endDate) {
+    rangeStart = new Date(startDate);
+    rangeStart.setHours(0, 0, 0, 0);
+    rangeEnd = new Date(endDate);
+    rangeEnd.setHours(23, 59, 59, 999);
+  } else {
+    // Default: month start to now
+    rangeStart = new Date(monthStart);
+    rangeEnd = new Date(now);
+  }
 
   const Member = getCompanyModel(req.companyDb, 'Member');
   const Transaction = getCompanyModel(req.companyDb, 'Transaction');
 
-  const newToday = await Member.countDocuments({ companyId: req.companyId, createdAt: { $gte: todayStart } });
-  const newMonth = await Member.countDocuments({ companyId: req.companyId, createdAt: { $gte: monthStart } });
-  const activeMembers = await Member.countDocuments({ companyId: req.companyId, status: 'Active' });
+  // New members in date range
+  const newInRange = await Member.countDocuments({ companyId: req.user.companyId, createdAt: { $gte: rangeStart, $lte: rangeEnd } });
+  const newMonth = await Member.countDocuments({ companyId: req.user.companyId, createdAt: { $gte: monthStart } });
+  const activeMembers = await Member.countDocuments({ companyId: req.user.companyId, status: 'Active' });
 
-  // Revenue from membership purchases (this month)
+  // Revenue from membership purchases (in date range)
   const memberIncome = await Transaction.aggregate([
-    { $match: { companyId: req.companyId, serviceType: 'Membership', transactionType: 'Purchase', date: { $gte: monthStart } } },
+    { $match: { companyId: req.user.companyId, serviceType: 'Membership', transactionType: 'Purchase', date: { $gte: rangeStart, $lte: rangeEnd } } },
     { $group: { _id: null, total: { $sum: '$amount' } } }
   ]);
-  console.log(`[DEBUG Stats] Total Income (This Month):`, memberIncome);
+  console.log(`[DEBUG Stats] Total Income (In Range):`, memberIncome);
   const incomeMonth = memberIncome[0]?.total || 0;
 
   // Total pending due - sum all totalDue from all members (regardless of status)
-  const allMembers = await Member.find({ companyId: req.companyId });
+  const allMembers = await Member.find({ companyId: req.user.companyId });
   let totalDuePending = 0;
   console.log(`[DEBUG Stats] Members with dues:`);
   
@@ -138,15 +164,15 @@ router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext,
   });
   console.log(`[DEBUG Stats] TOTAL PENDING DUE: ${totalDuePending}৳`);
 
-  // Monthly collection (all membership payments this month: DuePayment + MonthlyPayment)
+  // Total collection (all membership payments in date range: Purchase + DuePayment + MonthlyPayment)
   const monthlyPayments = await Transaction.aggregate([
-    { $match: { companyId: req.companyId, serviceType: 'Membership', transactionType: { $in: ['DuePayment', 'MonthlyPayment'] }, date: { $gte: monthStart } } },
+    { $match: { companyId: req.user.companyId, serviceType: 'Membership', transactionType: { $in: ['Purchase', 'DuePayment', 'MonthlyPayment'] }, date: { $gte: rangeStart, $lte: rangeEnd } } },
     { $group: { _id: null, total: { $sum: '$amount' } } }
   ]);
-  console.log(`[DEBUG Stats] Monthly collection result (DuePayment + MonthlyPayment):`, monthlyPayments);
+  console.log(`[DEBUG Stats] Collection result (in range):`, monthlyPayments);
   const monthlyCollection = monthlyPayments[0]?.total || 0;
 
-  return res.json({ newToday, newMonth, activeMembers, incomeMonth, totalDuePending, monthlyCollection });
+  return res.json({ newInRange, newMonth, activeMembers, incomeMonth, totalDuePending, monthlyCollection, rangeStart, rangeEnd });
 });
 
 router.get('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
@@ -162,7 +188,11 @@ router.get('/', authRequired, requireRole('admin'), validateCompanyContext, asyn
     ];
   }
   if (startDate && endDate) {
-    query.startDate = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $gte: start, $lte: end };
   }
 
   const Member = getCompanyModel(req.companyDb, 'Member');
@@ -278,11 +308,11 @@ router.post('/:id/pay-monthly', authRequired, requireRole('admin'), validateComp
     return res.status(400).json({ message: 'Only expired members can pay monthly fee' });
   }
 
-  const amountToPay = 2000;
+  const amountToPay = (member.monthlyFeeAmount && member.monthlyFeeAmount > 0) ? member.monthlyFeeAmount : 2000;
   
   // Create transaction
   const transaction = new Transaction({
-    companyId: req.companyId,
+    companyId: req.user.companyId,
     name: member.name,
     phone: member.phone,
     serviceType: 'Membership',
@@ -368,7 +398,7 @@ router.post('/:id/pay-due', authRequired, requireRole('admin'), validateCompanyC
 
   // Create transaction (record full payment)
   const transaction = new Transaction({
-    companyId: req.companyId,
+    companyId: req.user.companyId,
     name: member.name,
     phone: member.phone,
     serviceType: 'Membership',
@@ -423,7 +453,7 @@ router.get('/:id/payment-history', authRequired, requireRole('admin'), validateC
 
   try {
     const transactions = await Transaction.find({
-      companyId: req.companyId,
+      companyId: req.user.companyId,
       memberId: req.params.id,
       transactionType: { $in: ['DuePayment', 'MonthlyPayment'] }
     }).sort({ date: -1 });
@@ -444,5 +474,87 @@ router.get('/:id/payment-history', authRequired, requireRole('admin'), validateC
   }
 });
 
-export default router;
+// GET company settings (monthly fee)
+router.get('/settings/company-default', authRequired, requireRole('admin'), async (req, res) => {
+  try {
+    const company = await Company.findById(req.user.companyId);
+    if (!company) return res.status(404).json({ message: 'Company not found' });
 
+    return res.json({
+      defaultMemberFee: company.defaultMemberFee || 2000,
+      feeMigrationCompleted: company.feeMigrationCompleted || false
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error fetching company settings', error: err.message });
+  }
+});
+
+// UPDATE company settings (monthly fee)
+router.put('/settings/company-default', authRequired, requireRole('admin'), async (req, res) => {
+  const { defaultMemberFee } = req.body;
+  
+  if (!defaultMemberFee || Number(defaultMemberFee) <= 0) {
+    return res.status(400).json({ message: 'defaultMemberFee must be greater than 0' });
+  }
+
+  try {
+    const company = await Company.findByIdAndUpdate(
+      req.user.companyId,
+      { defaultMemberFee: Number(defaultMemberFee) },
+      { new: true }
+    );
+
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    return res.json({
+      success: true,
+      defaultMemberFee: company.defaultMemberFee,
+      message: 'Default member fee updated successfully'
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error updating company settings', error: err.message });
+  }
+});
+
+// MIGRATE existing members to use company default fee
+router.put('/migrate-monthly-fees', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+  const Member = getCompanyModel(req.companyDb, 'Member');
+
+  try {
+    const company = await Company.findById(req.user.companyId);
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    if (company.feeMigrationCompleted) {
+      return res.status(400).json({ 
+        message: 'Migration already completed for this company',
+        feeMigrationCompleted: true
+      });
+    }
+
+    const defaultFee = company.defaultMemberFee || 2000;
+    
+    // Update all members without monthlyFeeAmount
+    const result = await Member.updateMany(
+      { companyId: req.user.companyId, monthlyFeeAmount: { $exists: false } },
+      { $set: { monthlyFeeAmount: defaultFee } }
+    );
+
+    // Mark migration as completed
+    company.feeMigrationCompleted = true;
+    await company.save();
+
+    return res.json({
+      success: true,
+      message: `Migration completed: ${result.modifiedCount} members updated with default fee ৳${defaultFee}`,
+      modifiedCount: result.modifiedCount,
+      defaultFee
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
+export default router;

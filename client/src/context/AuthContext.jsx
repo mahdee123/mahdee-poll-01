@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
 
   // Check auth state once on app mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('raya_token');
     const storedUser = localStorage.getItem('user');
     const storedCompany = localStorage.getItem('company');
 
@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const setAuth = (token, userData, companyData) => {
-    localStorage.setItem('token', token);
+    localStorage.setItem('raya_token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('company', JSON.stringify(companyData));
     setIsAuthenticated(true);
@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
   };
 
   const clearAuth = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('raya_token');
     localStorage.removeItem('user');
     localStorage.removeItem('company');
     setIsAuthenticated(false);

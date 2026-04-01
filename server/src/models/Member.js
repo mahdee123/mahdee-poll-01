@@ -13,6 +13,7 @@ const memberSchema = new mongoose.Schema(
     totalDue: { type: Number, default: 0 },
     lastPaymentDate: { type: Date, default: null },
     advanceCredit: { type: Number, default: 0 }, // Overpayment stored as credit for future dues
+    monthlyFeeAmount: { type: Number, default: 2000 }, // Monthly fee charged when membership expires (immutable after creation)
     dueHistory: [
       {
         date: { type: Date, default: Date.now },

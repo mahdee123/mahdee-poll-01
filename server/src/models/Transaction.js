@@ -4,7 +4,7 @@ const transactionSchema = new mongoose.Schema(
   {
     name: { type: String },
     phone: { type: String },
-    serviceType: { type: String, enum: ['Daily Entry', 'Training', 'Membership', 'Bill'], required: true },
+    serviceType: { type: String, enum: ['Daily Entry', 'Training', 'Membership', 'Bill', 'Beverage'], required: true },
     amount: { type: Number, required: true },
     paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'], required: true },
     date: { type: Date, default: Date.now },
@@ -25,7 +25,20 @@ const transactionSchema = new mongoose.Schema(
     dueAmount: { type: Number },
     // Bill-specific fields
     amountPerPerson: { type: Number }, // e.g., 300, 400
-    numberOfPersons: { type: Number, default: 1 } // Number of persons for group billing
+    numberOfPersons: { type: Number, default: 1 }, // Number of persons for group billing
+    // Beverage-specific fields
+    beverageItems: [
+      {
+        productName: { type: String },
+        quantity: { type: Number },
+        sellingPricePerUnit: { type: Number },
+        lineTotal: { type: Number },
+      }
+    ],
+    beverageSaleId: { type: mongoose.Schema.Types.ObjectId, ref: 'BeverageSale', nullable: true },
+    totalCost: { type: Number, default: 0 }, // For Beverage: total cost of goods
+    profit: { type: Number, default: 0 }, // For Beverage: profit amount
+    profitMargin: { type: Number, default: 0 } // For Beverage: profit margin percentage
   },
   { timestamps: true }
 );

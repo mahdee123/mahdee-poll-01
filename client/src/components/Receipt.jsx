@@ -158,6 +158,40 @@ export default function Receipt({ receipt, receiptDetails }) {
               )}
             </>
           )}
+
+          {receipt.serviceType === 'Beverage' && receipt.beverageItems && (
+            <>
+              <div className="info-row">
+                <span className="label">Service:</span>
+                <span className="value">Beverage Sale</span>
+              </div>
+              <div className="beverage-items">
+                <h4 className="items-header">Items Sold:</h4>
+                {receipt.beverageItems.map((item, idx) => (
+                  <div key={idx} className="beverage-item">
+                    <div className="item-name">{item.productName} × {item.quantity}</div>
+                    <div className="item-price">৳ {item.lineTotal.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+              {receipt.profit !== undefined && (
+                <>
+                  <div className="info-row">
+                    <span className="label">Cost of Goods:</span>
+                    <span className="value">৳ {receipt.totalCost?.toLocaleString()}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Profit:</span>
+                    <span className="value profit">৳ {receipt.profit.toLocaleString()}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Profit Margin:</span>
+                    <span className="value profit">{receipt.profitMargin?.toFixed(2)}%</span>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         <hr className="receipt-divider" />
@@ -316,6 +350,55 @@ export default function Receipt({ receipt, receiptDetails }) {
           font-size: 15px;
           font-weight: bold;
           color: #1f2937;
+        }
+
+        .beverge-items {
+          margin: 15px 0;
+          padding: 10px;
+          background-color: #f9fafb;
+          border-radius: 4px;
+        }
+
+        .items-header {
+          font-weight: 600;
+          color: #374151;
+          font-size: 13px;
+          margin-bottom: 8px;
+        }
+
+        .beverage-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 6px 0;
+          border-bottom: 1px solid #e5e7eb;
+          font-size: 13px;
+        }
+
+        .beverage-item:last-child {
+          border-bottom: none;
+        }
+
+        .item-name {
+          color: #6b7280;
+          flex: 1;
+        }
+
+        .item-price {
+          color: #1f2937;
+          font-weight: 500;
+          margin-left: 10px;
+          text-align: right;
+        }
+
+        .info-row.profit {
+          color: #10b981;
+          font-weight: 500;
+        }
+
+        .info-row .value.profit {
+          color: #10b981;
+          font-weight: 600;
         }
 
         .receipt-footer {

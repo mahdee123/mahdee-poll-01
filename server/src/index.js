@@ -13,8 +13,10 @@ import membershipRoutes from './routes/memberships.js';
 import packageRoutes from './routes/packages.js';
 import reportRoutes from './routes/reports.js';
 import expenseRoutes from './routes/expenses.js';
+import cashMovementRoutes from './routes/cashMovements.js';
 import beverageRoutes from './routes/beverages.js';
 import diagnosticRoutes from './routes/diagnostic.js';
+import openingBalanceRoutes from './routes/openingBalance.js';
 import User from './models/User.js';
 import Company from './models/Company.js';
 
@@ -46,8 +48,10 @@ app.use('/api/memberships', membershipRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/cash-movements', cashMovementRoutes);
 app.use('/api/beverages', beverageRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
+app.use('/api/opening-balance', openingBalanceRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

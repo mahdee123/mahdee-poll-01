@@ -6,23 +6,10 @@ import { getCompanyModel } from '../utils/modelRegistry.js';
 const router = express.Router();
 
 router.post('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
-  try {
-    const Package = getCompanyModel(req.companyDb, 'Package');
-    const pkg = new Package({ ...req.body, companyId: req.companyId });
-    console.log(`[Package] Attempting to save Package: ${req.body.name} (Company: ${req.companyId})`);
-    await pkg.save();
-    console.log(`[Package] ✓ Package saved successfully with ID: ${pkg._id}`);
-    return res.status(201).json({ package: pkg });
-  } catch (err) {
-    console.error(`[Package] ✗ ERROR in POST /:`, err.message);
-    console.error(`[Package] Error details:`, err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to save package',
-      error: err.message,
-      details: err.errors || null,
-    });
-  }
+  const Package = getCompanyModel(req.companyDb, 'Package');
+  const pkg = new Package({ ...req.body, companyId: req.companyId });
+  await pkg.save();
+  return res.status(201).json({ package: pkg });
 });
 
 router.get('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
@@ -43,25 +30,12 @@ router.patch('/:id', authRequired, requireRole('admin'), validateCompanyContext,
 });
 
 router.patch('/:id/status', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
-  try {
-    const Package = getCompanyModel(req.companyDb, 'Package');
-    const pkg = await Package.findOne({ _id: req.params.id, companyId: req.companyId });
-    if (!pkg) return res.status(404).json({ message: 'Package not found' });
-    pkg.active = !pkg.active;
-    console.log(`[Package] Attempting to update Package status: ${pkg.name} (Active: ${pkg.active}, Company: ${req.companyId})`);
-    await pkg.save();
-    console.log(`[Package] ✓ Package status updated successfully (ID: ${pkg._id})`);
-    return res.json({ package: pkg });
-  } catch (err) {
-    console.error(`[Package] ✗ ERROR in PATCH /:id/status:`, err.message);
-    console.error(`[Package] Error details:`, err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update package',
-      error: err.message,
-      details: err.errors || null,
-    });
-  }
+  const Package = getCompanyModel(req.companyDb, 'Package');
+  const pkg = await Package.findOne({ _id: req.params.id, companyId: req.companyId });
+  if (!pkg) return res.status(404).json({ message: 'Package not found' });
+  pkg.active = !pkg.active;
+  await pkg.save();
+  return res.json({ package: pkg });
 });
 
 export default router;

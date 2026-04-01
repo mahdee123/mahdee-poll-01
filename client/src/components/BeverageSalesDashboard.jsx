@@ -37,13 +37,16 @@ export default function BeverageSalesDashboard({ token }) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `API error: ${response.status}`);
+      const error = new Error(errorData.message || errorData.error || `API error: ${response.status}`);
+      error.statusCode = response.status;
+      error.responseData = errorData;
+      throw error;
     }
 
     return response.json();
   };
 
-  // Fetch all data on mount and every 30 seconds
+  // Fetch all data on mount and every 30 seconds (but not when modal is open)
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -80,10 +83,16 @@ export default function BeverageSalesDashboard({ token }) {
 
     if (token) {
       loadData();
-      const interval = setInterval(loadData, 30000); // Refresh every 30 seconds
-      return () => clearInterval(interval);
+      // Only auto-refresh when no modal is open
+      let interval;
+      if (!activeModal) {
+        interval = setInterval(loadData, 30000); // Refresh every 30 seconds
+      }
+      return () => {
+        if (interval) clearInterval(interval);
+      };
     }
-  }, [filters, token]);
+  }, [filters, token, activeModal]);
 
   const handleAddProduct = async (formData) => {
     try {
@@ -141,16 +150,35 @@ export default function BeverageSalesDashboard({ token }) {
 
   const handleRecordSale = async (formData) => {
     try {
+      console.log('[Debug] Submitting multi-product sale:', formData);
+      
       const response = await fetchWithToken(`${API_BASE_URL}/beverages/sales`, {
         method: 'POST',
         body: JSON.stringify(formData),
       });
-      setProducts(products.map((p) => (p._id === formData.productId ? response.product : p)));
+      
+      console.log('[Debug] Sale recorded successfully:', response.sale);
+      
+      // Reload products since multiple products' stock may have changed
+      const updatedProducts = await fetchWithToken(`${API_BASE_URL}/beverages/products`);
+      setProducts(updatedProducts.products || []);
+      
       setSales([response.sale, ...sales]);
       setActiveModal(null);
+      alert('✓ Sale recorded successfully!');
     } catch (err) {
-      console.error('Error recording sale:', err);
-      alert(`Failed to record sale: ${err.message}`);
+      console.error('[Error] Failed to record sale:', err);
+      
+      // Build detailed error message
+      let errorMessage = err.message || 'Unknown error';
+      if (err.responseData?.error) {
+        errorMessage = err.responseData.error;
+      }
+      if (err.responseData?.details) {
+        errorMessage += `\nDetails: ${err.responseData.details}`;
+      }
+      
+      alert(`❌ Failed to record sale:\n${errorMessage}`);
     }
   };
 
@@ -399,47 +427,63 @@ export default function BeverageSalesDashboard({ token }) {
               <thead className="bg-gray-100 border-b">
                 <tr>
                   <th className="px-4 py-2 text-left">Date & Time</th>
+                  <th className="px-4 py-2 text-left">Receipt</th>
                   <th className="px-4 py-2 text-left">Product</th>
                   <th className="px-4 py-2 text-center">Qty</th>
                   <th className="px-4 py-2 text-right">Price/Unit</th>
-                  <th className="px-4 py-2 text-right">Total</th>
+                  <th className="px-4 py-2 text-right">Line Total</th>
                   <th className="px-4 py-2 text-right">Profit</th>
                   <th className="px-4 py-2 text-center">Payment</th>
                   <th className="px-4 py-2 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {sales.map((sale) => (
-                  <tr key={sale._id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2 text-gray-600">
-                      <div className="text-sm">{formatDate(sale.date)}</div>
-                      <div className="text-xs text-gray-500">{formatTime(sale.date)}</div>
-                    </td>
-                    <td className="px-4 py-2 font-semibold text-gray-800">{sale.productName}</td>
-                    <td className="px-4 py-2 text-center font-semibold">{sale.quantity}</td>
-                    <td className="px-4 py-2 text-right text-gray-600">{sale.sellingPricePerUnit} ৳</td>
-                    <td className="px-4 py-2 text-right font-semibold text-blue-600">
-                      {sale.totalAmount.toFixed(0)} ৳
-                    </td>
-                    <td className="px-4 py-2 text-right font-bold">
-                      <span className="text-green-600">{sale.profit.toFixed(0)} ৳</span>
-                      <div className="text-xs text-gray-500">{sale.profitMargin.toFixed(1)}%</div>
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                        {sale.paymentMethod}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <button
-                        onClick={() => handleDeleteSale(sale._id)}
-                        className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {sales.map((sale) => {
+                  if (!sale.items || sale.items.length === 0) {
+                    return null;
+                  }
+                  return sale.items.map((item, itemIndex) => (
+                    <tr key={`${sale._id}-${itemIndex}`} className="border-b hover:bg-gray-50">
+                      {itemIndex === 0 && (
+                        <>
+                          <td rowSpan={sale.items.length} className="px-4 py-2 text-gray-600">
+                            <div className="text-sm">{formatDate(sale.date)}</div>
+                            <div className="text-xs text-gray-500">{formatTime(sale.date)}</div>
+                          </td>
+                          <td rowSpan={sale.items.length} className="px-4 py-2 font-mono text-xs text-gray-600">
+                            {sale.receiptId}
+                          </td>
+                        </>
+                      )}
+                      <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
+                      <td className="px-4 py-2 text-center font-semibold">{item.quantity}</td>
+                      <td className="px-4 py-2 text-right text-gray-600">{item.sellingPricePerUnit} ৳</td>
+                      <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                        {item.lineTotal.toFixed(0)} ৳
+                      </td>
+                      <td className="px-4 py-2 text-right font-bold">
+                        <span className="text-green-600">{item.lineProfit.toFixed(0)} ৳</span>
+                      </td>
+                      {itemIndex === 0 && (
+                        <>
+                          <td rowSpan={sale.items.length} className="px-4 py-2 text-center">
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                              {sale.paymentMethod}
+                            </span>
+                          </td>
+                          <td rowSpan={sale.items.length} className="px-4 py-2 text-center">
+                            <button
+                              onClick={() => handleDeleteSale(sale._id)}
+                              className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ));
+                })}
               </tbody>
             </table>
           </div>

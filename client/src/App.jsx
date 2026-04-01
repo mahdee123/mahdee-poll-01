@@ -9,7 +9,10 @@ import TrainingPage from './components/TrainingPage.jsx';
 import BillsPage from './components/BillsPage.jsx';
 import Receipt from './components/Receipt.jsx';
 import ExpensePage from './components/ExpensePage.jsx';
-import BeverageSalesDashboard from './components/BeverageSalesDashboard.jsx';
+import BeverageSalesPage from './components/BeverageSalesPage.jsx';
+import ReconciliationReport from './components/ReconciliationReport.jsx';
+import CashMovementPage from './components/CashMovementPage.jsx';
+import InitialOpeningBalanceModal from './components/InitialOpeningBalanceModal.jsx';
 
 const SERVICE_TYPES = ['Daily Entry', 'Training', 'Membership'];
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
@@ -36,6 +39,8 @@ const Sidebar = ({ view, setView, user }) => {
         { key: 'members', label: 'Memberships' },
         { key: 'packages', label: 'Packages' },
         { key: 'expenses', label: 'Expenses' },
+        { key: 'cash-movements', label: '💰 Cash Movements' },
+        { key: 'reconciliation', label: '📊 Reconciliation' },
         { key: 'reports', label: 'Reports' },
       ]
     : [
@@ -94,6 +99,8 @@ const StatCard = ({ title, value, hint }) => (
     {hint ? <span className="text-xs text-gray-400">{hint}</span> : null}
   </div>
 );
+
+
 
 // Custom Tooltip for IncomeChart showing all three values
 const IncomeChartTooltip = ({ active, payload, label }) => {
@@ -312,10 +319,16 @@ function App() {
 
   const [packageForm, setPackageForm] = useState({ name: '', type: 'Training', price: '', durationDays: 30, totalClasses: 16 });
   const [dateFilter, setDateFilter] = useState({ range: 'today', startDate: '', endDate: '' });
+  const [sectionFilters, setSectionFilters] = useState({ 'daily-entry': true, 'training': true, 'membership': true, 'bills': true, 'beverages': true });
+
+  // Opening balance modal states
+  const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
+  const [hasOpeningBalance, setHasOpeningBalance] = useState(null);
+  const [isInitializingBalance, setIsInitializingBalance] = useState(false);
 
   // Removed students, trainingSummary, remainingList states (now in TrainingPage)
   const [packages, setPackages] = useState([]);
-  const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, totalExpense: 0, expenseByCategory: {}, netCash: 0, timeline: [], distribution: [] });
+  const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, billIncome: 0, beveragesIncome: 0, totalExpense: 0, expenseByCategory: {}, netCash: 0, timeline: [], distribution: [], dailyBalance: null });
 
   const showToast = (message) => setToast({ message });
 
@@ -327,6 +340,24 @@ function App() {
     localStorage.setItem('raya_token', data.token);
     setUser(data.user);
     setView(data.user.role === 'manager' ? 'billing' : 'dashboard');
+    
+    // Check if opening balance has been set (admin only)
+    if (data.user.role === 'admin') {
+      try {
+        const balanceRes = await apiRequest('/opening-balance', { token: data.token });
+        if (balanceRes.hasBeenSet) {
+          setHasOpeningBalance(true);
+        } else {
+          setHasOpeningBalance(false);
+          setShowOpeningBalanceModal(true);
+        }
+      } catch (err) {
+        console.error('Error checking opening balance:', err);
+        setHasOpeningBalance(false);
+        setShowOpeningBalanceModal(true);
+      }
+    }
+    
     refreshAll(data.token, newFilter, data.user.role);
     showToast('Signed in');
   };
@@ -338,6 +369,24 @@ function App() {
       setDateFilter(newFilter);
       setUser(data.user);
       setToken(savedToken);
+      
+      // Check if opening balance has been set (admin only)
+      if (data.user.role === 'admin') {
+        try {
+          const balanceRes = await apiRequest('/opening-balance', { token: savedToken });
+          if (balanceRes.hasBeenSet) {
+            setHasOpeningBalance(true);
+          } else {
+            setHasOpeningBalance(false);
+            setShowOpeningBalanceModal(true);
+          }
+        } catch (err) {
+          console.error('Error checking opening balance:', err);
+          setHasOpeningBalance(false);
+          setShowOpeningBalanceModal(true);
+        }
+      }
+      
       refreshAll(savedToken, newFilter, data.user.role);
     } catch (err) {
       console.error(err);
@@ -349,13 +398,19 @@ function App() {
     if (saved) loadUser(saved);
   }, []);
 
-  const refreshAll = async (tk = token, filterOverride = dateFilter, roleOverride = user?.role) => {
+  const refreshAll = async (tk = token, filterOverride = dateFilter, roleOverride = user?.role, sectionsOverride = sectionFilters) => {
     if (!tk) return;
     try {
       let query = `?range=${filterOverride.range}`;
       if (filterOverride.range === 'custom') {
         if (filterOverride.startDate) query += `&startDate=${filterOverride.startDate}`;
         if (filterOverride.endDate) query += `&endDate=${filterOverride.endDate}`;
+      }
+
+      // Add selected sections to query
+      const selectedSections = Object.keys(sectionsOverride).filter(key => sectionsOverride[key]);
+      if (selectedSections.length > 0) {
+        query += `&sections=${selectedSections.join(',')}`;
       }
 
       const requests = [
@@ -375,6 +430,26 @@ function App() {
     } catch (err) {
       console.error(err);
       showToast(err.message);
+    }
+  };
+
+  const handleInitializeOpeningBalance = async (data) => {
+    setIsInitializingBalance(true);
+    try {
+      const result = await apiRequest('/opening-balance/initialize', {
+        method: 'POST',
+        body: { amount: data.amount, note: data.note },
+        token,
+      });
+      setHasOpeningBalance(true);
+      setShowOpeningBalanceModal(false);
+      showToast(`Opening balance set to ৳ ${data.amount.toLocaleString()}`);
+      // Refresh dashboard to show the new opening balance
+      refreshAll(token, dateFilter, user?.role);
+    } catch (err) {
+      showToast(err.message);
+    } finally {
+      setIsInitializingBalance(false);
     }
   };
 
@@ -412,6 +487,11 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 text-secondary flex flex-col">
       <Toast toast={toast} onClose={() => setToast(null)} />
+      <InitialOpeningBalanceModal 
+        isOpen={showOpeningBalanceModal && user?.role === 'admin'} 
+        onSubmit={handleInitializeOpeningBalance}
+        isLoading={isInitializingBalance}
+      />
       <div className="flex flex-1">
         <Sidebar view={view} setView={setView} user={user} />
         <main className="flex-1 p-4 sm:p-8 space-y-6">
@@ -492,14 +572,37 @@ function App() {
               </div>
 
               {/* Stats Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-                <StatCard title="💰 Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} hint="All services" />
-                <StatCard title="💸 Total Expense" value={`৳ ${report.totalExpense.toLocaleString()}`} hint="All costs" />
-                <StatCard title="🧮 Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income - Expense" : "Deficit"} />
-                <StatCard title="📥 Entry" value={`৳ ${report.entryIncome.toLocaleString()}`} />
-                <StatCard title="🧑‍🏫 Training" value={`৳ ${report.trainingIncome.toLocaleString()}`} />
-                <StatCard title="🧾 Membership" value={`৳ ${report.membershipIncome.toLocaleString()}`} />
-              </div>
+              {dateFilter.range === 'today' && report.dailyBalance ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard 
+                    title="📈 Opening Balance" 
+                    value={`৳ ${report.dailyBalance.openingBalance.toLocaleString()}`} 
+                    hint="Starting balance"
+                  />
+                  <StatCard 
+                    title="💰 Daily Income" 
+                    value={`৳ ${report.dailyBalance.income.toLocaleString()}`} 
+                    hint="Today's earnings"
+                  />
+                  <StatCard 
+                    title="💸 Daily Expense" 
+                    value={`৳ ${report.dailyBalance.expense.toLocaleString()}`} 
+                    hint="Today's costs"
+                  />
+                  <StatCard 
+                    title="🎯 Closing Balance" 
+                    value={`৳ ${report.dailyBalance.closingBalance.toLocaleString()}`} 
+                    hint={report.dailyBalance.closingBalance >= 0 ? "End of day" : "Deficit"} 
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <StatCard title="💰 Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} hint="All services" />
+                  <StatCard title="💸 Total Expense" value={`৳ ${report.totalExpense.toLocaleString()}`} hint="All costs" />
+                  <StatCard title="🧮 Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income - Expense" : "Deficit"} />
+                  <StatCard title="📊 Entry" value={`৳ ${report.entryIncome.toLocaleString()}`} hint="Daily income" />
+                </div>
+              )}
 
               {/* Main Line Chart */}
               <div className="card p-4">
@@ -532,7 +635,7 @@ function App() {
           )}
 
           {view === 'beverages' && (
-            <BeverageSalesDashboard token={token} />
+            <BeverageSalesPage token={token} />
           )}
 
           {view === 'training' && (
@@ -590,15 +693,91 @@ function App() {
           {view === 'reports' && (
             <div className="grid gap-4">
               <div className="card p-4">
-                <div className="flex items-center gap-3">
-                  <select className="border rounded-lg px-3 py-2" value={dateFilter.range} onChange={(e) => setDateFilter({ ...dateFilter, range: e.target.value })}>
-                    {(user.role === 'admin' ? ['today', 'yesterday', 'last7days', 'thisMonth', 'custom'] : ['today']).map((range) => (
-                      <option key={range} value={range}>
-                        {range}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="btn-primary" onClick={() => refreshAll(token, dateFilter)}>Refresh</button>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <select className="border rounded-lg px-3 py-2" value={dateFilter.range} onChange={(e) => setDateFilter({ ...dateFilter, range: e.target.value })}>
+                      {(user.role === 'admin' ? ['today', 'yesterday', 'last7days', 'thisMonth', 'custom'] : ['today']).map((range) => (
+                        <option key={range} value={range}>
+                          {range}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn-primary" onClick={() => refreshAll(token, dateFilter, user?.role, sectionFilters)}>Refresh</button>
+                  </div>
+
+                  {/* Section Filters */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        sectionFilters['daily-entry']
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      onClick={() => {
+                        const newFilters = { ...sectionFilters, 'daily-entry': !sectionFilters['daily-entry'] };
+                        setSectionFilters(newFilters);
+                        refreshAll(token, dateFilter, user?.role, newFilters);
+                      }}
+                    >
+                      💼 Billing
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        sectionFilters['training']
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      onClick={() => {
+                        const newFilters = { ...sectionFilters, 'training': !sectionFilters['training'] };
+                        setSectionFilters(newFilters);
+                        refreshAll(token, dateFilter, user?.role, newFilters);
+                      }}
+                    >
+                      🏊 Training
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        sectionFilters['membership']
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      onClick={() => {
+                        const newFilters = { ...sectionFilters, 'membership': !sectionFilters['membership'] };
+                        setSectionFilters(newFilters);
+                        refreshAll(token, dateFilter, user?.role, newFilters);
+                      }}
+                    >
+                      👥 Members
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        sectionFilters['bills']
+                          ? 'bg-red-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      onClick={() => {
+                        const newFilters = { ...sectionFilters, 'bills': !sectionFilters['bills'] };
+                        setSectionFilters(newFilters);
+                        refreshAll(token, dateFilter, user?.role, newFilters);
+                      }}
+                    >
+                      📄 Bills
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        sectionFilters['beverages']
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                      onClick={() => {
+                        const newFilters = { ...sectionFilters, 'beverages': !sectionFilters['beverages'] };
+                        setSectionFilters(newFilters);
+                        refreshAll(token, dateFilter, user?.role, newFilters);
+                      }}
+                    >
+                      🥤 Beverages
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -644,6 +823,14 @@ function App() {
             <ExpensePage token={token} showToast={showToast} onExpenseSaved={() => refreshAll(token, dateFilter)} />
           )}
 
+          {view === 'cash-movements' && (
+            <CashMovementPage token={token} showToast={showToast} />
+          )}
+
+          {view === 'reconciliation' && (
+            <ReconciliationReport token={token} showToast={showToast} />
+          )}
+
           {/* Receipt Display */}
           {lastReceipt && (
             <div className="card p-4 mt-6">
@@ -657,6 +844,8 @@ function App() {
               <Receipt receipt={lastReceipt} receiptDetails={lastReceiptDetails} />
             </div>
           )}
+
+
         </main>
       </div>
     </div>

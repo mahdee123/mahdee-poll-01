@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api.js';
 
-export default function CollectPaymentModal({ isOpen, memberId, memberName, totalDue, onClose, onSuccess, showToast, token }) {
+export default function CollectPaymentModal({ isOpen, memberId, memberName, totalDue, monthlyDue = 0, isMonthlyDue = false, onClose, onSuccess, showToast, token }) {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Determine which due amount to use
+  const dueAmount = isMonthlyDue ? monthlyDue : totalDue;
+
   useEffect(() => {
-    if (isOpen && totalDue) {
-      setPaymentAmount(totalDue.toString());
+    if (isOpen && dueAmount) {
+      setPaymentAmount(dueAmount.toString());
       setPaymentMethod('Cash');
       setError('');
     }
-  }, [isOpen, totalDue]);
+  }, [isOpen, dueAmount]);
 
   const handlePaymentAmountChange = (e) => {
     const value = e.target.value;
     setPaymentAmount(value);
     
     // Show warning if over due
-    if (value && Number(value) > totalDue) {
-      setError(`Warning: Payment exceeds due (৳${totalDue}). Excess will be saved as advance credit.`);
+    if (value && Number(value) > dueAmount) {
+      setError(`Warning: Payment exceeds due (৳${dueAmount}). Excess will be saved as advance credit.`);
     } else {
       setError('');
     }
@@ -44,7 +47,10 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
       setLoading(true);
       setError('');
 
-      const response = await apiRequest(`/memberships/${memberId}/pay-due`, {
+      // Use appropriate endpoint based on payment type
+      const endpoint = isMonthlyDue ? `/memberships/${memberId}/pay-monthly` : `/memberships/${memberId}/pay-due`;
+
+      const response = await apiRequest(endpoint, {
         method: 'POST',
         body: {
           paymentAmount: amount,
@@ -53,7 +59,8 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
         token
       });
 
-      showToast(`✅ Payment collected ৳${amount} via ${paymentMethod}`);
+      const paymentType = isMonthlyDue ? 'Monthly Due' : 'Purchase Due';
+      showToast(`✅ ${paymentType} payment collected ৳${amount} via ${paymentMethod}`);
       
       // Close modal and call success callback
       onClose();
@@ -76,7 +83,7 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="card p-6 max-w-md w-full shadow-lg">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Collect Payment</h2>
+          <h2 className="text-2xl font-bold">{isMonthlyDue ? 'Collect Monthly Due' : 'Collect Payment'}</h2>
           <button
             onClick={onClose}
             disabled={loading}
@@ -94,9 +101,9 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
           </div>
 
           {/* Current Due Display */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <p className="text-sm text-orange-600">Current Due</p>
-            <p className="text-3xl font-bold text-orange-700">৳{totalDue}</p>
+          <div className={`rounded-lg p-4 ${isMonthlyDue ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
+            <p className={`text-sm ${isMonthlyDue ? 'text-blue-600' : 'text-orange-600'}`}>{isMonthlyDue ? 'Monthly Due' : 'Current Due'}</p>
+            <p className={`text-3xl font-bold ${isMonthlyDue ? 'text-blue-700' : 'text-orange-700'}`}>৳{dueAmount}</p>
           </div>
 
           {/* Payment Amount Input */}

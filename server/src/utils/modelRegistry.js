@@ -90,7 +90,7 @@ const createSchemas = () => ({
       companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
       name: String,
       phone: String,
-      serviceType: { type: String, enum: ['Daily Entry', 'Training', 'Membership', 'Bill'] },
+      serviceType: { type: String, enum: ['Daily Entry', 'Training', 'Membership', 'Bill', 'Beverage'] },
       amount: Number,
       paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'] },
       date: { type: Date, default: Date.now },
@@ -143,15 +143,22 @@ const createSchemas = () => ({
   BeverageSale: new mongoose.Schema(
     {
       companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
-      productId: { type: mongoose.Schema.Types.ObjectId, required: true },
-      productName: { type: String, required: true },
-      quantity: { type: Number, required: true, min: 1 },
-      costPricePerUnit: { type: Number, required: true, min: 0 },
-      sellingPricePerUnit: { type: Number, required: true, min: 0 },
-      totalAmount: { type: Number, required: true },
-      totalCost: { type: Number, required: true },
-      profit: { type: Number, required: true },
-      profitMargin: { type: Number, required: true },
+      items: [
+        {
+          productId: { type: mongoose.Schema.Types.ObjectId, ref: 'BeverageProduct', required: true },
+          productName: { type: String, required: true }, // Stored for historical tracking
+          quantity: { type: Number, required: true, min: 1 },
+          costPricePerUnit: { type: Number, required: true, min: 0 },
+          sellingPricePerUnit: { type: Number, required: true, min: 0 },
+          lineTotal: { type: Number, required: true }, // quantity × sellingPricePerUnit
+          lineCost: { type: Number, required: true }, // quantity × costPricePerUnit
+          lineProfit: { type: Number, required: true }, // lineTotal - lineCost
+        },
+      ],
+      totalAmount: { type: Number, required: true }, // Sum of all line totals (revenue)
+      totalCost: { type: Number, required: true }, // Sum of all line costs
+      profit: { type: Number, required: true }, // Sum of all line profits
+      profitMargin: { type: Number, required: true }, // (profit / totalAmount) × 100
       paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'], required: true },
       date: { type: Date, default: Date.now, required: true, index: true },
       receiptId: { type: String, unique: true, index: true },
@@ -171,6 +178,130 @@ const createSchemas = () => ({
       reference: { type: String },
       date: { type: Date, default: Date.now, required: true, index: true },
       notes: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  BeverageCashFlow: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      date: { type: Date, required: true, index: true },
+      openingBalance: { type: Number, default: 0 },
+      totalSalesRevenue: { type: Number, default: 0 },
+      totalWithdrawals: { type: Number, default: 0 },
+      closingBalance: { type: Number, default: 0 },
+      notes: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  BeverageCashWithdrawal: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      date: { type: Date, required: true, index: true },
+      amount: { type: Number, required: true, min: 0 },
+      reason: { type: String, required: true, trim: true },
+      recordedBy: { type: String, default: 'Admin' },
+    },
+    { timestamps: true }
+  ),
+
+  OpeningBalance: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true, unique: true },
+      amount: { 
+        type: Number, 
+        required: [true, 'Opening balance amount is required'],
+        default: 0
+      },
+      setByUser: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: false
+      },
+      setDate: {
+        type: Date,
+        default: Date.now
+      },
+      isLocked: {
+        type: Boolean,
+        default: true
+      },
+      note: { 
+        type: String, 
+        default: ''
+      },
+    },
+    { timestamps: true }
+  ),
+
+  DailyBalance: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      date: { 
+        type: Date, 
+        required: true,
+        index: true
+      },
+      openingBalance: { 
+        type: Number, 
+        required: true,
+        default: 0
+      },
+      income: { 
+        type: Number, 
+        required: true,
+        default: 0
+      },
+      expense: { 
+        type: Number, 
+        required: true,
+        default: 0
+      },
+      closingBalance: { 
+        type: Number, 
+        required: true,
+        default: 0
+      },
+    },
+    { timestamps: true }
+  ),
+
+  CashMovement: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      date: { type: Date, required: true, index: true },
+      type: {
+        type: String,
+        enum: ['DEPOSIT', 'WITHDRAWAL'],
+        required: true,
+      },
+      category: {
+        type: String,
+        enum: [
+          'Bank Deposit',
+          'Bank Withdrawal',
+          'Owner Addition',
+          'Owner Withdrawal',
+          'Petty Cash In',
+          'Petty Cash Out',
+          'Customer Advance',
+          'Salary Payment',
+          'Expense Payment',
+          'Other',
+        ],
+        required: true,
+      },
+      amount: { type: Number, required: true, min: 0 },
+      method: {
+        type: String,
+        enum: ['Cash', 'Bank', 'Check', 'bKash', 'Other'],
+        default: 'Bank',
+      },
+      reason: { type: String, required: true },
+      reference: { type: String, default: '' },
+      notes: { type: String, default: '' },
+      createdBy: { type: String, default: '' },
     },
     { timestamps: true }
   ),

@@ -28,6 +28,21 @@ body {
   @apply text-secondary px-3 py-2 rounded-lg hover:bg-gray-100;
 }
 
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+
 /* Print Media Queries */
 @media print {
   body * {

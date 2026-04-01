@@ -3,6 +3,7 @@ import { apiRequest } from '../api.js';
 import StudentProfileModal from './StudentProfileModal.jsx';
 import TrainingPaymentModal from './TrainingPaymentModal.jsx';
 import ActionDropdown from './ActionDropdown.jsx';
+import DateRangeFilter from './DateRangeFilter.jsx';
 
 const BATCH_PRESETS = {
   Regular: {
@@ -57,13 +58,13 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
   const [trainingSummary, setTrainingSummary] = useState([]);
   const [remainingList, setRemainingList] = useState([]);
 
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'completed'
-  const [filters, setFilters] = useState({
+  // ====== SPLIT FILTER STATES ======
+  // Analytics Filter: affects stats cards (date range)
+  const [analyticsFilter, setAnalyticsFilter] = useState({ range: 'today', startDate: '', endDate: '' });
+  // List Filter: affects student table (search + batch)
+  const [listFilter, setListFilter] = useState({
     search: '',
     batch: '', // 'Regular', 'Weekend', or ''
-    startDateMin: '',
-    startDateMax: '',
-    status: '', // 'active', 'expired', or ''
   });
 
   // ============ FORM STATE ============
@@ -105,91 +106,73 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
   const paidAmount = form.amountPaid !== null && form.amountPaid !== '' ? Number(form.amountPaid) : finalAmount;
   const dueAmount = Math.max(0, finalAmount - paidAmount);
 
-  // ============ DATA LOADING ============
-  const loadTrainingData = async () => {
+  // ============ SEPARATE DATA LOADING ============
+  const loadAnalyticsData = async () => {
     try {
-      const [dashRes, studentsRes] = await Promise.all([
-        apiRequest('/training/dashboard', { token }),
-        apiRequest('/training/students', { token }),
-      ]);
+      // Load dashboard stats for analytics section with date range filter
+      let query = `?range=${analyticsFilter.range}`;
+      if (analyticsFilter.range === 'custom') {
+        if (analyticsFilter.startDate) query += `&startDate=${analyticsFilter.startDate}`;
+        if (analyticsFilter.endDate) query += `&endDate=${analyticsFilter.endDate}`;
+      }
+      
+      const dashRes = await apiRequest(`/training/dashboard${query}`, { token });
 
       setTrainingSummary(dashRes.summary || []);
       setRemainingList(dashRes.remainingByStudent || []);
-      setStudents(studentsRes.students || []);
 
-      // Calculate stats
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-      const newToday = (studentsRes.students || []).filter((s) => {
-        const created = new Date(s.createdAt);
-        created.setHours(0, 0, 0, 0);
-        return created.getTime() === today.getTime();
-      }).length;
-
-      const newMonth = (studentsRes.students || []).filter((s) => {
-        const created = new Date(s.createdAt);
-        return created >= monthStart;
-      }).length;
-
-      const activeStudents = (studentsRes.students || []).filter((s) => s.status === 'active').length;
-
-      // Revenue this month (would need transaction data)
-      // For now, calculate from students' price field
-      const revenueMonth = (studentsRes.students || [])
-        .filter((s) => {
-          const created = new Date(s.createdAt);
-          return created >= monthStart && s.status === 'active';
-        })
-        .reduce((sum, s) => sum + (s.price || 0), 0);
-
-      setStats({ newToday, newMonth, activeStudents, revenueMonth, trainingIncome: dashRes.trainingIncome || 0, trainingDue: dashRes.trainingDue || 0 });
+      // Set stats from response
+      setStats({ 
+        newToday: dashRes.newToday || 0, 
+        newMonth: dashRes.newMonth || 0, 
+        activeStudents: dashRes.activeStudents || 0, 
+        revenueMonth: dashRes.revenueMonth || 0, 
+        trainingIncome: dashRes.trainingIncome || 0, 
+        trainingDue: dashRes.trainingDue || 0 
+      });
     } catch (err) {
       showToast(err.message);
     }
   };
 
+  const loadListData = async () => {
+    try {
+      // Load students list for the table - without date filtering
+      let query = '';
+      if (listFilter.search) query += `&search=${encodeURIComponent(listFilter.search)}`;
+      if (listFilter.batch) query += `&batch=${encodeURIComponent(listFilter.batch)}`;
+      
+      const queryString = query ? '?' + query.substring(1) : '';
+
+      const studentsRes = await apiRequest(`/training/students${queryString}`, { token });
+      setStudents(studentsRes.students || []);
+    } catch (err) {
+      showToast(err.message);
+    }
+  };
+
+  // Load analytics when filters change
   useEffect(() => {
-    loadTrainingData();
+    loadAnalyticsData();
+  }, [analyticsFilter, token, showToast]);
+
+  // Load list when filters change
+  useEffect(() => {
+    loadListData();
+  }, [listFilter, token, showToast]);
+
+  // Initial load on component mount
+  useEffect(() => {
+    loadAnalyticsData();
+    loadListData();
   }, [token]);
 
   // ============ FILTERING LOGIC ============
   const filteredStudents = useMemo(() => {
-    let list = students;
-
-    // Tab filter
-    if (activeTab === 'active') {
-      list = list.filter((s) => s.status === 'active');
-    } else {
-      list = list.filter((s) => s.status === 'expired');
-    }
-
-    // Search
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.phone.includes(filters.search)
-      );
-    }
-
-    // Batch
-    if (filters.batch) {
-      list = list.filter((s) => s.batchType === filters.batch);
-    }
-
-    // Date range
-    if (filters.startDateMin) {
-      list = list.filter((s) => new Date(s.startDate) >= new Date(filters.startDateMin));
-    }
-    if (filters.startDateMax) {
-      list = list.filter((s) => new Date(s.startDate) <= new Date(filters.startDateMax));
-    }
-
-    return list;
-  }, [students, activeTab, filters]);
+    // Students are already filtered by API based on listFilter
+    // This just applies any additional client-side filtering if needed
+    return students;
+  }, [students]);
 
   // ============ FORM SUBMISSION ============
   const submitStudent = async () => {
@@ -228,7 +211,8 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         paymentMethod: 'Cash',
       });
       setViewMode('list');
-      loadTrainingData();
+      loadAnalyticsData();
+      loadListData();
       return res;
     } catch (err) {
       showToast(err.message);
@@ -637,7 +621,28 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
   // ============ STUDENT LIST VIEW ============
   return (
     <div className="grid gap-6">
-      {/* Summary Cards */}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Training</h2>
+        <button
+          onClick={() => setViewMode('form')}
+          className="btn-primary"
+        >
+          ➕ Add New Student
+        </button>
+      </div>
+
+      {/* ====== ANALYTICS FILTER SECTION (TOP MARKED AREA) ====== */}
+      {/* Date Range Filter - Only affects stats cards */}
+      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+        <DateRangeFilter 
+          dateFilter={analyticsFilter} 
+          setDateFilter={setAnalyticsFilter} 
+          onFilterChange={() => {}} 
+        />
+      </div>
+
+      {/* Summary Cards (Filtered by Analytics Filter) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard title="New Enrollments Today" value={stats.newToday} />
         <StatCard title="Enrollments This Month" value={stats.newMonth} />
@@ -647,80 +652,33 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         <StatCard title="🔴 Pending Due (Training)" value={`৳ ${stats.trainingDue.toLocaleString()}`} hint="Outstanding payments" />
       </div>
 
-      {/* Student List Section */}
+      {/* ====== STUDENT LIST SECTION (INDEPENDENT FROM ANALYTICS) ====== */}
       <div className="card p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                activeTab === 'active'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              🟢 Active Students
-            </button>
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                activeTab === 'completed'
-                  ? 'bg-gray-700 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              ⚫ Completed / Expired
-            </button>
-          </div>
-          <button
-            onClick={() => setViewMode('form')}
-            className="btn-primary"
-          >
-            ➕ Add New Student
-          </button>
-        </div>
+        <h3 className="text-lg font-semibold">Students List</h3>
 
-        {/* Filters */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
+        {/* List Filters - Separate from Analytics */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
           <div>
             <label className="text-xs text-gray-600 block mb-1">🔍 Search (Name / Phone)</label>
             <input
               type="text"
               className="border rounded-lg px-3 py-2 w-full text-sm"
               placeholder="Search..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              value={listFilter.search}
+              onChange={(e) => setListFilter({ ...listFilter, search: e.target.value })}
             />
           </div>
           <div>
             <label className="text-xs text-gray-600 block mb-1">📅 Batch</label>
             <select
               className="border rounded-lg px-3 py-2 w-full text-sm"
-              value={filters.batch}
-              onChange={(e) => setFilters({ ...filters, batch: e.target.value })}
+              value={listFilter.batch}
+              onChange={(e) => setListFilter({ ...listFilter, batch: e.target.value })}
             >
               <option value="">All Batches</option>
               <option value="Regular">Regular</option>
               <option value="Weekend">Weekend</option>
             </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-600 block mb-1">📆 Start Date Min</label>
-            <input
-              type="date"
-              className="border rounded-lg px-3 py-2 w-full text-sm"
-              value={filters.startDateMin}
-              onChange={(e) => setFilters({ ...filters, startDateMin: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-600 block mb-1">📆 Start Date Max</label>
-            <input
-              type="date"
-              className="border rounded-lg px-3 py-2 w-full text-sm"
-              value={filters.startDateMax}
-              onChange={(e) => setFilters({ ...filters, startDateMax: e.target.value })}
-            />
           </div>
         </div>
 
@@ -931,7 +889,8 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         token={token}
         showToast={showToast}
         onSave={() => {
-          loadTrainingData();
+          loadAnalyticsData();
+          loadListData();
         }}
       />
 
@@ -945,7 +904,8 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
           setSelectedPaymentStudent(null);
         }}
         onSuccess={() => {
-          loadTrainingData();
+          loadAnalyticsData();
+          loadListData();
         }}
         showToast={showToast}
         token={token}
