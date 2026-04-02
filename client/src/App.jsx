@@ -94,29 +94,16 @@ const Sidebar = ({ view, setView, user }) => {
 };
 
 const StatCard = ({ title, value, hint, highlight }) => {
-  const isIncome = title.includes('Income');
-  const isExpense = title.includes('Expense');
-  const isBalance = title.includes('Balance');
-  const isRightAlign = isIncome || isExpense;
-  
-  const highlightClasses = highlight || isIncome || isExpense
-    ? isIncome 
-      ? 'border-4 border-green-400 bg-green-50 shadow-lg'
-      : isExpense
-      ? 'border-4 border-red-400 bg-red-50 shadow-lg'
-      : ''
-    : '';
-
   return (
-    <div className={`card p-4 flex flex-col gap-2 transition ${isRightAlign ? 'text-right' : 'text-left'} ${highlightClasses}`}>
-      <span className={`text-sm font-medium ${isIncome ? 'text-green-600' : isExpense ? 'text-red-600' : 'text-gray-500'}`}>
+    <div className="bg-white rounded-lg p-5 border border-gray-200 hover:border-gray-300 transition hover:shadow-sm flex flex-col gap-2">
+      <span className="text-sm font-medium text-gray-600">
         {title}
       </span>
-      <span className={`text-2xl font-bold ${isIncome ? 'text-green-700' : isExpense ? 'text-red-700' : 'text-secondary'}`}>
+      <span className="text-2xl font-bold text-gray-900">
         {value}
       </span>
       {hint ? (
-        <span className={`text-xs ${isIncome ? 'text-green-500' : isExpense ? 'text-red-500' : 'text-gray-400'}`}>
+        <span className="text-xs text-gray-500">
           {hint}
         </span>
       ) : null}
