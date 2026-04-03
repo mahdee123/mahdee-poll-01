@@ -17,7 +17,7 @@ export const authRequired = (req, res, next) => {
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     // JWT now includes companyId
     req.user = decoded;
     return next();
