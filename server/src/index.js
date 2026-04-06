@@ -15,6 +15,7 @@ import reportRoutes from './routes/reports.js';
 import expenseRoutes from './routes/expenses.js';
 import cashMovementRoutes from './routes/cashMovements.js';
 import beverageRoutes from './routes/beverages.js';
+import hourlySessionRoutes from './routes/hourlySessions.js';
 import diagnosticRoutes from './routes/diagnostic.js';
 import openingBalanceRoutes from './routes/openingBalance.js';
 import User from './models/User.js';
@@ -50,6 +51,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/cash-movements', cashMovementRoutes);
 app.use('/api/beverages', beverageRoutes);
+app.use('/api/hourly-sessions', hourlySessionRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api/opening-balance', openingBalanceRoutes);
 

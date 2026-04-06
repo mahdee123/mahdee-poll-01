@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiRequest } from '../api.js';
 import BillForm from './BillForm.jsx';
 
@@ -13,13 +13,53 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     totalCustomersToday: 0,
   });
   const [showBillForm, setShowBillForm] = useState(false);
+  const [activeSessions, setActiveSessions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     dateRange: 'today',
     paymentMethod: '',
     amountPerPerson: '',
   });
+  const [sessionTick, setSessionTick] = useState(Date.now());
+  const alertedSessionIds = useRef(new Set());
+
+  const formatSessionTime = (value) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: 'numeric',
+      month: 'short',
+    });
+  };
+
+  const formatMinutes = (minutes) => {
+    const total = Math.max(0, Math.floor(minutes || 0));
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    if (hours === 0) return `${mins}m`;
+    return `${hours}h ${mins}m`;
+  };
+
+  const formatCurrency = (value) => `৳ ${Number(value || 0).toLocaleString()}`;
+
+  const loadActiveSessions = async () => {
+    setSessionLoading(true);
+    try {
+      const response = await apiRequest('/hourly-sessions/active', {
+        method: 'GET',
+        token,
+      });
+      setActiveSessions(response.sessions || []);
+    } catch (error) {
+      console.error('Error loading active sessions:', error);
+      showToast('Error loading active sessions', 'error');
+    } finally {
+      setSessionLoading(false);
+    }
+  };
 
   // Load bills and stats
   const loadBills = async () => {
@@ -90,10 +130,51 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     }
   };
 
+  const startHourlyTimerForBill = async (billData, transaction) => {
+    try {
+      await apiRequest('/hourly-sessions', {
+        method: 'POST',
+        token,
+        body: {
+          customerName: billData.name || transaction.name || 'Walk-in swimmer',
+          phone: billData.phone || transaction.phone || '',
+          hourlyRate: Number(transaction.amount || billData.amount || 0),
+          durationHours: 1,
+          notes: `Auto-started from bill ${transaction.receiptId}`,
+        },
+      });
+      loadActiveSessions();
+      return true;
+    } catch (error) {
+      console.error('Error starting hourly timer for bill:', error);
+      showToast('Bill saved, but timer could not be started automatically', 'warning');
+      return false;
+    }
+  };
+
   // Load on mount and when filters change
   useEffect(() => {
     loadBills();
   }, [filters]);
+
+  useEffect(() => {
+    loadActiveSessions();
+  }, [token]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setSessionTick(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const expiringSessions = activeSessions.filter((session) => session.status === 'active' && session.remainingMinutes <= 0);
+    expiringSessions.forEach((session) => {
+      if (!alertedSessionIds.current.has(session._id)) {
+        alertedSessionIds.current.add(session._id);
+        showToast(`⏰ ${session.customerName} session time finished. Extend or close the session.`, 'warning');
+      }
+    });
+  }, [activeSessions, sessionTick, showToast]);
 
   useEffect(() => {
     loadStats();
@@ -111,6 +192,8 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           serviceType: 'Bill',
         },
       });
+
+      await startHourlyTimerForBill(billData, response.transaction);
 
       showToast('Bill saved successfully', 'success');
       setShowBillForm(false);
@@ -132,6 +215,8 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           serviceType: 'Bill',
         },
       });
+
+      await startHourlyTimerForBill(billData, response.transaction);
 
       // Format bill for receipt
       const receipt = {
@@ -160,6 +245,75 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
       console.error('Error saving bill:', error);
       showToast('Error saving bill', 'error');
     }
+  };
+
+  const handleExtendSession = async (sessionId) => {
+    try {
+      await apiRequest(`/hourly-sessions/${sessionId}/extend`, {
+        method: 'POST',
+        token,
+        body: { extraHours: 1 },
+      });
+
+      showToast('Session extended by 1 hour', 'success');
+      loadActiveSessions();
+    } catch (error) {
+      console.error('Error extending session:', error);
+      showToast(error.message || 'Failed to extend session', 'error');
+    }
+  };
+
+  const handleCloseSession = async (session) => {
+    const paymentMethod = window.prompt('Enter payment method for session close (Cash, Bank, bKash):', 'Cash');
+    if (!paymentMethod) return;
+
+    try {
+      await apiRequest(`/hourly-sessions/${session._id}/close`, {
+        method: 'POST',
+        token,
+        body: {
+          paymentMethod: ['Cash', 'Bank', 'bKash'].includes(paymentMethod) ? paymentMethod : 'Cash',
+        },
+      });
+
+      alertedSessionIds.current.delete(session._id);
+      showToast(`Session closed for ${session.customerName}`, 'success');
+      loadActiveSessions();
+      loadStats();
+      loadBills();
+    } catch (error) {
+      console.error('Error closing session:', error);
+      showToast(error.message || 'Failed to close session', 'error');
+    }
+  };
+
+  const renderActiveSessionRow = (session) => {
+    const remainingMinutes = session.remainingMinutes || 0;
+    const isExpired = remainingMinutes <= 0;
+    const overtimeMinutes = session.overtimeMinutes || 0;
+    const displayRemaining = isExpired ? `Overtime ${formatMinutes(overtimeMinutes)}` : formatMinutes(remainingMinutes);
+
+    return (
+      <tr key={session._id} className={isExpired ? 'bg-red-50/70' : 'bg-white'}>
+        <td className="px-4 py-3">
+          <div className="font-semibold text-gray-900">{session.customerName}</div>
+          <div className="text-xs text-gray-500">{session.phone || 'No phone provided'}</div>
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-700">{formatSessionTime(session.startTime)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{formatSessionTime(session.plannedEndTime)}</td>
+        <td className="px-4 py-3 text-sm font-semibold">
+          <span className={isExpired ? 'text-red-700' : 'text-secondary'}>{displayRemaining}</span>
+        </td>
+        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatCurrency(session.totalAmount || session.baseCharge || 0)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(session.beverageCharge || 0)}</td>
+        <td className="px-4 py-3">
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={() => handleExtendSession(session._id)} className="btn-ghost">+1 hr</button>
+            <button type="button" onClick={() => handleCloseSession(session)} className="btn-primary">Collect</button>
+          </div>
+        </td>
+      </tr>
+    );
   };
 
   const handleDeleteBill = async (id) => {
@@ -215,6 +369,40 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
 
   return (
     <div className="grid gap-4">
+      <div className="card p-4 space-y-4 border-l-4 border-l-amber-400">
+        <div>
+          <h2 className="text-lg font-semibold">Live billing timers</h2>
+          <p className="text-sm text-gray-500">A 1-hour timer starts automatically when a bill is saved. Overtime stays visible in red and can be extended or closed from here.</p>
+        </div>
+
+        {sessionLoading ? (
+          <div className="text-sm text-gray-500">Loading active timers...</div>
+        ) : activeSessions.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+            No active timers right now.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 border-b text-gray-600">
+                <tr>
+                  <th className="px-4 py-3 text-left">Customer</th>
+                  <th className="px-4 py-3 text-left">Start</th>
+                  <th className="px-4 py-3 text-left">Planned End</th>
+                  <th className="px-4 py-3 text-left">Live Timer</th>
+                  <th className="px-4 py-3 text-left">Live Total</th>
+                  <th className="px-4 py-3 text-left">Beverage Due</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {activeSessions.map(renderActiveSessionRow)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -409,6 +597,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           onSaveAndPrint={handleSaveAndPrint}
         />
       )}
+
     </div>
   );
 }

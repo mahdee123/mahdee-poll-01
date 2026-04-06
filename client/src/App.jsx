@@ -14,9 +14,11 @@ import ReconciliationReport from './components/ReconciliationReport.jsx';
 import CashMovementPage from './components/CashMovementPage.jsx';
 import InitialOpeningBalanceModal from './components/InitialOpeningBalanceModal.jsx';
 import DailyTransactionBreakdown from './components/DailyTransactionBreakdown.jsx';
+import { downloadDailyReportPdf, downloadDailyReportSheet } from './utils/reportExports.js';
 
 const SERVICE_TYPES = ['Daily Entry', 'Training', 'Membership'];
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
+const DAILY_REPORT_CATEGORIES = ['Bill', 'Training', 'Membership', 'Beverage', 'Hourly Session'];
 
 const PLAN_PRESETS = {
   Monthly: 30,
@@ -331,7 +333,8 @@ function App() {
   const [packageForm, setPackageForm] = useState({ name: '', type: 'Training', price: '', durationDays: 30, totalClasses: 16 });
   const [dateFilter, setDateFilter] = useState({ range: 'today', startDate: '', endDate: '' });
   const [sectionFilters, setSectionFilters] = useState({ 'daily-entry': true, 'training': true, 'membership': true, 'bills': true, 'beverages': true });
-  const [dailyTransactionFilters, setDailyTransactionFilters] = useState({ categories: ['Bill', 'Training', 'Membership', 'Beverage'], paymentMethod: 'all' });
+  const [dailyTransactionFilters, setDailyTransactionFilters] = useState({ categories: DAILY_REPORT_CATEGORIES, paymentMethod: 'all' });
+  const [selectedReportDate, setSelectedReportDate] = useState('');
 
   // Opening balance modal states
   const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
@@ -341,6 +344,81 @@ function App() {
   // Removed students, trainingSummary, remainingList states (now in TrainingPage)
   const [packages, setPackages] = useState([]);
   const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, billIncome: 0, beveragesIncome: 0, totalExpense: 0, expenseByCategory: {}, netCash: 0, timeline: [], distribution: [], dailyBalance: null, dailyTransactionBreakdown: [] });
+
+  const reportDays = report.dailyTransactionBreakdown || [];
+  const selectedDailyReport = reportDays.find((day) => day.date === selectedReportDate) || reportDays[reportDays.length - 1] || null;
+
+  useEffect(() => {
+    if (reportDays.length === 0) {
+      if (selectedReportDate) setSelectedReportDate('');
+      return;
+    }
+
+    const isCurrentSelectionValid = reportDays.some((day) => day.date === selectedReportDate);
+    if (!selectedReportDate || !isCurrentSelectionValid) {
+      setSelectedReportDate(reportDays[reportDays.length - 1].date);
+    }
+  }, [reportDays, selectedReportDate]);
+
+  const formatReportDateLabel = (value) => {
+    if (!value) return 'Select a day';
+
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(`${value}T00:00:00`));
+  };
+
+  const getSelectedDaySummary = () => {
+    const categories = selectedDailyReport?.categories || {};
+    const paymentMethods = selectedDailyReport?.paymentMethods || {};
+    const billingAmount = categories.Bill?.amount || 0;
+    const trainingAmount = categories.Training?.amount || 0;
+    const membershipAmount = categories.Membership?.amount || 0;
+    const beverageAmount = categories.Beverage?.amount || 0;
+    const hourlySessionAmount = categories['Hourly Session']?.amount || 0;
+
+    return {
+      date: selectedDailyReport?.date || '',
+      billingAmount,
+      trainingAmount,
+      membershipAmount,
+      beverageAmount,
+      hourlySessionAmount,
+      totalIncome: billingAmount + trainingAmount + membershipAmount + beverageAmount + hourlySessionAmount,
+      cashAmount: paymentMethods.Cash || 0,
+      bankAmount: paymentMethods.Bank || 0,
+      bKashAmount: paymentMethods.bKash || 0,
+    };
+  };
+
+  const selectedDaySummary = getSelectedDaySummary();
+  const selectedDayBreakdownData = selectedDailyReport ? [selectedDailyReport] : [];
+
+  const handleDownloadDailySheet = () => {
+    downloadDailyReportSheet({
+      reportSummary: report,
+      selectedDaySummary,
+      selectedDayBreakdown: selectedDailyReport,
+      selectedDayLabel: formatReportDateLabel(selectedDaySummary.date),
+      rangeLabel: dateFilter.range,
+    });
+  };
+
+  const handleDownloadDailyPdf = async () => {
+    try {
+      await downloadDailyReportPdf({
+        reportSummary: report,
+        selectedDaySummary,
+        selectedDayBreakdown: selectedDailyReport,
+        selectedDayLabel: formatReportDateLabel(selectedDaySummary.date),
+        rangeLabel: dateFilter.range,
+      });
+    } catch (error) {
+      showToast(error?.message || 'Failed to generate PDF report');
+    }
+  };
 
   const showToast = (message) => setToast({ message });
 
@@ -627,6 +705,7 @@ function App() {
                   <StatCard title="💸 Total Expense" value={`৳ ${report.totalExpense.toLocaleString()}`} hint="All costs" />
                   <StatCard title="🧮 Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income - Expense" : "Deficit"} />
                   <StatCard title="📊 Entry" value={`৳ ${report.entryIncome.toLocaleString()}`} hint="Daily income" />
+                  <StatCard title="🧃 Beverage" value={`৳ ${report.beveragesIncome.toLocaleString()}`} hint="Beverage sales" />
                 </div>
               )}
 
@@ -722,9 +801,9 @@ function App() {
 
           {view === 'reports' && (
             <div className="grid gap-4">
-              <div className="card p-4">
+              <div className="card p-4 space-y-4">
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <select className="border rounded-lg px-3 py-2" value={dateFilter.range} onChange={(e) => setDateFilter({ ...dateFilter, range: e.target.value })}>
                       {(user.role === 'admin' ? ['today', 'yesterday', 'last7days', 'thisMonth', 'custom'] : ['today']).map((range) => (
                         <option key={range} value={range}>
@@ -732,10 +811,31 @@ function App() {
                         </option>
                       ))}
                     </select>
+                    <select
+                      className="border rounded-lg px-3 py-2 min-w-56"
+                      value={selectedReportDate}
+                      onChange={(e) => setSelectedReportDate(e.target.value)}
+                      disabled={reportDays.length === 0}
+                    >
+                      {reportDays.length === 0 ? (
+                        <option value="">No report days</option>
+                      ) : (
+                        reportDays.map((day) => (
+                          <option key={day.date} value={day.date}>
+                            {formatReportDateLabel(day.date)}
+                          </option>
+                        ))
+                      )}
+                    </select>
                     <button className="btn-primary" onClick={() => refreshAll(token, dateFilter, user?.role, sectionFilters)}>Refresh</button>
+                    <button className="btn-ghost" onClick={handleDownloadDailyPdf} disabled={!selectedDailyReport}>
+                      Download PDF
+                    </button>
+                    <button className="btn-ghost" onClick={handleDownloadDailySheet} disabled={!selectedDailyReport}>
+                      Download Sheet
+                    </button>
                   </div>
 
-                  {/* Section Filters */}
                   <div className="flex flex-wrap gap-2">
                     <button
                       className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -809,13 +909,31 @@ function App() {
                     </button>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <StatCard title="📅 Selected Day" value={formatReportDateLabel(selectedDaySummary.date)} hint={selectedDailyReport ? 'Day-specific summary' : 'No data available'} />
+                  <StatCard title="💰 Total Income" value={`৳ ${selectedDaySummary.totalIncome.toLocaleString()}`} />
+                  <StatCard title="💼 Billing" value={`৳ ${selectedDaySummary.billingAmount.toLocaleString()}`} hint="Daily entry" />
+                  <StatCard title="🏊 Training" value={`৳ ${selectedDaySummary.trainingAmount.toLocaleString()}`} />
+                  <StatCard title="👥 Membership" value={`৳ ${selectedDaySummary.membershipAmount.toLocaleString()}`} />
+                  <StatCard title="🥤 Beverage" value={`৳ ${selectedDaySummary.beverageAmount.toLocaleString()}`} hint="Beverage sales" />
+                </div>
+
+                {selectedDaySummary.hourlySessionAmount > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <StatCard title="⏱️ Hourly Session" value={`৳ ${selectedDaySummary.hourlySessionAmount.toLocaleString()}`} />
+                    <StatCard title="💵 Cash" value={`৳ ${selectedDaySummary.cashAmount.toLocaleString()}`} />
+                    <StatCard title="🏦 Bank / bKash" value={`৳ ${(selectedDaySummary.bankAmount + selectedDaySummary.bKashAmount).toLocaleString()}`} />
+                  </div>
+                )}
               </div>
 
               {/* Financial Overview */}
-              <div className="grid md:grid-cols-3 gap-3">
+              <div className="grid md:grid-cols-4 gap-3">
                 <StatCard title="💰 Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} />
                 <StatCard title="💸 Total Expense" value={`৳ ${report.totalExpense.toLocaleString()}`} />
                 <StatCard title="🧮 Net Profit" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Profit" : "Loss"} />
+                <StatCard title="🧃 Beverage" value={`৳ ${report.beveragesIncome.toLocaleString()}`} hint="Beverage sales" />
               </div>
 
               {/* Income Timeline */}

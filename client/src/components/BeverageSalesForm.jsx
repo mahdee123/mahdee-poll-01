@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function BeverageSalesForm({ products = [], onClose, onSave }) {
+export default function BeverageSalesForm({ products = [], activeSessions = [], onClose, onSave }) {
   // Form state for adding items
   const [staging, setStaging] = useState({
     productId: '',
@@ -13,6 +13,7 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
     paymentMethod: 'Cash',
     date: new Date().toISOString().split('T')[0],
     notes: '',
+    hourlySessionId: '',
   });
 
   // Array of items in the cart
@@ -172,6 +173,7 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
       paymentMethod: shared.paymentMethod,
       date: shared.date,
       notes: shared.notes,
+      ...(shared.hourlySessionId && { hourlySessionId: shared.hourlySessionId }),
     };
     
     console.log('[Debug] BeverageSalesForm submitting:', saleData);
@@ -188,6 +190,7 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
       paymentMethod: 'Cash',
       date: new Date().toISOString().split('T')[0],
       notes: '',
+      hourlySessionId: '',
     });
     setError('');
     setCalculation({
@@ -370,6 +373,28 @@ export default function BeverageSalesForm({ products = [], onClose, onSave }) {
                   </label>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">🏊 Link to Active Session (Optional)</label>
+              <select
+                name="hourlySessionId"
+                value={shared.hourlySessionId}
+                onChange={handleSharedChange}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">Standalone beverage sale</option>
+                {activeSessions.map((session) => (
+                  <option key={session._id} value={session._id}>
+                    {session.customerName} - remaining {session.remainingMinutes <= 0 ? 'over time' : `${session.remainingMinutes} min`}
+                  </option>
+                ))}
+              </select>
+              {shared.hourlySessionId ? (
+                <p className="mt-2 text-xs text-blue-600">
+                  Beverage amount will be added to the selected swimmer account and settled with the session.
+                </p>
+              ) : null}
             </div>
 
             <div className="md:col-span-2">

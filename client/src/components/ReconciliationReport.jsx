@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { apiRequest } from '../api.js';
 
 export default function ReconciliationReport({ token, showToast }) {
@@ -151,6 +152,64 @@ export default function ReconciliationReport({ token, showToast }) {
     window.URL.revokeObjectURL(url);
   };
 
+  const getRangeLabel = () => {
+    switch (dateRange) {
+      case 'today':
+        return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case 'last7days':
+        return 'Last 7 Days';
+      case 'thisMonth':
+        return 'This Month';
+      case 'custom':
+        return customRange.start && customRange.end
+          ? `${customRange.start} to ${customRange.end}`
+          : 'Custom Range';
+      default:
+        return 'Selected Range';
+    }
+  };
+
+  const formatCurrency = (value) => `Tk. ${Number(value || 0).toLocaleString()}`;
+
+  const downloadSheet = () => {
+    const rangeLabel = getRangeLabel();
+    const generatedAt = new Date().toLocaleString();
+    const totalIncome = reconciliationData.reduce((sum, row) => sum + row.income, 0);
+    const totalExpense = reconciliationData.reduce((sum, row) => sum + row.expense, 0);
+    const mismatchCount = reconciliationData.filter((row) => !row.isReconciled).length;
+
+    const summaryRows = [
+      ['Report', 'Daily Reconciliation Report'],
+      ['Range', rangeLabel],
+      ['Generated', generatedAt],
+      ['Records', reconciliationData.length],
+      ['Total Income', formatCurrency(totalIncome)],
+      ['Total Expense', formatCurrency(totalExpense)],
+      ['Mismatches', mismatchCount],
+      [],
+    ];
+
+    const dataRows = [
+      ['Date', 'Opening Balance', 'Income', 'Expense', 'Closing Balance', 'Status', 'Variance'],
+      ...reconciliationData.map((row) => [
+        row.date,
+        row.openingBalance,
+        row.income,
+        row.expense,
+        row.closingBalance,
+        row.isReconciled ? 'OK' : 'MISMATCH',
+        row.variance !== undefined && row.variance !== 0 ? row.variance : '',
+      ]),
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet([...summaryRows, ...dataRows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Reconciliation');
+    XLSX.writeFile(workbook, `reconciliation-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   if (loading) {
     return (
       <div className="card p-8 flex items-center justify-center">
@@ -167,13 +226,22 @@ export default function ReconciliationReport({ token, showToast }) {
           <h2 className="text-2xl font-bold">📊 Daily Reconciliation Report</h2>
           <p className="text-gray-600">Track opening/closing balances and cash continuity</p>
         </div>
-        <button
-          onClick={downloadCSV}
-          disabled={reconciliationData.length === 0}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
-        >
-          📥 Download CSV
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={downloadCSV}
+            disabled={reconciliationData.length === 0}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
+          >
+            📥 Download CSV
+          </button>
+          <button
+            onClick={downloadSheet}
+            disabled={reconciliationData.length === 0}
+            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:opacity-50 font-medium"
+          >
+            📄 Download Sheet
+          </button>
+        </div>
       </div>
 
       {/* Date Range Filter */}

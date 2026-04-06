@@ -105,180 +105,121 @@ const getOpeningBalance = async (req, companyDb) => {
 };
 
 router.get('/income', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
-  const { range = 'today', startDate, endDate, sections, categories, paymentMethod } = req.query;
-  const { from, to } = resolveRange(range, startDate, endDate);
-  const match = { companyId: req.companyId };
-  if (from && to) {
-    match.date = { $gte: from, $lte: to };
-  }
-
-  // Parse sections filter - defaults to all if not provided
-  const selectedSections = sections 
-    ? sections.split(',').map(s => s.trim())
-    : ['daily-entry', 'training', 'membership', 'bills', 'beverages'];
-
-  // Parse category filter for daily breakdown (defaults to all if not provided)
-  const selectedCategories = categories
-    ? categories.split(',').map(c => c.trim())
-    : ['Bill', 'Training', 'Membership', 'Beverage'];
-
-  // Parse payment method filter (defaults to all if not provided or is 'all')
-  const selectedPaymentMethod = paymentMethod && paymentMethod !== 'all' ? paymentMethod : null;
-
-  // Get income transactions
-  const Transaction = getCompanyModel(req.companyDb, 'Transaction');
-  const Expense = getCompanyModel(req.companyDb, 'Expense');
-  const BeverageSale = getCompanyModel(req.companyDb, 'BeverageSale');
-  
-  // Filter transactions by selected sections
-  const serviceTypeMap = {
-    'daily-entry': 'Daily Entry',
-    'training': 'Training',
-    'membership': 'Membership',
-    'bills': 'Bill'
-  };
-  
-  const selectedServiceTypes = selectedSections
-    .filter(s => s !== 'beverages')
-    .map(s => serviceTypeMap[s])
-    .filter(Boolean);
-
-  const transactions = await Transaction.find(match);
-  const filteredTransactions = selectedServiceTypes.length > 0
-    ? transactions.filter(t => selectedServiceTypes.includes(t.serviceType))
-    : [];
-
-  // Get beverages income if selected
-  let beveragesIncome = 0;
-  let beverageSales = [];
-  if (selectedSections.includes('beverages')) {
-    beverageSales = await BeverageSale.find(match);
-    beveragesIncome = beverageSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-  }
-
-  const totalIncome = filteredTransactions.reduce((sum, t) => sum + t.amount, 0) + beveragesIncome;
-  const entryIncome = filteredTransactions
-    .filter((t) => t.serviceType === 'Daily Entry')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const trainingIncome = filteredTransactions
-    .filter((t) => t.serviceType === 'Training')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const membershipIncome = filteredTransactions
-    .filter((t) => t.serviceType === 'Membership')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const billIncome = filteredTransactions
-    .filter((t) => t.serviceType === 'Bill')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  // Get expenses
-  const expenses = await Expense.find(match);
-  const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
-  
-  // Expense breakdown by category
-  const expenseByCategory = {};
-  ['Staff Salary', 'Maintenance', 'Utility', 'Supplies', 'Other'].forEach(cat => {
-    expenseByCategory[cat] = expenses
-      .filter((e) => e.category === cat)
-      .reduce((sum, e) => sum + e.amount, 0);
-  });
-
-  // Calculate net cash and closing balance (which is based only on actual transactions, no opening balance offset)
-  const netCash = totalIncome - totalExpense;
-
-  // Timeline data - aggregate by date with income and expense
-  const timelineMap = {};
-  
-  // Add filtered income transactions
-  filteredTransactions.forEach((t) => {
-    const dateKey = new Date(t.date).toISOString().split('T')[0];
-    if (!timelineMap[dateKey]) {
-      timelineMap[dateKey] = { date: dateKey, income: 0, expense: 0, netCash: 0 };
+  try {
+    const { range = 'today', startDate, endDate, sections, categories, paymentMethod } = req.query;
+    const { from, to } = resolveRange(range, startDate, endDate);
+    const match = { companyId: req.companyId };
+    if (from && to) {
+      match.date = { $gte: from, $lte: to };
     }
-    timelineMap[dateKey].income += t.amount;
-  });
 
-  // Add beverages income to timeline if selected
-  if (selectedSections.includes('beverages')) {
-    beverageSales.forEach((sale) => {
-      const dateKey = new Date(sale.date).toISOString().split('T')[0];
-      if (!timelineMap[dateKey]) {
-        timelineMap[dateKey] = { date: dateKey, income: 0, expense: 0, netCash: 0 };
-      }
-      timelineMap[dateKey].income += sale.totalAmount;
+    const selectedSections = sections
+      ? sections.split(',').map((section) => section.trim())
+      : ['daily-entry', 'training', 'membership', 'bills', 'beverages', 'hourly-session'];
+
+    const selectedCategories = categories
+      ? categories.split(',').map((category) => category.trim())
+      : ['Bill', 'Training', 'Membership', 'Beverage', 'Hourly Session'];
+
+    const selectedPaymentMethod = paymentMethod && paymentMethod !== 'all' ? paymentMethod : null;
+
+    const Transaction = getCompanyModel(req.companyDb, 'Transaction');
+    const Expense = getCompanyModel(req.companyDb, 'Expense');
+    const BeverageSale = getCompanyModel(req.companyDb, 'BeverageSale');
+
+    const serviceTypeMap = {
+      'daily-entry': 'Daily Entry',
+      training: 'Training',
+      membership: 'Membership',
+      bills: 'Bill',
+      'hourly-session': 'Hourly Session',
+    };
+
+    const selectedServiceTypes = selectedSections
+      .filter((section) => section !== 'beverages')
+      .map((section) => serviceTypeMap[section])
+      .filter(Boolean);
+
+    const transactions = await Transaction.find(match);
+    const filteredTransactions = selectedServiceTypes.length > 0
+      ? transactions.filter((transaction) => selectedServiceTypes.includes(transaction.serviceType))
+      : [];
+
+    let beverageSales = [];
+    let beveragesIncome = 0;
+    if (selectedSections.includes('beverages')) {
+      beverageSales = await BeverageSale.find(match);
+      beveragesIncome = beverageSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    }
+
+    const totalIncome = filteredTransactions.reduce((sum, transaction) => sum + transaction.amount, 0) + beveragesIncome;
+    const entryIncome = filteredTransactions.filter((t) => t.serviceType === 'Daily Entry').reduce((sum, t) => sum + t.amount, 0);
+    const trainingIncome = filteredTransactions.filter((t) => t.serviceType === 'Training').reduce((sum, t) => sum + t.amount, 0);
+    const membershipIncome = filteredTransactions.filter((t) => t.serviceType === 'Membership').reduce((sum, t) => sum + t.amount, 0);
+    const billIncome = filteredTransactions.filter((t) => t.serviceType === 'Bill').reduce((sum, t) => sum + t.amount, 0);
+    const hourlySessionIncome = filteredTransactions.filter((t) => t.serviceType === 'Hourly Session').reduce((sum, t) => sum + t.amount, 0);
+
+    const expenses = await Expense.find(match);
+    const totalExpense = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+    const expenseByCategory = {};
+    ['Staff Salary', 'Maintenance', 'Utility', 'Supplies', 'Other'].forEach((category) => {
+      expenseByCategory[category] = expenses
+        .filter((expense) => expense.category === category)
+        .reduce((sum, expense) => sum + expense.amount, 0);
     });
-  }
-  
-  // Add expenses
-  expenses.forEach((e) => {
-    const dateKey = new Date(e.date).toISOString().split('T')[0];
-    if (!timelineMap[dateKey]) {
-      timelineMap[dateKey] = { date: dateKey, income: 0, expense: 0, netCash: 0 };
-    }
-    timelineMap[dateKey].expense += e.amount;
-  });
-  
-  // Calculate net cash for each day and sort by date
-  const timeline = Object.values(timelineMap)
-    .map(item => ({
-      date: item.date,
-      income: item.income,
-      expense: item.expense,
-      netCash: item.income - item.expense,
-    }))
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  // Build daily transaction breakdown by category
-  const dailyBreakdownMap = {};
-  
-  // Add transactions to breakdown, filtered by category and payment method
-  filteredTransactions.forEach((t) => {
-    const dateKey = new Date(t.date).toISOString().split('T')[0];
-    
-    // Map serviceType to display name and check if it's in selected categories
-    let categoryName = null;
-    if (t.serviceType === 'Bill' && selectedCategories.includes('Bill')) categoryName = 'Bill';
-    else if (t.serviceType === 'Training' && selectedCategories.includes('Training')) categoryName = 'Training';
-    else if (t.serviceType === 'Membership' && selectedCategories.includes('Membership')) categoryName = 'Membership';
-    
-    if (!categoryName) return;
-    
-    // Filter by payment method if specified
-    if (selectedPaymentMethod && t.paymentMethod !== selectedPaymentMethod) return;
-    
-    if (!dailyBreakdownMap[dateKey]) {
-      dailyBreakdownMap[dateKey] = {
-        date: dateKey,
-        categories: {
-          Bill: { amount: 0, count: 0 },
-          Training: { amount: 0, count: 0 },
-          Membership: { amount: 0, count: 0 },
-          Beverage: { amount: 0, count: 0 }
-        },
-        paymentMethods: {
-          Cash: 0,
-          Bank: 0,
-          bKash: 0
+    const netCash = totalIncome - totalExpense;
+
+    const timelineMap = {};
+    filteredTransactions.forEach((transaction) => {
+      const dateKey = new Date(transaction.date).toISOString().split('T')[0];
+      if (!timelineMap[dateKey]) {
+        timelineMap[dateKey] = { date: dateKey, income: 0, expense: 0 };
+      }
+      timelineMap[dateKey].income += transaction.amount;
+    });
+
+    if (selectedSections.includes('beverages')) {
+      beverageSales.forEach((sale) => {
+        const dateKey = new Date(sale.date).toISOString().split('T')[0];
+        if (!timelineMap[dateKey]) {
+          timelineMap[dateKey] = { date: dateKey, income: 0, expense: 0 };
         }
-      };
+        timelineMap[dateKey].income += sale.totalAmount;
+      });
     }
-    
-    dailyBreakdownMap[dateKey].categories[categoryName].amount += t.amount;
-    dailyBreakdownMap[dateKey].categories[categoryName].count += 1;
-    
-    if (t.paymentMethod) {
-      dailyBreakdownMap[dateKey].paymentMethods[t.paymentMethod] =
-        (dailyBreakdownMap[dateKey].paymentMethods[t.paymentMethod] || 0) + t.amount;
-    }
-  });
-  
-  // Add beverage sales to breakdown if beverages are in selected categories
-  if (selectedCategories.includes('Beverage')) {
-    beverageSales.forEach((sale) => {
-      const dateKey = new Date(sale.date).toISOString().split('T')[0];
-      
-      // Filter by payment method if specified
-      if (selectedPaymentMethod && sale.paymentMethod !== selectedPaymentMethod) return;
-      
+
+    expenses.forEach((expense) => {
+      const dateKey = new Date(expense.date).toISOString().split('T')[0];
+      if (!timelineMap[dateKey]) {
+        timelineMap[dateKey] = { date: dateKey, income: 0, expense: 0 };
+      }
+      timelineMap[dateKey].expense += expense.amount;
+    });
+
+    const timeline = Object.values(timelineMap)
+      .map((item) => ({
+        date: item.date,
+        income: item.income,
+        expense: item.expense,
+        netCash: item.income - item.expense,
+      }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const dailyBreakdownMap = {};
+    filteredTransactions.forEach((transaction) => {
+      const dateKey = new Date(transaction.date).toISOString().split('T')[0];
+
+      let categoryName = null;
+      if (transaction.serviceType === 'Bill' && selectedCategories.includes('Bill')) categoryName = 'Bill';
+      else if (transaction.serviceType === 'Training' && selectedCategories.includes('Training')) categoryName = 'Training';
+      else if (transaction.serviceType === 'Membership' && selectedCategories.includes('Membership')) categoryName = 'Membership';
+      else if (transaction.serviceType === 'Hourly Session' && selectedCategories.includes('Hourly Session')) categoryName = 'Hourly Session';
+
+      if (!categoryName) return;
+      if (selectedPaymentMethod && transaction.paymentMethod !== selectedPaymentMethod) return;
+
       if (!dailyBreakdownMap[dateKey]) {
         dailyBreakdownMap[dateKey] = {
           date: dateKey,
@@ -286,70 +227,109 @@ router.get('/income', authRequired, requireRole('admin', 'manager'), validateCom
             Bill: { amount: 0, count: 0 },
             Training: { amount: 0, count: 0 },
             Membership: { amount: 0, count: 0 },
-            Beverage: { amount: 0, count: 0 }
+            'Hourly Session': { amount: 0, count: 0 },
+            Beverage: { amount: 0, count: 0 },
           },
           paymentMethods: {
             Cash: 0,
             Bank: 0,
-            bKash: 0
-          }
+            bKash: 0,
+          },
         };
       }
-      
-      dailyBreakdownMap[dateKey].categories.Beverage.amount += sale.totalAmount;
-      dailyBreakdownMap[dateKey].categories.Beverage.count += 1;
-      
-      if (sale.paymentMethod) {
-        dailyBreakdownMap[dateKey].paymentMethods[sale.paymentMethod] =
-          (dailyBreakdownMap[dateKey].paymentMethods[sale.paymentMethod] || 0) + sale.totalAmount;
+
+      dailyBreakdownMap[dateKey].categories[categoryName].amount += transaction.amount;
+      dailyBreakdownMap[dateKey].categories[categoryName].count += 1;
+
+      if (transaction.paymentMethod) {
+        dailyBreakdownMap[dateKey].paymentMethods[transaction.paymentMethod] =
+          (dailyBreakdownMap[dateKey].paymentMethods[transaction.paymentMethod] || 0) + transaction.amount;
       }
     });
-  }
-  
-  const dailyTransactionBreakdown = Object.values(dailyBreakdownMap)
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  const distribution = [
-    ...(selectedSections.includes('daily-entry') ? [{ name: 'Daily Entry', value: entryIncome }] : []),
-    ...(selectedSections.includes('training') ? [{ name: 'Training', value: trainingIncome }] : []),
-    ...(selectedSections.includes('membership') ? [{ name: 'Membership', value: membershipIncome }] : []),
-    ...(selectedSections.includes('bills') ? [{ name: 'Bills', value: billIncome }] : []),
-    ...(selectedSections.includes('beverages') ? [{ name: 'Beverages', value: beveragesIncome }] : []),
-  ];
+    if (selectedCategories.includes('Beverage')) {
+      beverageSales.forEach((sale) => {
+        const dateKey = new Date(sale.date).toISOString().split('T')[0];
 
-  // Add daily balance info when range is 'today'
-  let dailyBalance = null;
-  if (range === 'today') {
-    const openingBalance = await getOpeningBalance(req, req.companyDb);
-    const closingBalance = openingBalance + totalIncome - totalExpense;
-    dailyBalance = {
-      openingBalance,
-      income: totalIncome,
-      expense: totalExpense,
-      closingBalance,
+        if (selectedPaymentMethod && sale.paymentMethod !== selectedPaymentMethod) return;
+
+        if (!dailyBreakdownMap[dateKey]) {
+          dailyBreakdownMap[dateKey] = {
+            date: dateKey,
+            categories: {
+              Bill: { amount: 0, count: 0 },
+              Training: { amount: 0, count: 0 },
+              Membership: { amount: 0, count: 0 },
+              'Hourly Session': { amount: 0, count: 0 },
+              Beverage: { amount: 0, count: 0 },
+            },
+            paymentMethods: {
+              Cash: 0,
+              Bank: 0,
+              bKash: 0,
+            },
+          };
+        }
+
+        dailyBreakdownMap[dateKey].categories.Beverage.amount += sale.totalAmount;
+        dailyBreakdownMap[dateKey].categories.Beverage.count += 1;
+
+        if (sale.paymentMethod) {
+          dailyBreakdownMap[dateKey].paymentMethods[sale.paymentMethod] =
+            (dailyBreakdownMap[dateKey].paymentMethods[sale.paymentMethod] || 0) + sale.totalAmount;
+        }
+      });
+    }
+
+    const dailyTransactionBreakdown = Object.values(dailyBreakdownMap)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const distribution = [
+      ...(selectedSections.includes('daily-entry') ? [{ name: 'Daily Entry', value: entryIncome }] : []),
+      ...(selectedSections.includes('training') ? [{ name: 'Training', value: trainingIncome }] : []),
+      ...(selectedSections.includes('membership') ? [{ name: 'Membership', value: membershipIncome }] : []),
+      ...(selectedSections.includes('bills') ? [{ name: 'Bills', value: billIncome }] : []),
+      ...(selectedSections.includes('hourly-session') ? [{ name: 'Hourly Session', value: hourlySessionIncome }] : []),
+      ...(selectedSections.includes('beverages') ? [{ name: 'Beverages', value: beveragesIncome }] : []),
+    ];
+
+    let dailyBalance = null;
+    if (range === 'today') {
+      const openingBalance = await getOpeningBalance(req, req.companyDb);
+      const closingBalance = openingBalance + totalIncome - totalExpense;
+      dailyBalance = {
+        openingBalance,
+        income: totalIncome,
+        expense: totalExpense,
+        closingBalance,
+      };
+    }
+
+    const response = {
+      totalIncome,
+      entryIncome,
+      trainingIncome,
+      membershipIncome,
+      billIncome,
+      hourlySessionIncome,
+      beveragesIncome,
+      totalExpense,
+      expenseByCategory,
+      netCash,
+      timeline,
+      distribution,
+      dailyTransactionBreakdown,
     };
+
+    if (dailyBalance) {
+      response.dailyBalance = dailyBalance;
+    }
+
+    return res.json(response);
+  } catch (err) {
+    console.error('Error fetching income report:', err);
+    return res.status(500).json({ message: 'Server error', detail: err.message });
   }
-
-  const response = {
-    totalIncome,
-    entryIncome,
-    trainingIncome,
-    membershipIncome,
-    billIncome,
-    beveragesIncome,
-    totalExpense,
-    expenseByCategory,
-    netCash,
-    timeline,
-    distribution,
-    dailyTransactionBreakdown,
-  };
-
-  if (dailyBalance) {
-    response.dailyBalance = dailyBalance;
-  }
-
-  return res.json(response);
 });
 
 // Expense Report - breakdown by category and payment method

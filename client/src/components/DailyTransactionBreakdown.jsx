@@ -5,7 +5,8 @@ const CATEGORIES = {
   Bill: { icon: '🧾', color: '#FF6B6B', bgColor: 'bg-red-50', textColor: 'text-red-600', borderColor: 'border-red-200' },
   Training: { icon: '🏊', color: '#4ECDC4', bgColor: 'bg-teal-50', textColor: 'text-teal-600', borderColor: 'border-teal-200' },
   Membership: { icon: '🎟️', color: '#FFD93D', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600', borderColor: 'border-yellow-200' },
-  Beverage: { icon: '🧃', color: '#A8DADC', bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-200' }
+  Beverage: { icon: '🧃', color: '#A8DADC', bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-200' },
+  'Hourly Session': { icon: '⏱️', color: '#F97316', bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-200' }
 };
 
 const PAYMENT_METHODS = {
@@ -34,7 +35,8 @@ const DailyTransactionBreakdown = ({ data, filters, onFiltersChange }) => {
     Bill: { amount: 0, count: 0 },
     Training: { amount: 0, count: 0 },
     Membership: { amount: 0, count: 0 },
-    Beverage: { amount: 0, count: 0 }
+    Beverage: { amount: 0, count: 0 },
+    'Hourly Session': { amount: 0, count: 0 }
   };
 
   // Calculate payment method totals
@@ -67,7 +69,7 @@ const DailyTransactionBreakdown = ({ data, filters, onFiltersChange }) => {
       <FilterSection filters={filters} onFiltersChange={onFiltersChange} />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {Object.entries(categoryTotals).map(([category, data]) => (
           <SummaryCard 
             key={category}
@@ -143,7 +145,7 @@ const SummaryCard = ({ category, amount, count }) => {
 const FilterSection = ({ filters, onFiltersChange }) => {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [paymentDropdownOpen, setPaymentDropdownOpen] = useState(false);
-  const categoryOptions = ['Bill', 'Training', 'Membership', 'Beverage'];
+  const categoryOptions = ['Bill', 'Training', 'Membership', 'Beverage', 'Hourly Session'];
   const paymentMethods = ['all', 'Cash', 'Bank', 'bKash'];
 
   const handleCategoryToggle = (category) => {
@@ -160,7 +162,7 @@ const FilterSection = ({ filters, onFiltersChange }) => {
 
   const getCategoryLabel = () => {
     if (filters.categories.length === 0) return 'Select Categories';
-    if (filters.categories.length === 4) return 'All Categories';
+    if (filters.categories.length === categoryOptions.length) return 'All Categories';
     return `${filters.categories.length} Selected`;
   };
 

@@ -9,6 +9,7 @@ export default function BeverageSalesPage({ token }) {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [inventoryHistory, setInventoryHistory] = useState([]);
+  const [activeSessions, setActiveSessions] = useState([]);
   
   const [stats, setStats] = useState({
     today: { revenue: 0, profit: 0, quantitySold: 0, transactionCount: 0 },
@@ -169,6 +170,9 @@ export default function BeverageSalesPage({ token }) {
         // Load low stock alerts
         const alertsRes = await fetchWithToken(`${API_BASE_URL}/beverages/inventory/low-stock?threshold=10`);
         setLowStockAlerts(alertsRes.products || []);
+
+        const activeSessionsRes = await fetchWithToken(`${API_BASE_URL}/hourly-sessions/active`);
+        setActiveSessions(activeSessionsRes.sessions || []);
 
         // Load period-specific stats based on time period
         if (activeTab === 'dashboard') {
@@ -376,6 +380,44 @@ export default function BeverageSalesPage({ token }) {
     }
   };
 
+  const handleCollectDueSale = async (sale) => {
+    if (!sale.hourlySessionId) return;
+
+    const paymentMethod = window.prompt('Enter payment method for this due sale (Cash, Bank, bKash):', 'Cash');
+    if (!paymentMethod) return;
+
+    try {
+      await fetchWithToken(`${API_BASE_URL}/hourly-sessions/${sale.hourlySessionId}/close`, {
+        method: 'POST',
+        body: JSON.stringify({
+          paymentMethod: ['Cash', 'Bank', 'bKash'].includes(paymentMethod) ? paymentMethod : 'Cash',
+        }),
+      });
+
+      alert(`✓ Due sale collected for ${sale.receiptId}`);
+      await Promise.all([
+        fetchWithToken(`${API_BASE_URL}/hourly-sessions/active`)
+          .then((response) => setActiveSessions(response.sessions || [])),
+        fetchWithToken(
+          `${API_BASE_URL}/beverages/sales${
+            filters.startDate || filters.endDate || filters.productId || filters.paymentMethod
+              ? '?' +
+                new URLSearchParams({
+                  ...(filters.startDate && { startDate: filters.startDate }),
+                  ...(filters.endDate && { endDate: filters.endDate }),
+                  ...(filters.productId && { productId: filters.productId }),
+                  ...(filters.paymentMethod && { paymentMethod: filters.paymentMethod }),
+                }).toString()
+              : ''
+          }`
+        ).then((response) => setSales(response.sales || [])),
+      ]);
+    } catch (err) {
+      console.error('Error collecting due sale:', err);
+      alert(`Failed to collect due sale: ${err.message}`);
+    }
+  };
+
   // Cash Management Handlers
   const handleLoadCashData = async (dateStr) => {
     try {
@@ -479,6 +521,7 @@ export default function BeverageSalesPage({ token }) {
 
   const formatDate = (date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const formatTime = (date) => new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const activeSessionIdSet = new Set(activeSessions.map((session) => session._id));
 
   // ======================================================================
   // TAB: DASHBOARD
@@ -852,12 +895,22 @@ export default function BeverageSalesPage({ token }) {
                             </span>
                           </td>
                           <td rowSpan={sale.items.length} className="px-4 py-2 text-center">
-                            <button
-                              onClick={() => handleDeleteSale(sale._id)}
-                              className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                            >
-                              🗑️
-                            </button>
+                            <div className="flex flex-col items-center gap-2">
+                              {sale.hourlySessionId && activeSessionIdSet.has(String(sale.hourlySessionId)) && (
+                                <button
+                                  onClick={() => handleCollectDueSale(sale)}
+                                  className="bg-emerald-500 text-white px-2 py-1 rounded text-xs hover:bg-emerald-600"
+                                >
+                                  💵 Collect
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteSale(sale._id)}
+                                className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                              >
+                                🗑️
+                              </button>
+                            </div>
                           </td>
                         </>
                       )}
@@ -1234,6 +1287,7 @@ export default function BeverageSalesPage({ token }) {
       {activeModal === 'sale' && (
         <BeverageSalesForm
           products={products}
+          activeSessions={activeSessions}
           onClose={() => setActiveModal(null)}
           onSave={handleRecordSale}
         />

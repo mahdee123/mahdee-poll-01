@@ -21,6 +21,7 @@ export const initializeCompanyDatabase = async (companyId, mongoUri) => {
     const Student = companyDb.model('Student');
     const Package = companyDb.model('Package');
     const Transaction = companyDb.model('Transaction');
+    const HourlySession = companyDb.model('HourlySession');
     const Expense = companyDb.model('Expense');
     const ClassRecord = companyDb.model('ClassRecord');
     const CashMovement = companyDb.model('CashMovement');
@@ -40,6 +41,10 @@ export const initializeCompanyDatabase = async (companyId, mongoUri) => {
     await Transaction.collection.createIndex({ companyId: 1 });
     await Transaction.collection.createIndex({ date: -1 });
     await Transaction.collection.createIndex({ receiptId: 1 });
+
+    await HourlySession.collection.createIndex({ companyId: 1 });
+    await HourlySession.collection.createIndex({ status: 1, startTime: -1 });
+    await HourlySession.collection.createIndex({ plannedEndTime: 1 });
 
     await Expense.collection.createIndex({ companyId: 1 });
     await Expense.collection.createIndex({ date: -1 });

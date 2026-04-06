@@ -226,7 +226,7 @@ router.get('/inventory/:productId', authRequired, validateCompanyContext, async 
 // Record beverage sale (multi-product support)
 router.post('/sales', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   try {
-    const { items, paymentMethod, date, notes } = req.body;
+    const { items, paymentMethod, date, notes, hourlySessionId } = req.body;
 
     console.log('[Beverage] POST /sales request received:', { itemsCount: items?.length, paymentMethod, date });
 
@@ -352,6 +352,7 @@ router.post('/sales', authRequired, requireRole('admin', 'manager'), validateCom
       receiptId: generateReceiptId(),
       date: date ? new Date(date) : new Date(),
       notes: notes ? notes.trim() : '',
+      hourlySessionId: hourlySessionId || null,
     };
 
     console.log('[Beverage] saleData structure before save:', {
@@ -397,12 +398,29 @@ router.post('/sales', authRequired, requireRole('admin', 'manager'), validateCom
     // Create corresponding Transaction record for cash management integration
     try {
       const Transaction = getCompanyModel(req.companyDb, 'Transaction');
+      const HourlySession = getCompanyModel(req.companyDb, 'HourlySession');
       const beverageItems = processedItems.map(item => ({
         productName: item.productName,
         quantity: item.quantity,
         sellingPricePerUnit: item.sellingPricePerUnit,
         lineTotal: item.lineTotal,
       }));
+
+      let linkedSession = null;
+      if (hourlySessionId) {
+        linkedSession = await HourlySession.findOne({
+          _id: hourlySessionId,
+          companyId: req.companyId,
+          status: 'active',
+        });
+
+        if (!linkedSession) {
+          return res.status(400).json({ message: 'Selected hourly session is no longer active' });
+        }
+
+        linkedSession.beverageCharge = Number((linkedSession.beverageCharge || 0) + totalAmount);
+        await linkedSession.save();
+      }
 
       const transaction = new Transaction({
         serviceType: 'Beverage',
@@ -416,10 +434,17 @@ router.post('/sales', authRequired, requireRole('admin', 'manager'), validateCom
         profit: totalProfit,
         profitMargin,
         companyId: req.companyId,
+        sessionId: linkedSession?._id || null,
+        beverageCharge: totalAmount,
       });
 
       await transaction.save();
       console.log(`[Beverage] ✓ Transaction record created for cash management integration (ID: ${transaction._id})`);
+
+      if (linkedSession) {
+        sale.hourlySessionId = linkedSession._id;
+        await sale.save();
+      }
     } catch (txnError) {
       console.error(`[Beverage] ⚠ Warning: Transaction record creation failed, but BeverageSale saved:`, txnError.message);
       // Don't fail the entire request if transaction creation fails - sale is already saved

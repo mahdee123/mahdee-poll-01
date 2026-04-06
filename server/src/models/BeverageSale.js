@@ -23,6 +23,7 @@ const beverageSaleSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now, required: true, index: true },
     receiptId: { type: String, unique: true, index: true }, // For receipt generation
     notes: { type: String, default: '' }, // Optional notes
+    hourlySessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'HourlySession', default: null },
   },
   { timestamps: true }
 );
