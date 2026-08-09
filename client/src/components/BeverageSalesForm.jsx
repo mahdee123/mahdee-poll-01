@@ -203,11 +203,11 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] sm:max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">💰 Record Beverage Sale</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center">
             ✕
           </button>
         </div>
@@ -225,7 +225,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <h3 className="font-semibold text-gray-800 mb-4">🛒 Add Product</h3>
 
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {/* Product Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">🧃 Select Product *</label>
@@ -280,7 +280,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
 
               {/* Stock Info */}
               {selectedProduct && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
                   <p className="text-gray-700">
                     <strong>Cost Price:</strong> {selectedProduct.costPrice} BDT
                   </p>
@@ -296,7 +296,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
               type="button"
               onClick={handleAddItem}
               disabled={!selectedProduct || selectedProduct.currentStock === 0}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               ➕ Add to Cart
             </button>
@@ -343,7 +343,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
           )}
 
           {/* Shared Transaction Details */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📅 Sale Date</label>
               <input
@@ -391,7 +391,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
                 ))}
               </select>
               {shared.hourlySessionId ? (
-                <p className="mt-2 text-xs text-blue-600">
+                <p className="mt-2 text-xs text-primary">
                   Beverage amount will be added to the selected swimmer account and settled with the session.
                 </p>
               ) : null}
@@ -421,7 +421,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
                 </div>
                 <div className="flex justify-between">
                   <span>Total Revenue:</span>
-                  <span className="font-semibold text-blue-600">{calculation.totalAmount.toFixed(2)} BDT</span>
+                  <span className="font-semibold text-primary">{calculation.totalAmount.toFixed(2)} BDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total Cost:</span>

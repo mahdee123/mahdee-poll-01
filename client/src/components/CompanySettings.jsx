@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building, Users, Plus, Edit2, Trash2 } from 'lucide-react';
 import Card from './Card';
 import Badge from './Badge';
@@ -10,15 +11,19 @@ import InviteUserModal from './InviteUserModal';
 import EditCompanyModal from './EditCompanyModal';
 import EditUserRoleModal from './EditUserRoleModal';
 import ConfirmDeleteUserModal from './ConfirmDeleteUserModal';
+import Sidebar from './Sidebar';
 
 export default function CompanySettings({ token }) {
+  const navigate = useNavigate();
   // State for data
   const [company, setCompany] = useState(null);
   const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [defaultMemberFee, setDefaultMemberFee] = useState(2000);
   const [editingFee, setEditingFee] = useState(false);
   const [newFeeValue, setNewFeeValue] = useState(2000);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // State for modals
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -53,6 +58,7 @@ export default function CompanySettings({ token }) {
 
       const { user, company, staff } = await response.json();
       setCompany(company);
+      setCurrentUser(user);
       // Combine current user with staff
       setUsers([user, ...staff]);
 
@@ -131,7 +137,7 @@ export default function CompanySettings({ token }) {
     }
   };
 
-  const handleUpdateUserRole = async (userId, role) => {
+  const handleUpdateUserRole = async (userId, role, permissions) => {
     setActionLoading(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/users/${userId}/role`, {
@@ -140,7 +146,7 @@ export default function CompanySettings({ token }) {
           'Authorization': `Bearer ${token || localStorage.getItem('raya_token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ role })
+        body: JSON.stringify({ role, permissions })
       });
 
       if (!response.ok) {
@@ -239,13 +245,27 @@ export default function CompanySettings({ token }) {
   const staff = users.slice(1);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Company Settings</h1>
-          <p className="text-gray-600 mt-2">Manage your company information and team members</p>
-        </div>
+    <div className="flex flex-1">
+      {/* Mobile Header */}
+      <header className="sm:hidden fixed top-0 left-0 right-0 z-30 bg-secondary text-white px-4 py-3 flex items-center gap-3">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="text-white text-2xl p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+        <span className="text-lg font-bold">Raya Pool</span>
+      </header>
+
+      <Sidebar view="settings" setView={(v) => navigate('/dashboard')} user={currentUser} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 min-h-screen bg-gray-50 pt-14 sm:pt-0 py-4 sm:py-8 px-4 overflow-y-auto">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Company Settings</h1>
+            <p className="text-gray-600 mt-2">Manage your company information and team members</p>
+          </div>
 
         {/* Notifications */}
         {toast && (
@@ -266,6 +286,18 @@ export default function CompanySettings({ token }) {
             <div>
               <p className="text-sm text-gray-600 mb-1">Company ID</p>
               <p className="font-mono text-sm text-gray-800 break-all">{company?.id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Address</p>
+              <p className="text-lg font-semibold text-gray-800">{company?.address || '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Phone</p>
+              <p className="text-lg font-semibold text-gray-800">{company?.phone || '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Email</p>
+              <p className="text-lg font-semibold text-gray-800">{company?.email || '—'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Status</p>
@@ -294,7 +326,7 @@ export default function CompanySettings({ token }) {
         <Card className="mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Users className="w-6 h-6 text-blue-600" />
+              <Users className="w-6 h-6 text-primary" />
               <div>
                 <h2 className="text-xl font-bold text-gray-800">Team Members</h2>
                 <p className="text-sm text-gray-600">{users.length} member{users.length !== 1 ? 's' : ''}</p>
@@ -343,7 +375,7 @@ export default function CompanySettings({ token }) {
                             setSelectedUser(user);
                             setShowEditRoleModal(true);
                           }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors"
                           title="Edit role"
                         >
                           <Edit2 size={16} />
@@ -383,7 +415,7 @@ export default function CompanySettings({ token }) {
                         setSelectedUser(user);
                         setShowEditRoleModal(true);
                       }}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      className="p-1.5 text-primary hover:bg-primary/5 rounded-lg"
                     >
                       <Edit2 size={16} />
                     </button>
@@ -463,6 +495,7 @@ export default function CompanySettings({ token }) {
           loading={actionLoading}
         />
       )}
+    </div>
     </div>
   );
 }

@@ -5,14 +5,14 @@
   "main": "index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "start": "npm run start --prefix server"
+    "start": "npm install --prefix server && npm run start --prefix server"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "type": "commonjs",
   "engines": {
-    "node": "18.17.0",
+    "node": ">=20.0.0",
     "npm": ">=9.0.0"
   },
   "devDependencies": {

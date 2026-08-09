@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../api.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
 
-const BATCH_TYPES = [
+const DEFAULT_BATCH_TYPES = [
   { value: 'Regular', label: 'Regular (30 days)' },
   { value: 'Weekend', label: 'Weekend (40 days)' },
 ];
 
-const CLASS_SLOTS = {
+const DEFAULT_CLASS_SLOTS = {
   1: { label: 'Class 01', time: '08:00 AM - 09:00 AM' },
   2: { label: 'Class 02', time: '09:00 AM - 10:00 AM' },
   3: { label: 'Class 03', time: '05:00 PM - 06:00 PM' },
@@ -19,11 +19,23 @@ const formatDate = (d) => {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-export default function StudentProfileModal({ isOpen, student, onClose, token, showToast, onSave }) {
+export default function StudentProfileModal({ isOpen, student, onClose, token, showToast, onSave, settings }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [classHistory, setClassHistory] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', action: null });
+
+  const DYNAMIC_BATCH_TYPES = useMemo(() => {
+    if (!settings?.batches) return DEFAULT_BATCH_TYPES;
+    return settings.batches.map((b) => ({ value: b.name, label: `${b.name} (${b.days} days)` }));
+  }, [settings]);
+
+  const DYNAMIC_CLASS_SLOTS = useMemo(() => {
+    if (!settings?.classSlots) return DEFAULT_CLASS_SLOTS;
+    const map = {};
+    settings.classSlots.forEach((s) => { map[s.id] = { label: s.label, time: `${s.startTime} - ${s.endTime}` }; });
+    return map;
+  }, [settings]);
 
   const [editForm, setEditForm] = useState({
     name: '',
@@ -173,7 +185,7 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
                     className="border rounded-lg px-3 py-2"
                   >
                     <option value="">Select Batch</option>
-                    {BATCH_TYPES.map((b) => (
+                    {DYNAMIC_BATCH_TYPES.map((b) => (
                       <option key={b.value} value={b.value}>
                         {b.label}
                       </option>
@@ -185,9 +197,9 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
                     className="border rounded-lg px-3 py-2"
                   >
                     <option value="">Select Slot</option>
-                    {[1, 2, 3, 4].map((s) => (
+                    {Object.keys(DYNAMIC_CLASS_SLOTS).map((s) => (
                       <option key={s} value={s}>
-                        {CLASS_SLOTS[s].label} - {CLASS_SLOTS[s].time}
+                        {DYNAMIC_CLASS_SLOTS[s].label} - {DYNAMIC_CLASS_SLOTS[s].time}
                       </option>
                     ))}
                   </select>
@@ -239,9 +251,9 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
               <div>
                 <h3 className="font-semibold text-lg mb-3">💰 Payment Information</h3>
                 <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <p className="text-blue-600 text-xs uppercase font-semibold">Package Price</p>
-                    <p className="text-lg font-bold text-blue-700">৳{student.price?.toLocaleString() || 0}</p>
+                  <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
+                    <p className="text-primary text-xs uppercase font-semibold">Package Price</p>
+                    <p className="text-lg font-bold text-primary">৳{student.price?.toLocaleString() || 0}</p>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
                     <p className="text-slate-600 text-xs uppercase font-semibold">Amount Paid</p>
@@ -256,7 +268,7 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
                   <button
                     onClick={handlePayDue}
                     disabled={loading}
-                    className="w-full mt-3 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg disabled:opacity-50"
+                    className="w-full mt-3 px-4 py-2 bg-primary hover:bg-primary text-white font-medium rounded-lg disabled:opacity-50"
                   >
                     💳 Pay Due Amount (৳{student.due?.toLocaleString() || 0})
                   </button>
@@ -281,7 +293,7 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
                   <div>
                     <p className="text-gray-600">Class Slot</p>
                     <p className="font-semibold">
-                      {CLASS_SLOTS[student.classSlot]?.label} - {CLASS_SLOTS[student.classSlot]?.time}
+                      {DYNAMIC_CLASS_SLOTS[student.classSlot]?.label} - {DYNAMIC_CLASS_SLOTS[student.classSlot]?.time}
                     </p>
                   </div>
                   <div>

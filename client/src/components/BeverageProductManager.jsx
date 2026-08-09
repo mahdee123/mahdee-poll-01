@@ -73,11 +73,11 @@ export default function BeverageProductManager({ products = [], onAdd, onUpdate,
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] sm:max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">🧃 Beverage Products</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center">
             ✕
           </button>
         </div>
@@ -88,7 +88,7 @@ export default function BeverageProductManager({ products = [], onAdd, onUpdate,
           {!showForm && (
             <button
               onClick={handleAddClick}
-              className="mb-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+              className="mb-6 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
             >
               ➕ Add New Product
             </button>
@@ -99,7 +99,7 @@ export default function BeverageProductManager({ products = [], onAdd, onUpdate,
             <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-50 rounded-lg border">
               <h3 className="font-semibold mb-4">{editingId ? '✏️ Edit Product' : '📝 New Product'}</h3>
 
-              <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
                   <input
@@ -170,7 +170,7 @@ export default function BeverageProductManager({ products = [], onAdd, onUpdate,
 
               {/* Profit calculation display */}
               {formData.costPrice && formData.sellingPrice && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
                   <p className="text-sm text-gray-700">
                     📊 <strong>Profit per unit:</strong> {formData.sellingPrice - formData.costPrice} BDT
                     ({(((formData.sellingPrice - formData.costPrice) / formData.sellingPrice) * 100).toFixed(1)}% margin)
@@ -211,7 +211,7 @@ export default function BeverageProductManager({ products = [], onAdd, onUpdate,
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-800">
                       {product.name}
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded ml-2">
                         {product.unit}
                       </span>
                     </h4>

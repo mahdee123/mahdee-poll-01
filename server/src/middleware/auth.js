@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { getJWTSecret } from '../utils/jwt.js';
 
 const getTokenFromRequest = (req) => {
   const authHeader = req.headers.authorization;
@@ -17,7 +18,8 @@ export const authRequired = (req, res, next) => {
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = getJWTSecret();
+    const decoded = jwt.verify(token, jwtSecret);
     // JWT now includes companyId
     req.user = decoded;
     return next();

@@ -13,7 +13,7 @@ export default function Card({ children, className = '', header = null, title = 
       
       {(title || Icon) && !header && (
         <div className="flex items-center gap-3 mb-6">
-          {Icon && <Icon className="w-6 h-6 text-blue-600" />}
+          {Icon && <Icon className="w-6 h-6 text-primary" />}
           {title && <h2 className="text-xl font-bold text-gray-800">{title}</h2>}
         </div>
       )}

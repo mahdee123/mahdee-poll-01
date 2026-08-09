@@ -8,6 +8,9 @@ import Button from './Button';
 export default function EditCompanyModal({ isOpen, onClose, company, onSave, loading = false }) {
   const [formData, setFormData] = useState({
     name: company?.name || '',
+    address: company?.address || '',
+    phone: company?.phone || '',
+    email: company?.email || '',
   });
   const [error, setError] = useState('');
 
@@ -27,7 +30,6 @@ export default function EditCompanyModal({ isOpen, onClose, company, onSave, loa
 
     try {
       await onSave(formData);
-      setFormData({ name: company?.name || '' });
     } catch (err) {
       setError(err.message || 'Failed to update company');
     }
@@ -43,7 +45,7 @@ export default function EditCompanyModal({ isOpen, onClose, company, onSave, loa
           <h2 className="text-xl font-bold text-gray-800">Edit Company Information</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <X size={24} />
           </button>
@@ -67,9 +69,55 @@ export default function EditCompanyModal({ isOpen, onClose, company, onSave, loa
               value={formData.name}
               onChange={handleChange}
               placeholder="Enter company name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               disabled={loading}
             />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Address
+            </label>
+            <input
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="Enter company address"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Phone
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="Enter phone number"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter email address"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                disabled={loading}
+              />
+            </div>
           </div>
 
           {/* Footer */}

@@ -2,6 +2,30 @@ import mongoose from 'mongoose';
 
 const connectionCache = new Map();
 
+// Cap how many company DB connections we keep open at once. Each self-service
+// signup previously created a connection that was cached forever, which is an
+// easy way to exhaust the MongoDB connection limit. Once the cap is hit, the
+// least-recently-used connection is closed to make room for the new one.
+const MAX_CACHED_CONNECTIONS = Number(process.env.MAX_COMPANY_DB_CONNECTIONS || 50);
+
+/**
+ * Derive a per-company database URI by swapping the database name on the
+ * system connection string, so company databases always live on the same
+ * MongoDB host/cluster as the system database instead of a hardcoded host.
+ * @param {string} companyId - Company ID, used as the database name suffix
+ * @returns {string}
+ */
+export const buildCompanyMongoUri = (companyId) => {
+  const base = process.env.SYSTEM_MONGODB_URI || 'mongodb://127.0.0.1:27017/pool_system';
+  try {
+    const url = new URL(base);
+    url.pathname = `/pool_${companyId}`;
+    return url.toString();
+  } catch {
+    return `mongodb://127.0.0.1:27017/pool_${companyId}`;
+  }
+};
+
 /**
  * Get or create a Mongoose connection to a company's database
  * Caches connections to avoid reconnecting repeatedly
@@ -18,11 +42,26 @@ export const getCompanyConnection = async (companyId, mongoUri) => {
   if (connectionCache.has(companyId)) {
     const cached = connectionCache.get(companyId);
     if (cached.readyState === 1) {
-      // 1 = connected
+      // 1 = connected. Refresh recency (Map preserves insertion order, so
+      // delete+re-set moves this entry to the "most recently used" end).
+      connectionCache.delete(companyId);
+      connectionCache.set(companyId, cached);
       return cached;
     }
     // Connection no longer valid, remove from cache
     connectionCache.delete(companyId);
+  }
+
+  // Evict the least-recently-used connection if we're at capacity, so an
+  // unbounded stream of new companies (e.g. via public signup) can't hold
+  // open connections forever.
+  if (connectionCache.size >= MAX_CACHED_CONNECTIONS) {
+    const oldestKey = connectionCache.keys().next().value;
+    const oldestConnection = connectionCache.get(oldestKey);
+    connectionCache.delete(oldestKey);
+    oldestConnection.close().catch((err) => {
+      console.error(`Error closing evicted connection for company ${oldestKey}:`, err.message);
+    });
   }
 
   // Create new connection

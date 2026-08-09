@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api.js';
 
-export default function CollectPaymentModal({ isOpen, memberId, memberName, totalDue, monthlyDue = 0, isMonthlyDue = false, onClose, onSuccess, showToast, token }) {
+const formatMonth = (monthStr) => {
+  if (!monthStr) return '';
+  const [year, month] = monthStr.split('-');
+  const date = new Date(Number(year), Number(month) - 1);
+  return date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+};
+
+export default function CollectPaymentModal({ isOpen, memberId, memberName, totalDue, monthlyDue = 0, isMonthlyDue = false, memberDueHistory = [], onClose, onSuccess, showToast, token }) {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Determine which due amount to use
-  const dueAmount = isMonthlyDue ? monthlyDue : totalDue;
+  // Get unpaid months from dueHistory (monthly fee entries only)
+  const unpaidMonths = memberDueHistory.filter(e => e.type === 'Due' && e.reason?.startsWith('Monthly Fee') && !e.paid);
+  const oldestUnpaid = unpaidMonths.length > 0 ? unpaidMonths[0] : null;
+  const dueAmount = isMonthlyDue ? (oldestUnpaid?.amount || monthlyDue) : totalDue;
 
   useEffect(() => {
-    if (isOpen && dueAmount) {
+    if (isOpen) {
       setPaymentAmount(dueAmount.toString());
       setPaymentMethod('Cash');
       setError('');
@@ -59,8 +68,9 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
         token
       });
 
-      const paymentType = isMonthlyDue ? 'Monthly Due' : 'Purchase Due';
-      showToast(`✅ ${paymentType} payment collected ৳${amount} via ${paymentMethod}`);
+      const paymentType = isMonthlyDue ? 'Monthly' : 'Admission Due';
+      const monthInfo = isMonthlyDue && response.collectedMonthName ? ` (${response.collectedMonthName})` : '';
+      showToast(`✅ ${paymentType} payment collected ৳${amount} via ${paymentMethod}${monthInfo}`);
       
       // Close modal and call success callback
       onClose();
@@ -81,7 +91,7 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="card p-6 max-w-md w-full shadow-lg">
+      <div className="card p-6 max-w-md w-full shadow-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">{isMonthlyDue ? 'Collect Monthly Due' : 'Collect Payment'}</h2>
           <button
@@ -100,11 +110,37 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
             <p className="font-semibold text-lg">{memberName}</p>
           </div>
 
-          {/* Current Due Display */}
-          <div className={`rounded-lg p-4 ${isMonthlyDue ? 'bg-blue-50 border border-blue-200' : 'bg-orange-50 border border-orange-200'}`}>
-            <p className={`text-sm ${isMonthlyDue ? 'text-blue-600' : 'text-orange-600'}`}>{isMonthlyDue ? 'Monthly Due' : 'Current Due'}</p>
-            <p className={`text-3xl font-bold ${isMonthlyDue ? 'text-blue-700' : 'text-orange-700'}`}>৳{dueAmount}</p>
-          </div>
+          {/* Monthly Due - Show month being collected */}
+          {isMonthlyDue && oldestUnpaid && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+              <p className="text-sm text-primary">Collecting Month</p>
+              <p className="text-2xl font-bold text-primary">{formatMonth(oldestUnpaid.month)}</p>
+              <p className="text-sm text-primary mt-1">Amount: ৳{oldestUnpaid.amount?.toLocaleString()}</p>
+            </div>
+          )}
+
+          {/* Unpaid Months List */}
+          {isMonthlyDue && unpaidMonths.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-orange-700 mb-2">Unpaid Months ({unpaidMonths.length})</p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {unpaidMonths.map((entry, i) => (
+                  <div key={i} className={`flex justify-between text-xs px-2 py-1 rounded ${i === 0 ? 'bg-orange-100 font-semibold' : ''}`}>
+                    <span>{formatMonth(entry.month)}{i === 0 ? ' ← collecting' : ''}</span>
+                    <span>৳{entry.amount?.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Current Due Display (for non-monthly) */}
+          {!isMonthlyDue && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <p className="text-sm text-orange-600">Current Due</p>
+              <p className="text-3xl font-bold text-orange-700">৳{dueAmount}</p>
+            </div>
+          )}
 
           {/* Payment Amount Input */}
           <div>
@@ -115,15 +151,20 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
               type="number"
               value={paymentAmount}
               onChange={handlePaymentAmountChange}
-              disabled={loading}
+              disabled={loading || isMonthlyDue}
               placeholder="Enter payment amount"
-              className="w-full border rounded-lg px-3 py-2 text-lg font-semibold disabled:opacity-50"
+              className="w-full border rounded-lg px-3 py-2 text-lg font-semibold disabled:opacity-50 disabled:bg-gray-50"
               min="1"
               step="100"
             />
-            {paymentAmount && !error && (
+            {!isMonthlyDue && paymentAmount && !error && (
               <p className="text-xs text-gray-500 mt-1">
                 Remaining: ৳{Math.max(0, totalDue - Number(paymentAmount))}
+              </p>
+            )}
+            {isMonthlyDue && (
+              <p className="text-xs text-gray-500 mt-1">
+                Monthly fee is fixed at ৳{oldestUnpaid?.amount?.toLocaleString() || monthlyDue}
               </p>
             )}
           </div>
@@ -149,7 +190,7 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
           {error && (
             <div className={`p-3 rounded-lg text-sm ${
               error.includes('Warning')
-                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                ? 'bg-primary/5 text-primary border border-primary/20'
                 : 'bg-red-50 text-red-700 border border-red-200'
             }`}>
               {error}
@@ -157,18 +198,18 @@ export default function CollectPaymentModal({ isOpen, memberId, memberName, tota
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
             <button
               onClick={handleCollectPayment}
               disabled={loading || !isValidAmount || !paymentMethod}
-              className="flex-1 btn-primary disabled:opacity-50"
+              className="flex-1 btn-primary disabled:opacity-50 min-h-[44px]"
             >
               {loading ? '⏳ Processing...' : '✅ Collect Payment'}
             </button>
             <button
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium disabled:opacity-50"
+              className="flex-1 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium disabled:opacity-50 min-h-[44px]"
             >
               Cancel
             </button>

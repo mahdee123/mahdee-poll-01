@@ -26,7 +26,7 @@ export default function ActionDropdown({ actions = [] }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-1 text-sm rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition"
+        className="px-3 py-1 text-sm rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition"
       >
         Actions ▼
       </button>

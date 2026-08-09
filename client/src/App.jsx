@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import './index.css';
 import { apiRequest } from './api.js';
@@ -8,13 +6,17 @@ import MembershipPage from './components/MembershipPage.jsx';
 import TrainingPage from './components/TrainingPage.jsx';
 import BillsPage from './components/BillsPage.jsx';
 import Receipt from './components/Receipt.jsx';
-import ExpensePage from './components/ExpensePage.jsx';
 import BeverageSalesPage from './components/BeverageSalesPage.jsx';
 import ReconciliationReport from './components/ReconciliationReport.jsx';
 import CashMovementPage from './components/CashMovementPage.jsx';
 import InitialOpeningBalanceModal from './components/InitialOpeningBalanceModal.jsx';
+import LockerManagementPage from './components/LockerManagementPage.jsx';
+import DressRentalPage from './components/DressRentalPage.jsx';
+import AccountingPage from './components/AccountingPage.jsx';
 import DailyTransactionBreakdown from './components/DailyTransactionBreakdown.jsx';
+import ProfessionalReportPage from './components/ProfessionalReportPage.jsx';
 import { downloadDailyReportPdf, downloadDailyReportSheet } from './utils/reportExports.js';
+import Sidebar from './components/Sidebar.jsx';
 
 const SERVICE_TYPES = ['Daily Entry', 'Training', 'Membership'];
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
@@ -29,79 +31,13 @@ const PLAN_PRESETS = {
 
 const formatDate = (value) => new Date(value).toISOString().split('T')[0];
 
-const Sidebar = ({ view, setView, user }) => {
-  const navigate = useNavigate();
-  const { clearAuth } = useAuth();
-  
-  const items = user?.role === 'admin'
-    ? [
-        { key: 'dashboard', label: 'Dashboard' },
-        { key: 'billing', label: 'Bills / Receipts' },
-        { key: 'beverages', label: '🧃 Beverage Sales' },
-        { key: 'training', label: 'Training' },
-        { key: 'members', label: 'Memberships' },
-        { key: 'packages', label: 'Packages' },
-        { key: 'expenses', label: 'Expenses' },
-        { key: 'cash-movements', label: '💰 Cash Movements' },
-        { key: 'reconciliation', label: '📊 Reconciliation' },
-        { key: 'reports', label: 'Reports' },
-      ]
-    : [
-        { key: 'billing', label: 'Bills / Receipts' },
-        { key: 'training', label: 'Training' },
-        { key: 'reports', label: 'Reports' },
-      ];
-
-  const handleLogout = () => {
-    clearAuth();
-    navigate('/login');
-  };
-
-  return (
-    <aside className="w-full sm:w-72 bg-secondary text-white p-4 flex-shrink-0 flex flex-col">
-      <div className="text-xl font-bold mb-6">Raya Pool</div>
-      <nav className="space-y-2 flex-1">
-        {items.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => setView(item.key)}
-            className={`w-full text-left px-3 py-2 rounded-lg transition ${
-              view === item.key ? 'bg-white text-secondary font-semibold' : 'hover:bg-white/10'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-      
-      {/* Settings and Logout */}
-      <div className="space-y-2 border-t border-white/20 pt-4 mt-4">
-        {user?.role === 'admin' && (
-          <button
-            onClick={() => navigate('/settings/company')}
-            className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition text-sm"
-          >
-            ⚙️ Company Settings
-          </button>
-        )}
-        <button
-          onClick={handleLogout}
-          className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-500 transition text-sm"
-        >
-          🚪 Logout
-        </button>
-      </div>
-    </aside>
-  );
-};
-
 const StatCard = ({ title, value, hint, highlight }) => {
   return (
-    <div className="bg-white rounded-lg p-5 border border-gray-200 hover:border-gray-300 transition hover:shadow-sm flex flex-col gap-2">
-      <span className="text-sm font-medium text-gray-600">
+    <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200 hover:border-gray-300 transition hover:shadow-sm flex flex-col gap-1 sm:gap-2">
+      <span className="text-xs sm:text-sm font-medium text-gray-600">
         {title}
       </span>
-      <span className="text-2xl font-bold text-gray-900">
+      <span className="text-xl sm:text-2xl font-bold text-gray-900">
         {value}
       </span>
       {hint ? (
@@ -123,14 +59,9 @@ const IncomeChartTooltip = ({ active, payload, label }) => {
       <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
         <p className="text-sm font-semibold text-gray-700 mb-2">{data.date}</p>
         <div className="space-y-1">
-          <p className="text-sm text-blue-600">
+          <p className="text-sm text-primary">
             <span className="font-medium">Income:</span> ৳ {data.income.toLocaleString()}
           </p>
-          {data.expense > 0 && (
-            <p className="text-sm text-red-600">
-              <span className="font-medium">Expense:</span> ৳ {data.expense.toLocaleString()}
-            </p>
-          )}
           <p className="text-sm text-green-600">
             <span className="font-medium">Net Cash:</span> ৳ {data.netCash.toLocaleString()}
           </p>
@@ -143,7 +74,7 @@ const IncomeChartTooltip = ({ active, payload, label }) => {
 
 const IncomeChart = ({ points }) => {
   if (!points || !points.length) {
-    return <div className="flex h-64 items-center justify-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">No transactions found for selected date</div>;
+    return <div className="flex h-48 sm:h-64 items-center justify-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">No transactions found for selected date</div>;
   }
   
   // Check if points have income/expense structure (Phase 4+) or old amount structure
@@ -173,21 +104,17 @@ const IncomeChart = ({ points }) => {
 
   // Find peak income and expense days for highlighting
   const peakIncomeValue = Math.max(...data.map(d => d.income));
-  const peakExpenseValue = Math.max(...data.map(d => d.expense));
   
   const renderCustomDot = (props) => {
     const { cx, cy, payload, dataKey } = props;
     if (!payload) return null;
     
     let isPeak = false;
-    let color = '#008CFF'; // default blue
+    let color = '#008CFF'; // primary
     
     if (dataKey === 'income' && payload.income === peakIncomeValue && peakIncomeValue > 0) {
       isPeak = true;
       color = '#008CFF';
-    } else if (dataKey === 'expense' && payload.expense === peakExpenseValue && peakExpenseValue > 0) {
-      isPeak = true;
-      color = '#EF4444';
     }
     
     const radius = isPeak ? 6 : 4;
@@ -205,7 +132,7 @@ const IncomeChart = ({ points }) => {
   };
 
   return (
-    <div className="h-64 mt-4 w-full">
+    <div className="h-48 sm:h-64 mt-4 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} animationDuration={800} animationEasing="ease-in-out">
           <CartesianGrid strokeDasharray="3 3" opacity={0.4} vertical={false} />
@@ -223,18 +150,6 @@ const IncomeChart = ({ points }) => {
             activeDot={{r: 8}}
             isAnimationActive={true}
           />
-          {data.some(d => d.expense > 0) && (
-            <Line 
-              type="monotone" 
-              dataKey="expense" 
-              name="Expense" 
-              stroke="#EF4444" 
-              strokeWidth={3} 
-              dot={renderCustomDot}
-              activeDot={{r: 8}}
-              isAnimationActive={true}
-            />
-          )}
           {data.some(d => d.netCash > 0) && (
             <Line 
               type="monotone" 
@@ -255,11 +170,11 @@ const IncomeChart = ({ points }) => {
 
 const ServicePieChart = ({ slices }) => {
   const data = slices.filter(s => s.value > 0);
-  if (!data.length) return <div className="flex h-64 items-center justify-center text-gray-500">No data available</div>;
+  if (!data.length) return <div className="flex h-48 sm:h-64 items-center justify-center text-gray-500">No data available</div>;
   const COLORS = ['#008CFF', '#10b981', '#1B1B1B']; // Blue, Green, Dark
   
   return (
-    <div className="h-64 w-full">
+    <div className="h-48 sm:h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value">
@@ -274,10 +189,10 @@ const ServicePieChart = ({ slices }) => {
 };
 
 const BreakdownBarChart = ({ slices }) => {
-  if (!slices || !slices.reduce((a,b)=>a+b.value, 0)) return <div className="flex h-64 items-center justify-center text-gray-500">No data available</div>;;
+  if (!slices || !slices.reduce((a,b)=>a+b.value, 0)) return <div className="flex h-48 sm:h-64 items-center justify-center text-gray-500">No data available</div>;;
   const COLORS = ['#008CFF', '#10b981', '#1B1B1B'];
   return (
-    <div className="h-64 w-full">
+    <div className="h-48 sm:h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={slices} margin={{ top: 20 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.4} vertical={false} />
@@ -296,9 +211,9 @@ const BreakdownBarChart = ({ slices }) => {
 const Toast = ({ toast, onClose }) => {
   if (!toast) return null;
   return (
-    <div className="fixed top-4 right-4 bg-white border border-primary text-secondary shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 z-50">
-      <span>{toast.message}</span>
-      <button className="text-primary" onClick={onClose} aria-label="Close toast">
+    <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-auto bg-white border border-primary text-secondary shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 z-[60]">
+      <span className="flex-1 text-sm">{toast.message}</span>
+      <button className="text-primary min-h-[44px] min-w-[44px] flex items-center justify-center" onClick={onClose} aria-label="Close toast">
         ✕
       </button>
     </div>
@@ -310,6 +225,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('dashboard');
   const [toast, setToast] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [billForm, setBillForm] = useState({
     name: '',
@@ -343,7 +259,7 @@ function App() {
 
   // Removed students, trainingSummary, remainingList states (now in TrainingPage)
   const [packages, setPackages] = useState([]);
-  const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, billIncome: 0, beveragesIncome: 0, totalExpense: 0, expenseByCategory: {}, netCash: 0, timeline: [], distribution: [], dailyBalance: null, dailyTransactionBreakdown: [] });
+  const [report, setReport] = useState({ totalIncome: 0, entryIncome: 0, trainingIncome: 0, membershipIncome: 0, billIncome: 0, beveragesIncome: 0, totalExpense: 0, netCash: 0, timeline: [], distribution: [], dailyBalance: null, dailyTransactionBreakdown: [] });
 
   const reportDays = report.dailyTransactionBreakdown || [];
   const selectedDailyReport = reportDays.find((day) => day.date === selectedReportDate) || reportDays[reportDays.length - 1] || null;
@@ -515,16 +431,47 @@ function App() {
         apiRequest(`/reports/income${query}`, { token: tk }),
       ];
 
+      // Fetch expense data for the same date range
+      const toLocal = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      let expenseQuery = '';
+      if (filterOverride.range === 'today') {
+        expenseQuery = `?startDate=${toLocal(new Date())}&endDate=${toLocal(new Date())}`;
+      } else if (filterOverride.range === 'custom' && filterOverride.startDate) {
+        expenseQuery = `?startDate=${filterOverride.startDate}&endDate=${filterOverride.endDate || toLocal(new Date())}`;
+      } else {
+        // For week/month/year, compute approximate range
+        const now = new Date();
+        let start;
+        if (filterOverride.range === 'yesterday') {
+          start = new Date(now); start.setDate(start.getDate() - 1);
+        } else if (filterOverride.range === 'last7days') {
+          start = new Date(now); start.setDate(start.getDate() - 7);
+        } else if (filterOverride.range === 'thisMonth') {
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (filterOverride.range === 'thisYear') {
+          start = new Date(now.getFullYear(), 0, 1);
+        } else {
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        expenseQuery = `?startDate=${toLocal(start)}&endDate=${toLocal(now)}`;
+      }
+      requests.push(apiRequest(`/daily-expenses/summary${expenseQuery}`, { token: tk }));
+
       if (roleOverride === 'admin') {
         requests.push(apiRequest('/packages', { token: tk }));
       }
 
       const responses = await Promise.all(requests);
-      const [income, packagesRes] = responses;
+      const [income, expenseRes, packagesRes] = responses;
       if (roleOverride === 'admin') {
         setPackages(packagesRes?.packages || []);
       }
-      setReport(income);
+      setReport({ ...income, totalExpense: expenseRes?.totalAmount || 0 });
     } catch (err) {
       console.error(err);
       showToast(err.message);
@@ -596,24 +543,34 @@ function App() {
         onSubmit={handleInitializeOpeningBalance}
         isLoading={isInitializingBalance}
       />
-      <div className="flex flex-1">
-        <Sidebar view={view} setView={setView} user={user} />
-        <main className="flex-1 p-4 sm:p-8 space-y-6">
-          <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold">Raya Swimming Pool</h1>
-              <p className="text-sm text-gray-500">Fast desk workflow · {user.role}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600">{user.email}</span>
-              <button className="btn-ghost" onClick={logout}>Sign out</button>
-            </div>
-          </header>
+
+      {/* Mobile Header */}
+      <header className="sm:hidden sticky top-0 z-30 bg-secondary text-white px-4 py-3 flex items-center gap-3">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="text-white text-2xl p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+        <span className="text-lg font-bold">Raya Pool</span>
+      </header>
+
+      <div className="flex h-screen">
+        <Sidebar
+          view={view}
+          setView={setView}
+          user={user}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+        <main className="flex-1 p-4 sm:p-8 pt-14 sm:pt-8 space-y-6 min-w-0">
 
           {view === 'dashboard' && (
             <div className="grid gap-6">
+              <h1 className="text-2xl font-bold text-secondary">Dashboard</h1>
               {/* Date Filter Bar */}
-              <div className="card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="card p-4 flex flex-col gap-4">
                 <div className="flex flex-wrap items-center gap-2">
                   {['today', 'yesterday', 'last7days', 'thisMonth'].map((r) => (
                     <button
@@ -623,7 +580,7 @@ function App() {
                         setDateFilter(newFilter);
                         refreshAll(token, newFilter);
                       }}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
+                      className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors min-h-[44px] ${
                         dateFilter.range === r
                           ? 'bg-primary text-white'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -638,7 +595,7 @@ function App() {
                       setDateFilter(newFilter);
                       refreshAll(token, newFilter);
                     }}
-                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
+                    className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors min-h-[44px] ${
                       dateFilter.range === 'custom'
                         ? 'bg-primary text-white'
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -652,7 +609,7 @@ function App() {
                   <div className="flex items-center gap-2 border rounded-lg p-1 bg-gray-50">
                     <input
                       type="date"
-                      className="px-2 py-1 bg-transparent text-sm w-32 border-none outline-none"
+                      className="px-2 py-1 bg-transparent text-sm w-full sm:w-32 border-none outline-none"
                       value={dateFilter.startDate}
                       onChange={(e) => {
                          const obj = { ...dateFilter, startDate: e.target.value };
@@ -663,7 +620,7 @@ function App() {
                     <span className="text-gray-400">-</span>
                     <input
                       type="date"
-                      className="px-2 py-1 bg-transparent text-sm w-32 border-none outline-none"
+                      className="px-2 py-1 bg-transparent text-sm w-full sm:w-32 border-none outline-none"
                       value={dateFilter.endDate}
                       onChange={(e) => {
                          const obj = { ...dateFilter, endDate: e.target.value };
@@ -679,18 +636,18 @@ function App() {
               {dateFilter.range === 'today' && report.dailyBalance ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard 
-                    title="📈 Opening Balance" 
-                    value={`৳ ${report.dailyBalance.openingBalance.toLocaleString()}`} 
-                    hint="Starting balance"
+                    title="💰 Cash in Hand" 
+                    value={`৳ ${report.dailyBalance.closingBalance.toLocaleString()}`} 
+                    hint="Current cash position"
                   />
                   <StatCard 
-                    title="💰 Daily Income" 
+                    title="📈 Income" 
                     value={`৳ ${report.dailyBalance.income.toLocaleString()}`} 
                     hint="Today's earnings"
                   />
                   <StatCard 
-                    title="💸 Daily Expense" 
-                    value={`৳ ${report.dailyBalance.expense.toLocaleString()}`} 
+                    title="💸 Expense" 
+                    value={`৳ ${(report.totalExpense || 0).toLocaleString()}`} 
                     hint="Today's costs"
                   />
                   <StatCard 
@@ -700,12 +657,11 @@ function App() {
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard title="💰 Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} hint="All services" />
-                  <StatCard title="💸 Total Expense" value={`৳ ${report.totalExpense.toLocaleString()}`} hint="All costs" />
-                  <StatCard title="🧮 Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income - Expense" : "Deficit"} />
+                  <StatCard title="💸 Total Expense" value={`৳ ${(report.totalExpense || 0).toLocaleString()}`} hint="All costs" />
+                  <StatCard title="🧮 Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income" : "Deficit"} />
                   <StatCard title="📊 Entry" value={`৳ ${report.entryIncome.toLocaleString()}`} hint="Daily income" />
-                  <StatCard title="🧃 Beverage" value={`৳ ${report.beveragesIncome.toLocaleString()}`} hint="Beverage sales" />
                 </div>
               )}
 
@@ -744,7 +700,7 @@ function App() {
           )}
 
           {view === 'beverages' && (
-            <BeverageSalesPage token={token} />
+            <BeverageSalesPage token={token} setLastReceipt={handleSetLastReceipt} />
           )}
 
           {view === 'training' && (
@@ -762,6 +718,7 @@ function App() {
 
           {view === 'packages' && (
             <div className="grid gap-4">
+              <h1 className="text-2xl font-bold text-secondary">Packages</h1>
               <div className="card p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold">New Package</h2>
@@ -799,176 +756,16 @@ function App() {
             </div>
           )}
 
-          {view === 'reports' && (
-            <div className="grid gap-4">
-              <div className="card p-4 space-y-4">
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select className="border rounded-lg px-3 py-2" value={dateFilter.range} onChange={(e) => setDateFilter({ ...dateFilter, range: e.target.value })}>
-                      {(user.role === 'admin' ? ['today', 'yesterday', 'last7days', 'thisMonth', 'custom'] : ['today']).map((range) => (
-                        <option key={range} value={range}>
-                          {range}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="border rounded-lg px-3 py-2 min-w-56"
-                      value={selectedReportDate}
-                      onChange={(e) => setSelectedReportDate(e.target.value)}
-                      disabled={reportDays.length === 0}
-                    >
-                      {reportDays.length === 0 ? (
-                        <option value="">No report days</option>
-                      ) : (
-                        reportDays.map((day) => (
-                          <option key={day.date} value={day.date}>
-                            {formatReportDateLabel(day.date)}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <button className="btn-primary" onClick={() => refreshAll(token, dateFilter, user?.role, sectionFilters)}>Refresh</button>
-                    <button className="btn-ghost" onClick={handleDownloadDailyPdf} disabled={!selectedDailyReport}>
-                      Download PDF
-                    </button>
-                    <button className="btn-ghost" onClick={handleDownloadDailySheet} disabled={!selectedDailyReport}>
-                      Download Sheet
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        sectionFilters['daily-entry']
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      onClick={() => {
-                        const newFilters = { ...sectionFilters, 'daily-entry': !sectionFilters['daily-entry'] };
-                        setSectionFilters(newFilters);
-                        refreshAll(token, dateFilter, user?.role, newFilters);
-                      }}
-                    >
-                      💼 Billing
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        sectionFilters['training']
-                          ? 'bg-green-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      onClick={() => {
-                        const newFilters = { ...sectionFilters, 'training': !sectionFilters['training'] };
-                        setSectionFilters(newFilters);
-                        refreshAll(token, dateFilter, user?.role, newFilters);
-                      }}
-                    >
-                      🏊 Training
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        sectionFilters['membership']
-                          ? 'bg-purple-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      onClick={() => {
-                        const newFilters = { ...sectionFilters, 'membership': !sectionFilters['membership'] };
-                        setSectionFilters(newFilters);
-                        refreshAll(token, dateFilter, user?.role, newFilters);
-                      }}
-                    >
-                      👥 Members
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        sectionFilters['bills']
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      onClick={() => {
-                        const newFilters = { ...sectionFilters, 'bills': !sectionFilters['bills'] };
-                        setSectionFilters(newFilters);
-                        refreshAll(token, dateFilter, user?.role, newFilters);
-                      }}
-                    >
-                      📄 Bills
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        sectionFilters['beverages']
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                      onClick={() => {
-                        const newFilters = { ...sectionFilters, 'beverages': !sectionFilters['beverages'] };
-                        setSectionFilters(newFilters);
-                        refreshAll(token, dateFilter, user?.role, newFilters);
-                      }}
-                    >
-                      🥤 Beverages
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <StatCard title="📅 Selected Day" value={formatReportDateLabel(selectedDaySummary.date)} hint={selectedDailyReport ? 'Day-specific summary' : 'No data available'} />
-                  <StatCard title="💰 Total Income" value={`৳ ${selectedDaySummary.totalIncome.toLocaleString()}`} />
-                  <StatCard title="💼 Billing" value={`৳ ${selectedDaySummary.billingAmount.toLocaleString()}`} hint="Daily entry" />
-                  <StatCard title="🏊 Training" value={`৳ ${selectedDaySummary.trainingAmount.toLocaleString()}`} />
-                  <StatCard title="👥 Membership" value={`৳ ${selectedDaySummary.membershipAmount.toLocaleString()}`} />
-                  <StatCard title="🥤 Beverage" value={`৳ ${selectedDaySummary.beverageAmount.toLocaleString()}`} hint="Beverage sales" />
-                </div>
-
-                {selectedDaySummary.hourlySessionAmount > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <StatCard title="⏱️ Hourly Session" value={`৳ ${selectedDaySummary.hourlySessionAmount.toLocaleString()}`} />
-                    <StatCard title="💵 Cash" value={`৳ ${selectedDaySummary.cashAmount.toLocaleString()}`} />
-                    <StatCard title="🏦 Bank / bKash" value={`৳ ${(selectedDaySummary.bankAmount + selectedDaySummary.bKashAmount).toLocaleString()}`} />
-                  </div>
-                )}
-              </div>
-
-              {/* Financial Overview */}
-              <div className="grid md:grid-cols-4 gap-3">
-                <StatCard title="💰 Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} />
-                <StatCard title="💸 Total Expense" value={`৳ ${report.totalExpense.toLocaleString()}`} />
-                <StatCard title="🧮 Net Profit" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Profit" : "Loss"} />
-                <StatCard title="🧃 Beverage" value={`৳ ${report.beveragesIncome.toLocaleString()}`} hint="Beverage sales" />
-              </div>
-
-              {/* Income Timeline */}
-              <div className="card p-4">
-                <h3 className="text-lg font-semibold mb-3">Income timeline</h3>
-                <IncomeChart points={report.timeline} />
-              </div>
-
-              {/* Service Split & Expense Breakdown */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="card p-4">
-                  <h3 className="text-lg font-semibold mb-3">Service split</h3>
-                  <ServicePieChart slices={report.distribution} />
-                </div>
-                {Object.values(report.expenseByCategory || {}).some(v => v > 0) && (
-                  <div className="card p-4">
-                    <h3 className="text-lg font-semibold mb-3">Expense Breakdown</h3>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {Object.entries(report.expenseByCategory || {}).map(([cat, amount]) => amount > 0 && (
-                          <tr key={cat} className="border-b">
-                            <td className="py-2">{cat}</td>
-                            <td className="text-right font-semibold">৳ {amount.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+          {view === 'lockers' && (
+            <LockerManagementPage token={token} />
           )}
 
-          {view === 'expenses' && (
-            <ExpensePage token={token} showToast={showToast} onExpenseSaved={() => refreshAll(token, dateFilter)} />
+          {view === 'dress-rentals' && (
+            <DressRentalPage token={token} />
+          )}
+
+          {view === 'reports' && (
+            <ProfessionalReportPage token={token} />
           )}
 
           {view === 'cash-movements' && (
@@ -977,6 +774,10 @@ function App() {
 
           {view === 'reconciliation' && (
             <ReconciliationReport token={token} showToast={showToast} />
+          )}
+
+          {view === 'accounting' && (
+            <AccountingPage token={token} />
           )}
 
           {/* Receipt Display */}

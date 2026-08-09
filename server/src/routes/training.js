@@ -1,11 +1,41 @@
 import express from 'express';
 import { authRequired, requireRole } from '../middleware/auth.js';
 import { validateCompanyContext } from '../middleware/tenantContext.js';
-import { BATCH_PRESETS, SLOT_LIMIT, CLASS_SLOTS } from '../utils/constants.js';
 import { generateReceiptId } from '../utils/ids.js';
 import { getCompanyModel } from '../utils/modelRegistry.js';
 
 const router = express.Router();
+
+const DEFAULT_AGE_GROUPS = [
+  { label: '4-8', classes: { Regular: 16, Weekend: 16 }, pricing: { Regular: 12000, Weekend: 13000 } },
+  { label: '9+', classes: { Regular: 12, Weekend: 12 }, pricing: { Regular: 9000, Weekend: 11000 } },
+];
+const DEFAULT_BATCHES = [{ name: 'Regular', days: 30 }, { name: 'Weekend', days: 40 }];
+const DEFAULT_CLASS_SLOTS = [
+  { id: 1, label: 'Class 01', startTime: '08:00 AM', endTime: '09:00 AM', period: 'Morning' },
+  { id: 2, label: 'Class 02', startTime: '09:00 AM', endTime: '10:00 AM', period: 'Morning' },
+  { id: 3, label: 'Class 03', startTime: '05:00 PM', endTime: '06:00 PM', period: 'Evening' },
+  { id: 4, label: 'Class 04', startTime: '06:00 PM', endTime: '07:00 PM', period: 'Evening' },
+];
+const DEFAULT_SLOT_LIMIT = 15;
+const DEFAULT_MAX_MAKEUP = 2;
+
+const getTrainingSettings = async (companyDb, companyId) => {
+  try {
+    const TrainingSettings = getCompanyModel(companyDb, 'TrainingSettings');
+    const settings = await TrainingSettings.findOne({ companyId });
+    if (settings) return settings;
+  } catch {
+    // Settings not yet created, use defaults
+  }
+  return {
+    ageGroups: DEFAULT_AGE_GROUPS,
+    batches: DEFAULT_BATCHES,
+    classSlots: DEFAULT_CLASS_SLOTS,
+    slotLimit: DEFAULT_SLOT_LIMIT,
+    maxMakeupClasses: DEFAULT_MAX_MAKEUP,
+  };
+};
 
 const addDays = (date, days) => {
   const d = new Date(date);
@@ -63,13 +93,16 @@ const resolveRange = (range, customStartDate, customEndDate) => {
   return { startDate: today, endDate };
 };
 
-const deriveBatchDetails = ({ ageGroup, batchType }) => {
-  const preset = BATCH_PRESETS[batchType];
-  const key = ageGroup === '4-8' ? 'kids' : 'adults';
+const deriveBatchDetails = ({ ageGroup, batchType }, settings) => {
+  const ageGroups = settings?.ageGroups || DEFAULT_AGE_GROUPS;
+  const batches = settings?.batches || DEFAULT_BATCHES;
+  const ageConfig = ageGroups.find((a) => a.label === ageGroup);
+  const batchConfig = batches.find((b) => b.name === batchType);
+  if (!ageConfig || !batchConfig) return { totalClasses: 12, price: 9000, durationDays: 30 };
   return {
-    totalClasses: preset.totalClasses[key],
-    price: preset.pricing[key],
-    durationDays: preset.days,
+    totalClasses: ageConfig.classes[batchType] || 12,
+    price: ageConfig.pricing[batchType] || 9000,
+    durationDays: batchConfig.days || 30,
   };
 };
 
@@ -79,29 +112,30 @@ const validateSlot = (timeSlot, classSlot) => {
   return false;
 };
 
-router.post('/students', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.post('/students', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   try {
     const { name, phone, ageGroup, batchType, startDate, timeSlot, classSlot, discount = 0, amountPaid, paymentMethod = 'Cash' } = req.body;
     const Student = getCompanyModel(req.companyDb, 'Student');
-    const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
     const Transaction = getCompanyModel(req.companyDb, 'Transaction');
-    
+    const settings = await getTrainingSettings(req.companyDb, req.companyId);
+    const SLOT_LIMIT = settings.slotLimit || DEFAULT_SLOT_LIMIT;
+
     if (!validateSlot(timeSlot, Number(classSlot))) {
       return res.status(400).json({ message: 'Time slot and class slot mismatch' });
     }
-    
+
     const slotCount = await Student.countDocuments({
       companyId: req.companyId,
       classSlot,
       status: 'active',
       endDate: { $gte: new Date(startDate) },
     });
-    
+
     if (slotCount >= SLOT_LIMIT) {
-      return res.status(400).json({ message: 'Selected class slot is full (15 students)' });
+      return res.status(400).json({ message: `Selected class slot is full (${SLOT_LIMIT} students)` });
     }
 
-    const { totalClasses, price, durationDays } = deriveBatchDetails({ ageGroup, batchType });
+    const { totalClasses, price, durationDays } = deriveBatchDetails({ ageGroup, batchType }, settings);
     const endDate = addDays(startDate, durationDays);
     
     // Calculate final amount after discount
@@ -166,6 +200,10 @@ router.post('/students', authRequired, requireRole('admin'), validateCompanyCont
     
     console.log(`[Training] Attempting to save Transaction for Student: ${name}`);
     await transaction.save();
+    try {
+      const { createIncomeEntry } = await import('../utils/journalEngine.js');
+      await createIncomeEntry(req.companyDb, transaction);
+    } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
     console.log(`[Training] ✓ Transaction saved successfully with ID: ${transaction._id}`);
 
     return res.status(201).json({ student, transaction });
@@ -181,7 +219,7 @@ router.post('/students', authRequired, requireRole('admin'), validateCompanyCont
   }
 });
 
-router.get('/students', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/students', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Student = getCompanyModel(req.companyDb, 'Student');
   const { search, batch } = req.query;
   
@@ -206,23 +244,24 @@ router.get('/students', authRequired, requireRole('admin'), validateCompanyConte
   return res.json({ students });
 });
 
-router.post('/students/:id/classes', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.post('/students/:id/classes', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   try {
     const { status, date } = req.body;
     const Student = getCompanyModel(req.companyDb, 'Student');
     const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
-    
+    const settings = await getTrainingSettings(req.companyDb, req.companyId);
+    const MAX_MAKEUP = settings.maxMakeupClasses ?? DEFAULT_MAX_MAKEUP;
+
     const student = await Student.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!student) return res.status(404).json({ message: 'Student not found' });
     const recordDate = new Date(date || new Date());
     if (recordDate > student.endDate) {
       student.status = 'expired';
-      console.log(`[Training] Attempting to update Student status to expired (ID: ${student._id})`);
       await student.save();
       return res.status(400).json({ message: 'Student is expired' });
     }
-    if (status === 'Makeup' && student.makeupUsed >= 2) {
-      return res.status(400).json({ message: 'Max 2 makeup classes reached' });
+    if (status === 'Makeup' && student.makeupUsed >= MAX_MAKEUP) {
+      return res.status(400).json({ message: `Max ${MAX_MAKEUP} makeup classes reached` });
     }
     if (student.remainingClasses <= 0) {
       student.status = 'expired';
@@ -265,6 +304,10 @@ router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validate
   const Student = getCompanyModel(req.companyDb, 'Student');
   const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
   const { range = 'today', startDate: customStartDate, endDate: customEndDate } = req.query;
+  const settings = await getTrainingSettings(req.companyDb, req.companyId);
+  const CLASS_SLOTS_MAP = {};
+  (settings.classSlots || DEFAULT_CLASS_SLOTS).forEach((s) => { CLASS_SLOTS_MAP[s.id] = s; });
+  const SLOT_LIMIT = settings.slotLimit || DEFAULT_SLOT_LIMIT;
   
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -309,7 +352,9 @@ router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validate
   const trainingIncome = filteredStudents.reduce((sum, s) => sum + (s.amountPaid || 0), 0);
   const trainingDue = filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0);
 
-  const summary = [1, 2, 3, 4].map((slot) => {
+  const slotIds = (settings.classSlots || DEFAULT_CLASS_SLOTS).map((s) => s.id);
+  const summary = slotIds.map((slot) => {
+    const slotConfig = CLASS_SLOTS_MAP[slot] || {};
     const slotStudents = allActiveStudents.filter((s) => s.classSlot === slot);
     const slotRecords = classRecords.filter((r) => r.student.classSlot === slot);
     const attended = slotRecords.filter((r) => r.status === 'Attended').length;
@@ -317,8 +362,8 @@ router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validate
     const makeup = slotRecords.filter((r) => r.status === 'Makeup').length;
     return {
       classSlot: slot,
-      label: CLASS_SLOTS[slot].label,
-      time: CLASS_SLOTS[slot].time,
+      label: slotConfig.label || `Class ${String(slot).padStart(2, '0')}`,
+      time: `${slotConfig.startTime || ''} - ${slotConfig.endTime || ''}`,
       totalStudents: slotStudents.length,
       availableSeats: Math.max(0, SLOT_LIMIT - slotStudents.length),
       attended,
@@ -336,10 +381,27 @@ router.get('/dashboard', authRequired, requireRole('admin', 'manager'), validate
     endDate: s.endDate,
   }));
 
-  return res.json({ summary, remainingByStudent, newToday, newMonth, activeStudents, revenueMonth, trainingIncome, trainingDue });
+  return res.json({
+    summary,
+    remainingByStudent,
+    newToday,
+    newMonth,
+    activeStudents,
+    revenueMonth,
+    trainingIncome,
+    trainingDue,
+    settings: {
+      classSlots: settings.classSlots || DEFAULT_CLASS_SLOTS,
+      slotLimit: settings.slotLimit || DEFAULT_SLOT_LIMIT,
+      ageGroups: settings.ageGroups || DEFAULT_AGE_GROUPS,
+      batches: settings.batches || DEFAULT_BATCHES,
+      maxMakeupClasses: settings.maxMakeupClasses ?? DEFAULT_MAX_MAKEUP,
+      paymentMethods: settings.paymentMethods || ['Cash', 'Bank', 'bKash'],
+    },
+  });
 });
 
-router.get('/students/:id/progress', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/students/:id/progress', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Student = getCompanyModel(req.companyDb, 'Student');
   const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
   
@@ -350,7 +412,7 @@ router.get('/students/:id/progress', authRequired, requireRole('admin'), validat
 });
 
 // GET single student (for profile view)
-router.get('/students/:id', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/students/:id', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Student = getCompanyModel(req.companyDb, 'Student');
   const student = await Student.findOne({ _id: req.params.id, companyId: req.companyId });
   if (!student) return res.status(404).json({ message: 'Student not found' });
@@ -391,9 +453,13 @@ router.post('/students/:id/pay-due', authRequired, requireRole('admin'), validat
     amountPaid: amountToPay,
     dueAmount: student.due - amountToPay
   });
-  await transaction.save();
+    await transaction.save();
+    try {
+      const { createIncomeEntry } = await import('../utils/journalEngine.js');
+      await createIncomeEntry(req.companyDb, transaction);
+    } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
 
-  // Update student
+    // Update student
   student.due = Math.max(0, student.due - amountToPay);
   
   // Add to due history
@@ -421,7 +487,7 @@ router.post('/students/:id/pay-due', authRequired, requireRole('admin'), validat
 });
 
 // GET class history for student
-router.get('/students/:id/history', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/students/:id/history', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Student = getCompanyModel(req.companyDb, 'Student');
   const ClassRecord = getCompanyModel(req.companyDb, 'ClassRecord');
   
@@ -435,7 +501,9 @@ router.get('/students/:id/history', authRequired, requireRole('admin'), validate
 router.put('/students/:id', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
   const { name, phone, batchType, classSlot, endDate, discount, amountPaid } = req.body;
   const Student = getCompanyModel(req.companyDb, 'Student');
-  
+  const settings = await getTrainingSettings(req.companyDb, req.companyId);
+  const SLOT_LIMIT = settings.slotLimit || DEFAULT_SLOT_LIMIT;
+
   const student = await Student.findOne({ _id: req.params.id, companyId: req.companyId });
   if (!student) return res.status(404).json({ message: 'Student not found' });
 
@@ -449,7 +517,7 @@ router.put('/students/:id', authRequired, requireRole('admin'), validateCompanyC
       _id: { $ne: student._id },
     });
     if (slotCount >= SLOT_LIMIT) {
-      return res.status(400).json({ message: 'Selected class slot is full' });
+      return res.status(400).json({ message: `Selected class slot is full (${SLOT_LIMIT} students)` });
     }
   }
 
@@ -457,7 +525,7 @@ router.put('/students/:id', authRequired, requireRole('admin'), validateCompanyC
   if (name) student.name = name;
   if (phone) student.phone = phone;
   if (batchType) {
-    const { durationDays } = deriveBatchDetails({ ageGroup: student.ageGroup, batchType });
+    const { durationDays } = deriveBatchDetails({ ageGroup: student.ageGroup, batchType }, settings);
     student.batchType = batchType;
     student.durationDays = durationDays;
   }

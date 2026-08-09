@@ -6,6 +6,10 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'manager'], default: 'manager' },
+    permissions: {
+      type: [String],
+      default: ['bills', 'training', 'reports'],
+    },
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', index: true },
     invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

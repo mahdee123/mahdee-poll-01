@@ -5,7 +5,7 @@ const CATEGORIES = {
   Bill: { icon: '🧾', color: '#FF6B6B', bgColor: 'bg-red-50', textColor: 'text-red-600', borderColor: 'border-red-200' },
   Training: { icon: '🏊', color: '#4ECDC4', bgColor: 'bg-teal-50', textColor: 'text-teal-600', borderColor: 'border-teal-200' },
   Membership: { icon: '🎟️', color: '#FFD93D', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600', borderColor: 'border-yellow-200' },
-  Beverage: { icon: '🧃', color: '#A8DADC', bgColor: 'bg-blue-50', textColor: 'text-blue-600', borderColor: 'border-blue-200' },
+  Beverage: { icon: '🧃', color: '#008CFF', bgColor: 'bg-primary/5', textColor: 'text-primary', borderColor: 'border-primary/20' },
   'Hourly Session': { icon: '⏱️', color: '#F97316', bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-200' }
 };
 

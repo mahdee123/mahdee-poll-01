@@ -11,6 +11,11 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '12h';
 
 /**
+ * Get the JWT secret (for use in verification)
+ */
+export const getJWTSecret = () => JWT_SECRET;
+
+/**
  * Sign a JWT token with user and company context
  * @param {string} userId - User ID
  * @param {string} companyId - Company ID

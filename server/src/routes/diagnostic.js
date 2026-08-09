@@ -1,7 +1,7 @@
 import express from 'express';
 import { authRequired } from '../middleware/auth.js';
 import { validateCompanyContext } from '../middleware/tenantContext.js';
-import { getCompanyConnection } from '../utils/companyDb.js';
+import { getCompanyModel } from '../utils/modelRegistry.js';
 import Company from '../models/Company.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
@@ -9,48 +9,17 @@ import mongoose from 'mongoose';
 const router = express.Router();
 
 /**
- * Health check endpoint - tests system and company DB connectivity
+ * Health check endpoint - reports system DB connectivity only.
  * GET /api/diagnostic/health
+ * Intentionally public (used by uptime monitors) - keep the response minimal,
+ * no user counts or environment details for unauthenticated callers.
  */
 router.get('/health', async (req, res) => {
-  try {
-    console.log(`[Diagnostic] Running system health check...`);
-    
-    // Check system DB connection
-    const systemDbConnected = mongoose.connection.readyState === 1;
-    console.log(`[Diagnostic] System DB connection status: ${systemDbConnected ? 'CONNECTED' : 'DISCONNECTED'}`);
-    
-    if (!systemDbConnected) {
-      return res.status(503).json({
-        success: false,
-        status: 'UNHEALTHY',
-        message: 'System database is not connected',
-        systemDb: { connected: false },
-      });
-    }
-    
-    // Try to count users in system DB
-    const userCount = await User.countDocuments();
-    console.log(`[Diagnostic] ✓ System DB is accessible (${userCount} users)`);
-    
-    return res.json({
-      success: true,
-      status: 'HEALTHY',
-      timestamp: new Date().toISOString(),
-      systemDb: {
-        connected: true,
-        usersCount: userCount,
-        uri: process.env.SYSTEM_MONGODB_URI ? '***configured***' : 'NOT SET',
-      },
-    });
-  } catch (error) {
-    console.error(`[Diagnostic] ✗ ERROR in health check:`, error.message);
-    return res.status(503).json({
-      success: false,
-      status: 'UNHEALTHY',
-      error: error.message,
-    });
+  const systemDbConnected = mongoose.connection.readyState === 1;
+  if (!systemDbConnected) {
+    return res.status(503).json({ status: 'UNHEALTHY' });
   }
+  return res.json({ status: 'HEALTHY' });
 });
 
 /**
@@ -60,8 +29,6 @@ router.get('/health', async (req, res) => {
  */
 router.get('/db-check', authRequired, validateCompanyContext, async (req, res) => {
   try {
-    console.log(`[Diagnostic] Running detailed DB check for user: ${req.user.email} (Company: ${req.companyId})`);
-    
     const results = {
       success: true,
       timestamp: new Date().toISOString(),
@@ -81,36 +48,28 @@ router.get('/db-check', authRequired, validateCompanyContext, async (req, res) =
 
     // Test system DB access
     try {
-      const userRecord = await User.findById(req.user._id);
+      const userRecord = await User.findById(req.user.id);
       if (userRecord) {
-        results.systemDb.usersCount = await User.countDocuments();
         results.systemDb.companyRecord = await Company.findById(req.companyId);
-        console.log(`[Diagnostic] ✓ System DB accessible`);
       }
     } catch (err) {
       results.systemDb.error = err.message;
-      console.error(`[Diagnostic] ✗ System DB access error:`, err.message);
     }
 
     // Test company DB connection
     if (results.systemDb.companyRecord) {
       try {
         const companyDb = req.companyDb;
-        const mongoUri = results.systemDb.companyRecord.mongoUri;
-        
-        console.log(`[Diagnostic] Testing company DB connection: ${mongoUri}`);
-        results.companyDb.mongoUri = mongoUri;
 
         // Try to access company DB collections
         const collections = await companyDb.db.listCollections().toArray();
         results.companyDb.connected = true;
         results.companyDb.collections = collections.map(c => c.name);
-        console.log(`[Diagnostic] ✓ Company DB accessible (${collections.length} collections)`);
 
         // Test creating a temporary document (without saving)
         // This validates schema validation without polluting the DB
         try {
-          const Student = companyDb.model('Student', require('../utils/modelRegistry.js').Student);
+          const Student = getCompanyModel(companyDb, 'Student');
           const testDoc = new Student({
             companyId: req.companyId,
             name: 'Test',
@@ -129,38 +88,31 @@ router.get('/db-check', authRequired, validateCompanyContext, async (req, res) =
             amountPaid: 0,
             due: 0,
           });
-          
+
           // Validate without saving
           await testDoc.validate();
           results.companyDb.schemaValidation = 'PASSED';
-          console.log(`[Diagnostic] ✓ Company DB schema validation passed`);
         } catch (err) {
           results.companyDb.schemaValidation = err.message;
-          console.warn(`[Diagnostic] Schema validation issue:`, err.message);
         }
       } catch (err) {
         results.companyDb.error = err.message;
-        console.error(`[Diagnostic] ✗ Company DB error:`, err.message);
       }
     }
 
     // Determine overall health
     results.overall = {
       healthy: results.systemDb.connected && results.companyDb.connected,
-      message: results.systemDb.connected && results.companyDb.connected 
-        ? 'Both databases are healthy' 
+      message: results.systemDb.connected && results.companyDb.connected
+        ? 'Both databases are healthy'
         : 'One or more databases have issues',
     };
 
     const statusCode = results.overall.healthy ? 200 : 503;
     return res.status(statusCode).json(results);
   } catch (error) {
-    console.error(`[Diagnostic] ✗ ERROR in db-check:`, error.message);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      details: error.stack,
-    });
+    console.error('[Diagnostic] db-check failed:', error.message);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -172,9 +124,6 @@ router.get('/db-check', authRequired, validateCompanyContext, async (req, res) =
 router.post('/test-save', authRequired, validateCompanyContext, async (req, res) => {
   try {
     const { modelName = 'Transaction' } = req.body;
-    console.log(`[Diagnostic] Testing save operation for model: ${modelName}`);
-
-    const { getCompanyModel } = await import('../utils/modelRegistry.js');
     const Model = getCompanyModel(req.companyDb, modelName);
 
     // Create test document based on model type
@@ -214,14 +163,8 @@ router.post('/test-save', authRequired, validateCompanyContext, async (req, res)
     }
 
     const testRecord = new Model(testData);
-    console.log(`[Diagnostic] Attempting to save test ${modelName}...`);
-    
     await testRecord.save();
-    console.log(`[Diagnostic] ✓ Save successful (ID: ${testRecord._id})`);
-
-    // Immediately delete the test record
     await Model.deleteOne({ _id: testRecord._id });
-    console.log(`[Diagnostic] ✓ Test record cleaned up`);
 
     return res.json({
       success: true,
@@ -229,13 +172,11 @@ router.post('/test-save', authRequired, validateCompanyContext, async (req, res)
       testId: testRecord._id.toString(),
     });
   } catch (error) {
-    console.error(`[Diagnostic] ✗ ERROR in test-save:`, error.message);
-    console.error(`[Diagnostic] Error details:`, error);
+    console.error('[Diagnostic] test-save failed:', error.message);
     return res.status(500).json({
       success: false,
       message: `Test save failed for model: ${req.body.modelName || 'Transaction'}`,
       error: error.message,
-      details: error.errors || null,
     });
   }
 });

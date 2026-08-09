@@ -439,6 +439,10 @@ router.post('/sales', authRequired, requireRole('admin', 'manager'), validateCom
       });
 
       await transaction.save();
+      try {
+        const { createIncomeEntry } = await import('../utils/journalEngine.js');
+        await createIncomeEntry(req.companyDb, transaction);
+      } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
       console.log(`[Beverage] ✓ Transaction record created for cash management integration (ID: ${transaction._id})`);
 
       if (linkedSession) {

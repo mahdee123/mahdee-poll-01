@@ -169,7 +169,6 @@ export default function CashMovementPage({ token, showToast }) {
     'Owner Withdrawal',
     'Petty Cash Out',
     'Salary Payment',
-    'Expense Payment',
     'Other',
   ];
 
@@ -188,7 +187,7 @@ export default function CashMovementPage({ token, showToast }) {
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             showForm
               ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-primary text-white hover:bg-primary/90'
           }`}
         >
           {showForm ? '✕ Close' : '➕ Add Movement'}
@@ -200,7 +199,7 @@ export default function CashMovementPage({ token, showToast }) {
         <div className="card p-6 space-y-4">
           <h3 className="text-lg font-semibold">Record Cash Movement</h3>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
@@ -210,7 +209,7 @@ export default function CashMovementPage({ token, showToast }) {
                   setForm({ ...form, type: e.target.value, category: '' });
                   setFormErrors({ ...formErrors, type: '' });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
               >
                 <option value="DEPOSIT">DEPOSIT (+)</option>
                 <option value="WITHDRAWAL">WITHDRAWAL (-)</option>
@@ -226,7 +225,7 @@ export default function CashMovementPage({ token, showToast }) {
                   setForm({ ...form, category: e.target.value });
                   setFormErrors({ ...formErrors, category: '' });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select category...</option>
                 {categories.map((cat) => (
@@ -247,7 +246,7 @@ export default function CashMovementPage({ token, showToast }) {
                   setForm({ ...form, date: e.target.value });
                   setFormErrors({ ...formErrors, date: '' });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
               />
               {formErrors.date && <p className="text-xs text-red-600 mt-1">{formErrors.date}</p>}
             </div>
@@ -265,7 +264,7 @@ export default function CashMovementPage({ token, showToast }) {
                 placeholder="0"
                 min="0"
                 step="1"
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
               />
               {formErrors.amount && <p className="text-xs text-red-600 mt-1">{formErrors.amount}</p>}
             </div>
@@ -276,7 +275,7 @@ export default function CashMovementPage({ token, showToast }) {
               <select
                 value={form.method}
                 onChange={(e) => setForm({ ...form, method: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
               >
                 <option value="Cash">Cash</option>
                 <option value="Bank">Bank</option>
@@ -294,7 +293,7 @@ export default function CashMovementPage({ token, showToast }) {
                 value={form.reference}
                 onChange={(e) => setForm({ ...form, reference: e.target.value })}
                 placeholder="e.g., CHQ12345"
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -310,7 +309,7 @@ export default function CashMovementPage({ token, showToast }) {
                 setFormErrors({ ...formErrors, reason: '' });
               }}
               placeholder="Why this movement?"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
             />
             {formErrors.reason && <p className="text-xs text-red-600 mt-1">{formErrors.reason}</p>}
           </div>
@@ -323,7 +322,7 @@ export default function CashMovementPage({ token, showToast }) {
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Additional details..."
               rows="2"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary resize-none"
             />
           </div>
 
@@ -337,7 +336,7 @@ export default function CashMovementPage({ token, showToast }) {
             </button>
             <button
               onClick={handleSubmit}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
             >
               ✓ Record
             </button>
@@ -347,7 +346,7 @@ export default function CashMovementPage({ token, showToast }) {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card p-4">
             <p className="text-sm text-gray-600">Total Deposits</p>
             <p className="text-2xl font-bold text-green-600">
@@ -378,7 +377,7 @@ export default function CashMovementPage({ token, showToast }) {
               onClick={() => setDateRange(r)}
               className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
                 dateRange === r
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
             >
@@ -389,7 +388,7 @@ export default function CashMovementPage({ token, showToast }) {
             onClick={() => setDateRange('custom')}
             className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
               dateRange === 'custom'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
             }`}
           >
@@ -417,7 +416,36 @@ export default function CashMovementPage({ token, showToast }) {
       </div>
 
       {/* Movements List */}
-      <div className="card overflow-x-auto">
+      <div className="card overflow-hidden">
+        {/* Mobile card view */}
+        <div className="md:hidden p-4 space-y-3">
+          {loading ? (
+            <div className="text-center py-6 text-gray-500">Loading...</div>
+          ) : movements.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">No cash movements recorded</div>
+          ) : (
+            movements.map((mov) => (
+              <div key={mov._id} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs text-gray-500">{mov.date.split('T')[0]}</span>
+                    <p className="text-sm font-medium">{mov.category}</p>
+                    <p className="text-xs text-gray-500">{mov.reason}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${mov.type === 'DEPOSIT' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{mov.type}</span>
+                    <p className={`text-sm font-semibold mt-1 ${mov.type === 'DEPOSIT' ? 'text-green-600' : 'text-red-600'}`}>{mov.type === 'DEPOSIT' ? '+' : '-'} ৳ {mov.amount.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={() => handleDelete(mov._id)} className="text-red-600 hover:text-red-700 font-medium text-xs min-h-[36px]">🗑 Delete</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {/* Desktop table view */}
+        <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
@@ -479,6 +507,7 @@ export default function CashMovementPage({ token, showToast }) {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

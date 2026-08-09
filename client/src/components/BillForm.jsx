@@ -63,19 +63,19 @@ export default function BillForm({ onClose, onSave, onSaveAndPrint }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">➕ Add New Bill</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center">
             ✕
           </button>
         </div>
 
         {/* Form Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Date, Name, Phone */}
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📅 Date</label>
               <input
@@ -114,7 +114,7 @@ export default function BillForm({ onClose, onSave, onSaveAndPrint }) {
           {/* Billing Section */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">💰 Billing Section</h3>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Amount (Per Person) 💵
@@ -161,7 +161,7 @@ export default function BillForm({ onClose, onSave, onSaveAndPrint }) {
           </div>
 
           {/* Auto Calculation Preview */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">🧠 Calculation Preview</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -206,14 +206,14 @@ export default function BillForm({ onClose, onSave, onSaveAndPrint }) {
         </div>
 
         {/* Footer Buttons */}
-        <div className="sticky bottom-0 bg-white border-t p-4 flex gap-3 justify-end">
-          <button onClick={onClose} className="btn-ghost">
+        <div className="sticky bottom-0 bg-white border-t p-4 flex flex-col sm:flex-row gap-3 sm:justify-end">
+          <button onClick={onClose} className="btn-ghost min-h-[44px]">
             Cancel
           </button>
-          <button onClick={handleSave} className="btn-primary">
+          <button onClick={handleSave} className="btn-primary min-h-[44px]">
             ✅ Save Bill
           </button>
-          <button onClick={handleSaveAndPrint} className="btn-primary bg-green-600 hover:bg-green-700">
+          <button onClick={handleSaveAndPrint} className="btn-primary bg-green-600 hover:bg-green-700 min-h-[44px]">
             🖨 Save & Print Receipt
           </button>
         </div>

@@ -14,27 +14,81 @@ const addDays = (date, days) => {
   return d;
 };
 
-// Calculate current due for a member
+// Calculate purchase due for a member (one-time admission due only)
 const calculateMemberDue = (member) => {
-  if (member.status === 'Inactive' || member.status === 'Active') {
-    return 0;
-  }
-  
-  if (member.status === 'Expired') {
-    const now = new Date();
-    const monthsSinceExpiry = Math.floor((now - new Date(member.endDate)) / (1000 * 60 * 60 * 24 * 30));
-    const monthlyFee = member.monthlyFeeAmount || 2000; // Use member's fee or fallback to default
-    const calculatedDue = Math.max(0, monthsSinceExpiry) * monthlyFee;
-    return Math.max(member.totalDue, calculatedDue);
-  }
-  
   return member.totalDue || 0;
 };
 
-router.post('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+// Calculate total monthly due from dueHistory unpaid monthly entries
+const calculateMonthlyDue = (member) => {
+  if (!member.dueHistory || member.dueHistory.length === 0) return 0;
+  return member.dueHistory
+    .filter(e => e.type === 'Due' && e.reason?.startsWith('Monthly Fee') && !e.paid)
+    .reduce((sum, e) => sum + (e.amount || 0), 0);
+};
+
+// Generate monthly due entries for expired members (month-by-month tracking)
+const generateMonthlyDues = (member) => {
+  if (member.status === 'Inactive') return false;
+  
+  const now = new Date();
+  const endDate = new Date(member.endDate);
+  if (endDate >= now) return false;
+
+  if (!member.dueHistory) member.dueHistory = [];
+
+  // Find the oldest unpaid month entry to determine where to start generating
+  const unpaidEntries = member.dueHistory.filter(e => e.type === 'Due' && !e.paid);
+  const paidEntries = member.dueHistory.filter(e => e.type === 'Due' && e.paid);
+  
+  // Determine start month: first month after endDate
+  const startMonth = new Date(endDate);
+  startMonth.setDate(1);
+  startMonth.setHours(0, 0, 0, 0);
+  
+  // Determine end month: current month
+  const endMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const monthlyFee = member.monthlyFeeAmount || 2000;
+  let hasNewEntries = false;
+
+  // Generate entries for each month from endDate to now
+  let current = new Date(startMonth);
+  while (current <= endMonth) {
+    const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Check if this month already has an entry (paid or unpaid)
+    const existingEntry = member.dueHistory.find(e => e.month === monthKey && e.type === 'Due');
+    
+    if (!existingEntry) {
+      member.dueHistory.push({
+        month: monthKey,
+        amount: monthlyFee,
+        paid: false,
+        date: new Date(current),
+        reason: `Monthly Fee - ${current.toLocaleString('en-US', { month: 'long', year: 'numeric' })}`,
+        type: 'Due'
+      });
+      hasNewEntries = true;
+    }
+    
+    current.setMonth(current.getMonth() + 1);
+  }
+
+  return hasNewEntries;
+};
+
+router.post('/', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   try {
     const { name, phone, address, plan, startDate, amountPaid, paymentMethod, price = 0, discount = 0, monthlyFeeAmount } = req.body;
-    const durationDays = PLAN_PRESETS[plan];
+    
+    // Get plan settings from DB packages array, fallback to defaults
+    const company = await Company.findById(req.user.companyId);
+    const packages = company?.membershipSettings?.packages || [];
+    const planPkg = packages.find(p => p.title === plan);
+    
+    const durationMonths = planPkg?.duration || 1;
+    const durationDays = durationMonths * 30;
     const endDate = addDays(startDate, durationDays);
     
     // Calculate amount paid (default: full price after discount)
@@ -45,11 +99,10 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
     const Member = getCompanyModel(req.companyDb, 'Member');
     const Transaction = getCompanyModel(req.companyDb, 'Transaction');
     
-    // Get company default fee if not provided or invalid
+    // Get monthly fee: request body > plan settings > company default > 2000
     let finalMonthlyFee = Number(monthlyFeeAmount);
     if (!finalMonthlyFee || finalMonthlyFee <= 0) {
-      const company = await Company.findById(req.user.companyId);
-      finalMonthlyFee = company?.defaultMemberFee || 2000;
+      finalMonthlyFee = planPkg?.monthlyFee || company?.defaultMemberFee || 2000;
     }
     
     const member = new Member({ 
@@ -64,15 +117,6 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
       totalDue: purchaseDue,
       monthlyFeeAmount: finalMonthlyFee
     });
-    
-    if (purchaseDue > 0) {
-      member.dueHistory = [{
-        date: new Date(),
-        amount: purchaseDue,
-        reason: 'Initial Purchase Due',
-        type: 'Due'
-      }];
-    }
     
     console.log(`[Membership] Attempting to save Member: ${name} (Phone: ${phone}, Plan: ${plan}, Company: ${req.companyId}, Monthly Fee: ${finalMonthlyFee})`);
     await member.save();
@@ -100,6 +144,10 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
     });
     console.log(`[Membership] Attempting to save Transaction for Member: ${name}`);
     await transaction.save();
+    try {
+      const { createIncomeEntry } = await import('../utils/journalEngine.js');
+      await createIncomeEntry(req.companyDb, transaction);
+    } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
     console.log(`[Membership] ✓ Transaction saved successfully with ID: ${transaction._id}`);
 
     return res.status(201).json({ member, transaction });
@@ -115,7 +163,7 @@ router.post('/', authRequired, requireRole('admin'), validateCompanyContext, asy
   }
 });
 
-router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/stats', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const { startDate, endDate } = req.query;
   const now = new Date();
   
@@ -141,7 +189,7 @@ router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext,
   // New members in date range
   const newInRange = await Member.countDocuments({ companyId: req.user.companyId, createdAt: { $gte: rangeStart, $lte: rangeEnd } });
   const newMonth = await Member.countDocuments({ companyId: req.user.companyId, createdAt: { $gte: monthStart } });
-  const activeMembers = await Member.countDocuments({ companyId: req.user.companyId, status: 'Active' });
+  const activeMembers = await Member.countDocuments({ companyId: req.user.companyId, endDate: { $gt: now }, status: { $ne: 'Inactive' }, totalDue: { $lte: 0 } });
 
   // Revenue from membership purchases (in date range)
   const memberIncome = await Transaction.aggregate([
@@ -175,7 +223,85 @@ router.get('/stats', authRequired, requireRole('admin'), validateCompanyContext,
   return res.json({ newInRange, newMonth, activeMembers, incomeMonth, totalDuePending, monthlyCollection, rangeStart, rangeEnd });
 });
 
-router.get('/', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+// GET membership stats trend (for mini charts and trend percentages)
+router.get('/stats/trend', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Use provided date range or default to today
+    let rangeStart, rangeEnd;
+    if (startDate && endDate) {
+      rangeStart = new Date(startDate);
+      rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(endDate);
+      rangeEnd.setHours(23, 59, 59, 999);
+    } else {
+      rangeStart = todayStart;
+      rangeEnd = now;
+    }
+
+    // Previous period (same duration, before rangeStart)
+    const rangeDuration = rangeEnd.getTime() - rangeStart.getTime();
+    const prevRangeEnd = new Date(rangeStart);
+    prevRangeEnd.setSeconds(prevRangeEnd.getSeconds() - 1);
+    const prevRangeStart = new Date(prevRangeEnd.getTime() - rangeDuration);
+
+    const Transaction = getCompanyModel(req.companyDb, 'Transaction');
+    const Member = getCompanyModel(req.companyDb, 'Member');
+
+    // Current period income
+    const currentIncomeAgg = await Transaction.aggregate([
+      { $match: { companyId: req.user.companyId, serviceType: 'Membership', date: { $gte: rangeStart, $lte: rangeEnd } } },
+      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ]);
+    const currentIncome = currentIncomeAgg[0]?.total || 0;
+    const currentCount = currentIncomeAgg[0]?.count || 0;
+
+    // Previous period income
+    const prevIncomeAgg = await Transaction.aggregate([
+      { $match: { companyId: req.user.companyId, serviceType: 'Membership', date: { $gte: prevRangeStart, $lte: prevRangeEnd } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const prevIncome = prevIncomeAgg[0]?.total || 0;
+
+    // Current period members vs previous
+    const currentMembers = await Member.countDocuments({ companyId: req.user.companyId, createdAt: { $gte: rangeStart, $lte: rangeEnd } });
+    const prevMembers = await Member.countDocuments({ companyId: req.user.companyId, createdAt: { $gte: prevRangeStart, $lte: prevRangeEnd } });
+
+    // Daily timeline for mini chart (last 7 days)
+    const dailyTimeline = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(todayStart);
+      dayStart.setDate(dayStart.getDate() - i);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const dayAgg = await Transaction.aggregate([
+        { $match: { companyId: req.user.companyId, serviceType: 'Membership', date: { $gte: dayStart, $lte: dayEnd } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]);
+      dailyTimeline.push({
+        day: dayStart.toLocaleString('en-US', { weekday: 'short' }),
+        value: dayAgg[0]?.total || 0
+      });
+    }
+
+    return res.json({
+      currentIncome,
+      currentCount,
+      prevIncome,
+      currentMembers,
+      prevMembers,
+      dailyTimeline
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error fetching trend data', error: err.message });
+  }
+});
+
+router.get('/', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const { status, search, plan, startDate, endDate } = req.query;
   const query = { companyId: req.companyId };
   
@@ -196,7 +322,26 @@ router.get('/', authRequired, requireRole('admin'), validateCompanyContext, asyn
   }
 
   const Member = getCompanyModel(req.companyDb, 'Member');
-  const members = await Member.find(query).sort({ createdAt: -1 });
+  let members = await Member.find(query).sort({ createdAt: -1 });
+  
+  // Auto-generate monthly dues for expired members and save if changed
+  let membersToSave = [];
+  for (const member of members) {
+    if (member.status !== 'Inactive' && new Date(member.endDate) < new Date()) {
+      const hadChanges = generateMonthlyDues(member);
+      if (hadChanges) {
+        membersToSave.push(member);
+      }
+    }
+  }
+  
+  // Save any members that got new due entries
+  if (membersToSave.length > 0) {
+    await Promise.all(membersToSave.map(m => m.save()));
+    // Re-fetch to get saved data
+    members = await Member.find(query).sort({ createdAt: -1 });
+  }
+  
   return res.json({ members });
 });
 
@@ -213,7 +358,7 @@ router.patch('/:id/status', authRequired, requireRole('admin'), validateCompanyC
 });
 
 // GET single member (for profile view)
-router.get('/:id', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/:id', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Member = getCompanyModel(req.companyDb, 'Member');
   const member = await Member.findOne({ _id: req.params.id, companyId: req.companyId });
   if (!member) return res.status(404).json({ message: 'Member not found' });
@@ -267,34 +412,34 @@ router.post('/:id/status', authRequired, requireRole('admin'), validateCompanyCo
 });
 
 // GET member's due information
-router.get('/:id/due', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/:id/due', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Member = getCompanyModel(req.companyDb, 'Member');
   const member = await Member.findById(req.params.id);
   if (!member) return res.status(404).json({ message: 'Member not found' });
 
-  const totalDue = calculateMemberDue(member);
-  const monthsSinceExpiry = Math.max(0, Math.floor((new Date() - new Date(member.endDate)) / (1000 * 60 * 60 * 24 * 30)));
+  const purchaseDue = calculateMemberDue(member);
+  const monthlyDueTotal = calculateMonthlyDue(member);
+  const unpaidMonths = (member.dueHistory || []).filter(e => e.type === 'Due' && e.reason?.startsWith('Monthly Fee') && !e.paid);
+  const paidMonths = (member.dueHistory || []).filter(e => e.type === 'Due' && e.reason?.startsWith('Monthly Fee') && e.paid);
   
   let nextDueDate = null;
-  if (member.lastPaymentDate) {
-    nextDueDate = new Date(member.lastPaymentDate);
-    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-  } else if (member.status === 'Expired') {
-    nextDueDate = new Date(member.endDate);
-    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+  if (unpaidMonths.length > 0) {
+    nextDueDate = new Date(unpaidMonths[0].date || new Date());
   }
 
   return res.json({
-    totalDue,
+    purchaseDue,
+    monthlyDueTotal,
+    unpaidMonths,
+    paidMonths,
     lastPaymentDate: member.lastPaymentDate,
     nextDueDate,
-    monthsSinceExpiry,
     status: member.status,
     dueHistory: member.dueHistory || []
   });
 });
 
-// PAY monthly fee
+// PAY monthly fee (collects oldest unpaid month)
 router.post('/:id/pay-monthly', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
   const { paymentMethod = 'Cash' } = req.body;
   
@@ -304,13 +449,25 @@ router.post('/:id/pay-monthly', authRequired, requireRole('admin'), validateComp
   const member = await Member.findById(req.params.id);
   if (!member) return res.status(404).json({ message: 'Member not found' });
 
-  if (member.status !== 'Expired') {
-    return res.status(400).json({ message: 'Only expired members can pay monthly fee' });
+  // Ensure dueHistory exists
+  if (!member.dueHistory) member.dueHistory = [];
+
+  // Find the oldest unpaid month
+  const oldestUnpaid = member.dueHistory.find(e => e.type === 'Due' && !e.paid);
+  if (!oldestUnpaid) {
+    return res.status(400).json({ message: 'No unpaid months to collect' });
   }
 
-  const amountToPay = (member.monthlyFeeAmount && member.monthlyFeeAmount > 0) ? member.monthlyFeeAmount : 2000;
+  const amountToPay = oldestUnpaid.amount || (member.monthlyFeeAmount || 2000);
   
-  // Create transaction
+  // Mark this month as paid
+  oldestUnpaid.paid = true;
+  oldestUnpaid.paidDate = new Date();
+  
+  // Create transaction with month info
+  const monthDate = new Date(oldestUnpaid.date || new Date());
+  const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  
   const transaction = new Transaction({
     companyId: req.user.companyId,
     name: member.name,
@@ -324,25 +481,21 @@ router.post('/:id/pay-monthly', authRequired, requireRole('admin'), validateComp
     transactionType: 'MonthlyPayment'
   });
   await transaction.save();
+  try {
+    const { createIncomeEntry } = await import('../utils/journalEngine.js');
+    await createIncomeEntry(req.companyDb, transaction);
+  } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
 
   // Update member
-  member.totalDue = Math.max(0, calculateMemberDue(member) - amountToPay);
   member.lastPaymentDate = new Date();
-  
-  // Add to due history
-  if (!member.dueHistory) member.dueHistory = [];
-  member.dueHistory.push({
-    date: new Date(),
-    amount: -amountToPay,
-    reason: 'Monthly Payment',
-    type: 'Payment'
-  });
 
   await member.save();
 
   return res.status(201).json({
     success: true,
     transaction,
+    collectedMonth: oldestUnpaid.month,
+    collectedMonthName: monthName,
     member: {
       _id: member._id,
       name: member.name,
@@ -412,6 +565,10 @@ router.post('/:id/pay-due', authRequired, requireRole('admin'), validateCompanyC
     dueAmount: Math.max(0, member.totalDue - actualPaymentAgainstDue)
   });
   await transaction.save();
+  try {
+    const { createIncomeEntry } = await import('../utils/journalEngine.js');
+    await createIncomeEntry(req.companyDb, transaction);
+  } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
 
   // Update member due
   member.totalDue = Math.max(0, member.totalDue - actualPaymentAgainstDue);
@@ -444,7 +601,7 @@ router.post('/:id/pay-due', authRequired, requireRole('admin'), validateCompanyC
 });
 
 // GET payment history for a member
-router.get('/:id/payment-history', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
+router.get('/:id/payment-history', authRequired, requireRole('admin', 'manager'), validateCompanyContext, async (req, res) => {
   const Member = getCompanyModel(req.companyDb, 'Member');
   const Transaction = getCompanyModel(req.companyDb, 'Transaction');
   
@@ -475,7 +632,7 @@ router.get('/:id/payment-history', authRequired, requireRole('admin'), validateC
 });
 
 // GET company settings (monthly fee)
-router.get('/settings/company-default', authRequired, requireRole('admin'), async (req, res) => {
+router.get('/settings/company-default', authRequired, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const company = await Company.findById(req.user.companyId);
     if (!company) return res.status(404).json({ message: 'Company not found' });
@@ -554,6 +711,93 @@ router.put('/migrate-monthly-fees', authRequired, requireRole('admin'), validate
       message: 'Migration failed',
       error: error.message
     });
+  }
+});
+
+// Default settings for new companies
+const defaultMembershipSettings = {
+  baseFees: {
+    admissionFee: { enabled: true, amount: 2500 },
+        monthlyFee: { enabled: true, amount: 2000 },
+      },
+      packages: [
+        { title: 'Monthly', duration: 1, amount: 6500, monthlyFee: 2000, color: '#3B82F6', admissionFee: true },
+        { title: 'Quarterly', duration: 3, amount: 10000, monthlyFee: 2000, color: '#8B5CF6', admissionFee: true },
+        { title: 'Half Yearly', duration: 6, amount: 17000, monthlyFee: 2000, color: '#F59E0B', admissionFee: true },
+        { title: 'Yearly', duration: 12, amount: 30000, monthlyFee: 2000, color: '#22C55E', admissionFee: true },
+      ],
+      autoInactiveMonths: 3,
+};
+
+// GET membership settings
+router.get('/settings/membership', authRequired, requireRole('admin', 'manager'), async (req, res) => {
+  try {
+    const company = await Company.findById(req.user.companyId);
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    // Handle migration from old format
+    let settings = company.membershipSettings;
+    if (!settings || !settings.packages) {
+      settings = defaultMembershipSettings;
+    }
+
+    return res.json({ settings });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error fetching membership settings', error: err.message });
+  }
+});
+
+// PUT membership settings
+router.put('/settings/membership', authRequired, requireRole('admin'), async (req, res) => {
+  try {
+    const { baseFees, packages, autoInactiveMonths } = req.body;
+    
+    const company = await Company.findById(req.user.companyId);
+    if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    if (!company.membershipSettings) {
+      company.membershipSettings = {};
+    }
+
+    if (baseFees) {
+      company.membershipSettings.baseFees = {
+        admissionFee: {
+          enabled: Boolean(baseFees.admissionFee?.enabled),
+          amount: Number(baseFees.admissionFee?.amount) || 0,
+        },
+        monthlyFee: {
+          enabled: Boolean(baseFees.monthlyFee?.enabled),
+          amount: Number(baseFees.monthlyFee?.amount) || 0,
+        },
+      };
+      // Sync defaultMemberFee
+      company.defaultMemberFee = company.membershipSettings.baseFees.monthlyFee.amount;
+    }
+
+    if (packages) {
+      company.membershipSettings.packages = packages.map(p => ({
+        title: p.title,
+        duration: Number(p.duration) || 1,
+        amount: Number(p.amount) || 0,
+        monthlyFee: Number(p.monthlyFee) || 0,
+        color: p.color || '#6366F1',
+        admissionFee: Boolean(p.admissionFee),
+      }));
+    }
+
+    if (autoInactiveMonths !== undefined) {
+      company.membershipSettings.autoInactiveMonths = Number(autoInactiveMonths);
+    }
+
+    await company.save();
+
+    return res.json({
+      success: true,
+      settings: company.membershipSettings,
+      message: 'Membership settings updated successfully'
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error updating membership settings', error: err.message });
   }
 });
 

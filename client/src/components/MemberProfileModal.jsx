@@ -5,7 +5,7 @@ import ConfirmDialog from './ConfirmDialog.jsx';
 const PLAN_PRICING = {
   Monthly: { reg: 2500, fee: 4000, discount: 0, final: 6500 },
   Quarterly: { reg: 2500, fee: 12000, discount: 4500, final: 10000 },
-  'Half-Yearly': { reg: 2500, fee: 24000, discount: 9500, final: 17000 },
+  'Half Yearly': { reg: 2500, fee: 24000, discount: 9500, final: 17000 },
   Yearly: { reg: 2500, fee: 48000, discount: 20500, final: 30000 },
 };
 
@@ -151,7 +151,7 @@ export default function MemberProfileModal({ isOpen, member, onClose, token, sho
               onClick={() => setActiveTab('info')}
               className={`pb-2 px-4 font-semibold transition ${
                 activeTab === 'info'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -161,7 +161,7 @@ export default function MemberProfileModal({ isOpen, member, onClose, token, sho
               onClick={() => setActiveTab('history')}
               className={`pb-2 px-4 font-semibold transition ${
                 activeTab === 'history'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -350,7 +350,7 @@ export default function MemberProfileModal({ isOpen, member, onClose, token, sho
                       <button
                         onClick={handlePayMonthlyFee}
                         disabled={loading}
-                        className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg disabled:opacity-50"
+                        className="w-full px-4 py-2 bg-primary hover:bg-primary text-white font-medium rounded-lg disabled:opacity-50"
                       >
                         💳 Pay Monthly Fee (৳2,000)
                       </button>

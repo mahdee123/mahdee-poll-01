@@ -1,21 +1,42 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
 import { signToken } from '../utils/jwt.js';
 import { initializeCompanyDatabase } from '../utils/initCompanyDb.js';
 import { authRequired, requireRole } from '../middleware/auth.js';
 import { validateCompanyContext } from '../middleware/tenantContext.js';
+import { buildCompanyMongoUri } from '../utils/companyDb.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();
+
+// Throttle the endpoints that don't require auth so they can't be used for
+// credential stuffing (login) or to mass-create companies/DB connections
+// (register-company).
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Please try again later.' },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many registration attempts. Please try again later.' },
+});
 
 /**
  * Register a new company
  * Creates Company + owner User account
  * Initializes company's dedicated database
  */
-router.post('/register-company', async (req, res) => {
+router.post('/register-company', registerLimiter, async (req, res) => {
   try {
     const { companyName, ownerName, email, password } = req.body;
 
@@ -40,12 +61,16 @@ router.post('/register-company', async (req, res) => {
     });
     await user.save();
 
-    // Now create company with user as owner
+    // Now create company with user as owner. Pre-generate the company's _id
+    // so the DB URI's database name matches the company's own id, and derive
+    // the URI from the system connection string (same host/cluster/creds)
+    // instead of a hardcoded localhost address.
+    const companyId = new mongoose.Types.ObjectId();
     const company = new Company({
+      _id: companyId,
       name: companyName,
       ownerId: user._id,
-      // Generate database URI for this company
-      mongoUri: `mongodb://127.0.0.1:27017/pool_${new mongoose.Types.ObjectId().toString()}`,
+      mongoUri: buildCompanyMongoUri(companyId.toString()),
     });
     await company.save();
 
@@ -53,11 +78,14 @@ router.post('/register-company', async (req, res) => {
     user.companyId = company._id;
     await user.save();
 
-    // Initialize company's database
-    await initializeCompanyDatabase(company._id.toString(), company.mongoUri);
-
     // Generate JWT
     const token = signToken(user._id, company._id, user.role, user.name, user.email);
+
+    // Initialize company's database asynchronously (don't block registration)
+    initializeCompanyDatabase(company._id.toString(), company.mongoUri)
+      .catch(err => {
+        console.error(`Warning: Failed to initialize company database for ${company._id}:`, err);
+      });
 
     return res.status(201).json({
       token,
@@ -83,7 +111,7 @@ router.post('/register-company', async (req, res) => {
  * Login endpoint
  * Updated to include companyId in JWT
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -97,6 +125,11 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password || '', user.passwordHash);
     if (!valid) {
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if user is assigned to a company
+    if (!user.companyId) {
+      return res.status(400).json({ message: 'Account not assigned to a company. Please contact support.' });
     }
 
     // JWT now includes companyId
@@ -146,6 +179,7 @@ router.get('/me', authRequired, async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        permissions: user.permissions || [],
         status: 'Active',
         companyId: user.companyId._id,
         createdAt: user.createdAt,
@@ -153,6 +187,9 @@ router.get('/me', authRequired, async (req, res) => {
       company: {
         id: user.companyId._id,
         name: user.companyId.name,
+        address: user.companyId.address || '',
+        phone: user.companyId.phone || '',
+        email: user.companyId.email || '',
         status: user.companyId.status === 'active' ? 'Active' : 'Suspended',
         createdAt: user.companyId.createdAt,
       },
@@ -161,6 +198,7 @@ router.get('/me', authRequired, async (req, res) => {
         name: s.name,
         email: s.email,
         role: s.role,
+        permissions: s.permissions || [],
         status: 'Active',
         companyId: s.companyId,
         createdAt: s.createdAt,
@@ -234,7 +272,7 @@ router.post('/invite-user', authRequired, requireRole('admin'), validateCompanyC
  */
 router.patch('/company', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
   try {
-    const { name, status } = req.body;
+    const { name, status, address, phone, email } = req.body;
     const { companyId } = req.user;
 
     // Validate input
@@ -250,6 +288,9 @@ router.patch('/company', authRequired, requireRole('admin'), validateCompanyCont
     if (status !== undefined && ['active', 'suspended'].includes(status)) {
       updateData.status = status;
     }
+    if (address !== undefined) updateData.address = address;
+    if (phone !== undefined) updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
 
     // Update company
     const company = await Company.findByIdAndUpdate(
@@ -267,6 +308,9 @@ router.patch('/company', authRequired, requireRole('admin'), validateCompanyCont
       company: {
         id: company._id,
         name: company.name,
+        address: company.address || '',
+        phone: company.phone || '',
+        email: company.email || '',
         status: company.status === 'active' ? 'Active' : 'Suspended',
         createdAt: company.createdAt,
         updatedAt: company.updatedAt,
@@ -285,7 +329,7 @@ router.patch('/company', authRequired, requireRole('admin'), validateCompanyCont
 router.patch('/users/:userId/role', authRequired, requireRole('admin'), validateCompanyContext, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { role } = req.body;
+    const { role, permissions } = req.body;
     const { companyId } = req.user;
 
     // Validate input
@@ -312,6 +356,11 @@ router.patch('/users/:userId/role', authRequired, requireRole('admin'), validate
     }
 
     user.role = role;
+    if (role === 'manager' && Array.isArray(permissions)) {
+      user.permissions = permissions;
+    } else if (role === 'admin') {
+      user.permissions = []; // Admin has full access, no permissions needed
+    }
     await user.save();
 
     return res.json({
@@ -321,6 +370,7 @@ router.patch('/users/:userId/role', authRequired, requireRole('admin'), validate
         name: user.name,
         email: user.email,
         role: user.role,
+        permissions: user.permissions || [],
         companyId: user.companyId,
         createdAt: user.createdAt,
       },

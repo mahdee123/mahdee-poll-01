@@ -74,7 +74,7 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
               value={formData.managerName}
               onChange={handleChange}
               placeholder="Full name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
           </div>
@@ -89,7 +89,7 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
               value={formData.managerEmail}
               onChange={handleChange}
               placeholder="manager@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
             <p className="text-xs text-gray-500 mt-1">Email must be unique</p>
@@ -106,7 +106,7 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
                 value={formData.managerPassword}
                 onChange={handleChange}
                 placeholder="Minimum 6 characters"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary pr-10"
                 disabled={loading}
               />
               <button
@@ -133,7 +133,7 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+              className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
             >
               {loading ? 'Creating...' : 'Create Account'}
             </button>

@@ -4,7 +4,7 @@ import BeverageProductManager from './BeverageProductManager';
 import InventoryPurchaseForm from './InventoryPurchaseForm';
 import BeverageSalesForm from './BeverageSalesForm';
 
-export default function BeverageSalesPage({ token }) {
+export default function BeverageSalesPage({ token, setLastReceipt }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
@@ -342,6 +342,26 @@ export default function BeverageSalesPage({ token }) {
 
       setSales([response.sale, ...sales]);
       setActiveModal(null);
+      
+      // Generate receipt if setLastReceipt is available
+      if (setLastReceipt && response.sale) {
+        const receipt = {
+          receiptId: response.sale.receiptId,
+          date: response.sale.date,
+          serviceType: 'Beverage',
+          name: response.sale.notes || 'Beverage Sale',
+          phone: '',
+          paymentMethod: response.sale.paymentMethod,
+          beverageItems: response.sale.items || [],
+          totalCost: response.sale.totalCost || 0,
+          amount: response.sale.totalAmount || 0,
+          profit: response.sale.profit || 0,
+          profitMargin: response.sale.profitMargin || 0,
+        };
+        setLastReceipt(receipt);
+        setTimeout(() => window.print(), 500);
+      }
+      
       alert('✓ Sale recorded successfully!');
       
       // IMPORTANT: Refresh cash management data since sales affect cash balance
@@ -511,7 +531,7 @@ export default function BeverageSalesPage({ token }) {
         <p>Error: {error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
         >
           Reload
         </button>
@@ -573,7 +593,7 @@ export default function BeverageSalesPage({ token }) {
                 }}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                   timePeriod === period
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -604,10 +624,10 @@ export default function BeverageSalesPage({ token }) {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <p className="text-sm text-gray-600">Revenue</p>
-            <p className="text-2xl font-bold text-blue-600">{(displayStats.totalRevenue || displayStats.revenue || 0).toFixed(0)} ৳</p>
+            <p className="text-2xl font-bold text-primary">{(displayStats.totalRevenue || displayStats.revenue || 0).toFixed(0)} ৳</p>
             <p className="text-xs text-gray-500 mt-1">{displayStats.transactionCount || 0} transactions</p>
           </div>
 
@@ -646,7 +666,7 @@ export default function BeverageSalesPage({ token }) {
           </button>
           <button
             onClick={() => setActiveModal('products')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
           >
             🛠️ Manage Products
           </button>
@@ -661,7 +681,7 @@ export default function BeverageSalesPage({ token }) {
               <p>No products yet. Create your first beverage product!</p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {products.map((product) => (
                 <div
                   key={product._id}
@@ -718,7 +738,7 @@ export default function BeverageSalesPage({ token }) {
                     <tr key={item.productId} className="border-b hover:bg-gray-50">
                       <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
                       <td className="px-4 py-2 text-right text-gray-600">{item.quantitySold}</td>
-                      <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                      <td className="px-4 py-2 text-right font-semibold text-primary">
                         {(item.revenue || item.revenueToday || 0).toFixed(0)} ৳
                       </td>
                       <td className="px-4 py-2 text-right font-bold text-green-600">
@@ -727,12 +747,12 @@ export default function BeverageSalesPage({ token }) {
                       <td className="px-4 py-2 text-right text-gray-600">
                         {(item.profitMargin || item.profitMarginToday || 0)}%
                       </td>
-                    </tr>
+                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </table>
           </div>
+        </div>
         )}
       </div>
     );
@@ -767,10 +787,10 @@ export default function BeverageSalesPage({ token }) {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <p className="text-sm text-gray-600">Total Revenue</p>
-            <p className="text-2xl font-bold text-blue-600">{totalRevenue.toFixed(0)} ৳</p>
+            <p className="text-2xl font-bold text-primary">{totalRevenue.toFixed(0)} ৳</p>
           </div>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-sm text-gray-600">Total Profit</p>
@@ -791,7 +811,7 @@ export default function BeverageSalesPage({ token }) {
 
         {/* Filters */}
         <div className="bg-white border rounded-lg p-4">
-          <div className="grid md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <input
               type="date"
               value={salesFilters.startDate}
@@ -837,7 +857,36 @@ export default function BeverageSalesPage({ token }) {
             <p>No sales recorded yet.</p>
           </div>
         ) : (
-          <div className="bg-white border rounded-lg overflow-x-auto">
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden space-y-3">
+              {sales.map((sale) => {
+                if (!sale.items || sale.items.length === 0) return null;
+                return (
+                  <div key={sale._id} className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-xs text-gray-500">{formatDate(sale.date)} {formatTime(sale.date)}</div>
+                        <div className="text-xs text-gray-400 font-mono">{sale.receiptId}</div>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${sale.paymentMethod === 'Cash' ? 'bg-green-100 text-green-800' : sale.paymentMethod === 'Bank' ? 'bg-primary/10 text-primary' : 'bg-purple-100 text-purple-800'}`}>{sale.paymentMethod}</span>
+                    </div>
+                    {sale.items.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{item.productName} × {item.quantity}</span>
+                        <span className="font-semibold text-primary">{item.lineTotal.toFixed(0)} ৳</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1 border-t text-xs">
+                      <span className="text-green-600 font-semibold">Profit: {sale.items.reduce((s, i) => s + i.lineProfit, 0).toFixed(0)} ৳</span>
+                      <button onClick={() => handleDeleteSale(sale._id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 min-h-[36px]">🗑️</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden md:block bg-white border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b">
                 <tr>
@@ -873,7 +922,7 @@ export default function BeverageSalesPage({ token }) {
                       <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
                       <td className="px-4 py-2 text-center font-semibold">{item.quantity}</td>
                       <td className="px-4 py-2 text-right text-gray-600">{item.sellingPricePerUnit} ৳</td>
-                      <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                      <td className="px-4 py-2 text-right font-semibold text-primary">
                         {item.lineTotal.toFixed(0)} ৳
                       </td>
                       <td className="px-4 py-2 text-right font-bold">
@@ -887,7 +936,7 @@ export default function BeverageSalesPage({ token }) {
                                 sale.paymentMethod === 'Cash'
                                   ? 'bg-green-100 text-green-800'
                                   : sale.paymentMethod === 'Bank'
-                                  ? 'bg-blue-100 text-blue-800'
+                                  ? 'bg-primary/10 text-primary'
                                   : 'bg-purple-100 text-purple-800'
                               }`}
                             >
@@ -920,6 +969,7 @@ export default function BeverageSalesPage({ token }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     );
@@ -935,7 +985,7 @@ export default function BeverageSalesPage({ token }) {
           <h2 className="text-lg font-semibold">Product Catalog</h2>
           <button
             onClick={() => setActiveModal('products')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
           >
             ➕ Add Product
           </button>
@@ -946,13 +996,40 @@ export default function BeverageSalesPage({ token }) {
             <p className="mb-4">No products yet.</p>
             <button
               onClick={() => setActiveModal('products')}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
             >
               Create Your First Product
             </button>
           </div>
         ) : (
-          <div className="bg-white border rounded-lg overflow-x-auto">
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden space-y-3">
+              {products.map((product) => (
+                <div key={product._id} className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-semibold text-gray-800">{product.name}</div>
+                      <div className="text-xs text-gray-500">Stock: {product.currentStock} units</div>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${product.currentStock === 0 ? 'bg-red-100 text-red-800' : product.currentStock < 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                      {product.currentStock === 0 ? 'Out' : product.currentStock < 10 ? 'Low' : 'OK'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-gray-500">Cost</span><p className="font-medium">{product.costPrice} ৳</p></div>
+                    <div><span className="text-gray-500">Selling</span><p className="font-medium">{product.sellingPrice} ৳</p></div>
+                    <div><span className="text-gray-500">Stock Value</span><p className="font-semibold">{(product.currentStock * product.costPrice).toFixed(0)} ৳</p></div>
+                  </div>
+                  <div className="flex gap-2 pt-1 border-t">
+                    <button onClick={() => setActiveModal('products')} className="bg-primary text-white px-3 py-1.5 rounded text-xs hover:bg-primary min-h-[36px]">✏️ Edit</button>
+                    <button onClick={() => setActiveModal('purchase')} className="bg-purple-500 text-white px-3 py-1.5 rounded text-xs hover:bg-purple-600 min-h-[36px]">📦 Purchase</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden md:block bg-white border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b">
                 <tr>
@@ -991,7 +1068,7 @@ export default function BeverageSalesPage({ token }) {
                     <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => setActiveModal('products')}
-                        className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 mr-2"
+                        className="bg-primary text-white px-2 py-1 rounded text-xs hover:bg-primary mr-2"
                       >
                         ✏️
                       </button>
@@ -1007,6 +1084,7 @@ export default function BeverageSalesPage({ token }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     );
@@ -1021,10 +1099,10 @@ export default function BeverageSalesPage({ token }) {
         <div className="bg-white border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">📦 Inventory Overview</h2>
 
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
               <p className="text-sm text-gray-600">Total Products</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.inventory?.totalProducts || 0}</p>
+              <p className="text-2xl font-bold text-primary">{stats.inventory?.totalProducts || 0}</p>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
               <p className="text-sm text-gray-600">Total Inventory Cost</p>
@@ -1108,7 +1186,7 @@ export default function BeverageSalesPage({ token }) {
               setCashSelectedDate(e.target.value);
               handleLoadCashData(e.target.value);
             }}
-            className="w-full md:w-48 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+            className="w-full md:w-48 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
@@ -1118,9 +1196,9 @@ export default function BeverageSalesPage({ token }) {
             <p className="text-sm text-gray-600 mb-1">Opening Balance</p>
             <p className="text-2xl font-bold text-green-700">৳{(cashFlowData.openingBalance || 0).toLocaleString()}</p>
           </div>
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border-l-4 border-blue-600">
+          <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-4 rounded-lg border-l-4 border-primary">
             <p className="text-sm text-gray-600 mb-1">Sales Revenue</p>
-            <p className="text-2xl font-bold text-blue-700">+৳{(cashFlowData.totalSalesRevenue || 0).toLocaleString()}</p>
+            <p className="text-2xl font-bold text-primary">+৳{(cashFlowData.totalSalesRevenue || 0).toLocaleString()}</p>
           </div>
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border-l-4 border-orange-600">
             <p className="text-sm text-gray-600 mb-1">Withdrawals</p>
@@ -1149,11 +1227,11 @@ export default function BeverageSalesPage({ token }) {
               placeholder="Enter opening balance amount"
               value={openingBalanceForm}
               onChange={(e) => setOpeningBalanceForm(e.target.value)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
               onClick={handleSetOpeningBalance}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 font-medium"
             >
               Save Opening Balance
             </button>
@@ -1173,14 +1251,14 @@ export default function BeverageSalesPage({ token }) {
                 placeholder="Withdrawal amount"
                 value={withdrawalForm.amount}
                 onChange={(e) => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })}
-                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <input
                 type="text"
                 placeholder="Reason (e.g., Admin fee, Maintenance)"
                 value={withdrawalForm.reason}
                 onChange={(e) => setWithdrawalForm({ ...withdrawalForm, reason: e.target.value })}
-                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <button
@@ -1230,7 +1308,7 @@ export default function BeverageSalesPage({ token }) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
       </div>
 
       {/* Tab Navigation */}
@@ -1247,7 +1325,7 @@ export default function BeverageSalesPage({ token }) {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-3 font-medium border-b-2 transition-colors ${
               activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-600 hover:text-gray-800'
             }`}
           >

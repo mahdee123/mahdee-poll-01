@@ -64,11 +64,11 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">📦 Record Inventory Purchase</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center">
             ✕
           </button>
         </div>
@@ -96,7 +96,7 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
 
           {/* Product Info Display */}
           {selectedProduct && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
               <h4 className="font-semibold text-gray-800 mb-2">📊 Product Info</h4>
               <p className="text-sm text-gray-700">
                 <strong>Current Stock:</strong> {selectedProduct.currentStock} {selectedProduct.unit}s
@@ -111,7 +111,7 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
           )}
 
           {/* Purchase Details Grid */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">📅 Purchase Date</label>
               <input

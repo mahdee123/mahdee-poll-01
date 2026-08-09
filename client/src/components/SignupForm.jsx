@@ -82,7 +82,7 @@ export default function SignupForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Create Your Pool Business</h1>
         <p className="text-gray-600 text-sm mb-6">Start managing your pool membership service today</p>
@@ -104,7 +104,7 @@ export default function SignupForm() {
               value={formData.companyName}
               onChange={handleChange}
               placeholder="e.g., Sunset Pool Club"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
           </div>
@@ -119,7 +119,7 @@ export default function SignupForm() {
               value={formData.ownerName}
               onChange={handleChange}
               placeholder="Your full name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
           </div>
@@ -134,7 +134,7 @@ export default function SignupForm() {
               value={formData.email}
               onChange={handleChange}
               placeholder="admin@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
           </div>
@@ -149,7 +149,7 @@ export default function SignupForm() {
               value={formData.password}
               onChange={handleChange}
               placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
           </div>
@@ -164,7 +164,7 @@ export default function SignupForm() {
               value={formData.confirmPassword}
               onChange={handleChange}
               placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
           </div>
@@ -172,7 +172,7 @@ export default function SignupForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+            className="w-full bg-primary hover:bg-primary/90 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
@@ -182,7 +182,7 @@ export default function SignupForm() {
           Already have an account?{' '}
           <Link 
             to="/login" 
-            className="text-blue-600 hover:text-blue-700 font-bold underline transition"
+            className="text-primary hover:text-primary font-bold underline transition"
           >
             Sign In Here
           </Link>

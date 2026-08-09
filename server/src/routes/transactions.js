@@ -51,6 +51,10 @@ router.post('/', authRequired, requireRole('admin', 'manager'), validateCompanyC
 
     console.log(`[Transaction] Attempting to save Transaction: ${name} (${serviceType}, Amount: ${amount}, Company: ${req.companyId})`);
     await transaction.save();
+    try {
+      const { createIncomeEntry } = await import('../utils/journalEngine.js');
+      await createIncomeEntry(req.companyDb, transaction);
+    } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
     console.log(`[Transaction] ✓ Transaction saved successfully with ID: ${transaction._id}`);
     return res.status(201).json({ transaction });
   } catch (error) {

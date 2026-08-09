@@ -35,8 +35,8 @@ export default function Badge({ type = 'status', value, className = '' }) {
         if (value === 'admin') {
           return {
             icon: Shield,
-            bgColor: 'bg-blue-100',
-            textColor: 'text-blue-800',
+            bgColor: 'bg-primary/10',
+            textColor: 'text-primary',
             label: 'Admin'
           };
         } else {

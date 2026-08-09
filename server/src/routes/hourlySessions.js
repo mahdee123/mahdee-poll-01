@@ -137,6 +137,9 @@ router.post('/:id/close', authRequired, requireRole('admin', 'manager'), validat
     const { paymentMethod = 'Cash', notes = '' } = req.body;
     const HourlySession = getCompanyModel(req.companyDb, 'HourlySession');
     const Transaction = getCompanyModel(req.companyDb, 'Transaction');
+    const LockerAssignment = getCompanyModel(req.companyDb, 'LockerAssignment');
+    const Locker = getCompanyModel(req.companyDb, 'Locker');
+    
     const session = await HourlySession.findOne({ _id: req.params.id, companyId: req.companyId });
 
     if (!session) {
@@ -177,12 +180,109 @@ router.post('/:id/close', authRequired, requireRole('admin', 'manager'), validat
     });
 
     await transaction.save();
+    try {
+      const { createIncomeEntry } = await import('../utils/journalEngine.js');
+      await createIncomeEntry(req.companyDb, transaction);
+    } catch (je) { console.warn('[Journal] Failed to create income entry:', je.message); }
     session.transactionId = transaction._id;
     await session.save();
+
+    // AUTO-RETURN LOCKER: If this session has an assigned locker, mark it as returned automatically
+    let lockerReturned = false;
+    let debugInfo = {};
+    try {
+      console.log(`[Hourly Sessions] Checking for locker assignment for session ${session._id}, companyId: ${req.companyId}`);
+      
+      // Search for locker assignment using either billPayerTransactionId or memberId
+      const lockerAssignment = await LockerAssignment.findOne({
+        companyId: req.companyId,
+        $or: [
+          { billPayerTransactionId: session._id },
+          { memberId: session._id }
+        ],
+        status: 'Active',
+      });
+
+      debugInfo.searchQuery = {
+        companyId: req.companyId,
+        sessionId: session._id,
+        searchFor: ['billPayerTransactionId', 'memberId']
+      };
+      debugInfo.assignmentFound = !!lockerAssignment;
+
+      if (lockerAssignment) {
+        console.log(`[Hourly Sessions] Found locker assignment: ${lockerAssignment._id}, lockerId: ${lockerAssignment.lockerId}, memberId: ${lockerAssignment.memberId}, billPayerTransactionId: ${lockerAssignment.billPayerTransactionId}`);
+        
+        lockerAssignment.returnedTime = new Date();
+        lockerAssignment.status = 'Returned';
+        await lockerAssignment.save();
+        debugInfo.assignmentUpdated = true;
+
+        // Mark locker as available
+        const locker = await Locker.findOne({
+          _id: lockerAssignment.lockerId,
+          companyId: req.companyId,
+        });
+
+        if (locker) {
+          locker.status = 'Available';
+          await locker.save();
+          lockerReturned = true;
+          debugInfo.lockerUpdated = true;
+          debugInfo.lockerNumber = locker.lockerNumber;
+          console.log(`[Hourly Sessions] Auto-returned locker ${locker.lockerNumber} for ${session.customerName}`);
+        } else {
+          console.log(`[Hourly Sessions] Locker not found for ID: ${lockerAssignment.lockerId}`);
+        }
+      } else {
+        console.log(`[Hourly Sessions] No active locker assignment found for session ${session._id}`);
+      }
+    } catch (lockerError) {
+      console.error('[Hourly Sessions] Error auto-returning locker:', lockerError.message, lockerError.stack);
+      debugInfo.error = lockerError.message;
+      // Don't fail the entire operation if locker return fails
+    }
+
+    // AUTO-RETURN DRESS: If this session has an assigned dress, mark it as returned automatically
+    let dressReturned = false;
+    try {
+      const DressRental = getCompanyModel(req.companyDb, 'DressRental');
+      const Dress = getCompanyModel(req.companyDb, 'Dress');
+
+      const dressRental = await DressRental.findOne({
+        companyId: req.companyId,
+        memberId: session._id,
+        status: 'Active',
+      });
+
+      if (dressRental) {
+        dressRental.returnedTime = new Date();
+        dressRental.status = 'Returned';
+        await dressRental.save();
+
+        const dress = await Dress.findOne({
+          _id: dressRental.dressId,
+          companyId: req.companyId,
+        });
+
+        if (dress) {
+          dress.status = 'Available';
+          await dress.save();
+          dressReturned = true;
+          console.log(`[Hourly Sessions] Auto-returned dress ${dress.dressNumber} for ${session.customerName}`);
+        }
+      }
+    } catch (dressError) {
+      console.error('[Hourly Sessions] Error auto-returning dress:', dressError.message);
+      // Don't fail the entire operation if dress return fails
+    }
 
     return res.json({
       session: buildSessionView(session),
       transaction,
+      lockerReturned,
+      dressReturned,
+      debug: debugInfo,
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to close session', error: error.message });

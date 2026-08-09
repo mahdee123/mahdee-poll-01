@@ -216,7 +216,7 @@ export default function BeverageSalesDashboard({ token }) {
         <p>Error: {error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
         >
           Reload
         </button>
@@ -236,14 +236,14 @@ export default function BeverageSalesDashboard({ token }) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
       </div>
 
       {/* Top Stats */}
-      <div className="grid md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
           <p className="text-sm text-gray-600">Today Revenue</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.today.revenue.toFixed(0)} ৳</p>
+          <p className="text-2xl font-bold text-primary">{stats.today.revenue.toFixed(0)} ৳</p>
           <p className="text-xs text-gray-500 mt-1">{stats.today.transactionCount} transactions</p>
         </div>
 
@@ -270,7 +270,7 @@ export default function BeverageSalesDashboard({ token }) {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => setActiveModal('products')}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
         >
           🛠️ Manage Products
         </button>
@@ -297,7 +297,7 @@ export default function BeverageSalesDashboard({ token }) {
             <p>No products yet. Create your first beverage product!</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {products.map((product) => (
               <div
                 key={product._id}
@@ -356,7 +356,7 @@ export default function BeverageSalesDashboard({ token }) {
                     <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
                     <td className="px-4 py-2 text-center text-gray-600">{item.currentStock} {item.currentStock === 1 ? 'unit' : 'units'}</td>
                     <td className="px-4 py-2 text-right text-gray-600">{item.quantitySoldToday}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                    <td className="px-4 py-2 text-right font-semibold text-primary">
                       {item.revenueToday.toFixed(0)} ৳
                     </td>
                     <td className="px-4 py-2 text-right text-gray-600">{item.totalCost ? item.totalCost.toFixed(0) : 0} ৳</td>
@@ -458,7 +458,7 @@ export default function BeverageSalesDashboard({ token }) {
                       <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
                       <td className="px-4 py-2 text-center font-semibold">{item.quantity}</td>
                       <td className="px-4 py-2 text-right text-gray-600">{item.sellingPricePerUnit} ৳</td>
-                      <td className="px-4 py-2 text-right font-semibold text-blue-600">
+                      <td className="px-4 py-2 text-right font-semibold text-primary">
                         {item.lineTotal.toFixed(0)} ৳
                       </td>
                       <td className="px-4 py-2 text-right font-bold">
@@ -467,7 +467,7 @@ export default function BeverageSalesDashboard({ token }) {
                       {itemIndex === 0 && (
                         <>
                           <td rowSpan={sale.items.length} className="px-4 py-2 text-center">
-                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
                               {sale.paymentMethod}
                             </span>
                           </td>

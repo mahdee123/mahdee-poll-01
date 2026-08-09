@@ -39,7 +39,7 @@ export default function ConfirmDeleteUserModal({ isOpen, onClose, user, onConfir
           <h2 className="text-xl font-bold text-red-800">Remove User</h2>
           <button
             onClick={onClose}
-            className="ml-auto text-gray-500 hover:text-gray-700"
+            className="ml-auto text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <X size={24} />
           </button>

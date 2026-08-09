@@ -87,11 +87,10 @@ export default function ReconciliationReport({ token, showToast }) {
         // For now, we'll use timeline data from main report if available
         const dayData = reportData.timeline?.find(t => t.date === dateStr) || {
           income: 0,
-          expense: 0,
           netCash: 0,
         };
 
-        const closingBalance = openingBalance + dayData.income - dayData.expense;
+        const closingBalance = openingBalance + dayData.income;
 
         // Check if opening = previous day's closing
         const isReconciled =
@@ -102,7 +101,6 @@ export default function ReconciliationReport({ token, showToast }) {
           date: dateStr,
           openingBalance,
           income: dayData.income,
-          expense: dayData.expense,
           closingBalance,
           isReconciled,
         });
@@ -127,12 +125,11 @@ export default function ReconciliationReport({ token, showToast }) {
   };
 
   const downloadCSV = () => {
-    const headers = ['Date', 'Opening Balance', 'Income', 'Expense', 'Closing Balance', 'Status', 'Variance'];
+    const headers = ['Date', 'Opening Balance', 'Income', 'Closing Balance', 'Status', 'Variance'];
     const rows = reconciliationData.map(d => [
       d.date,
       d.openingBalance,
       d.income,
-      d.expense,
       d.closingBalance,
       d.isReconciled ? 'OK' : 'MISMATCH',
       d.variance || '',
@@ -177,7 +174,6 @@ export default function ReconciliationReport({ token, showToast }) {
     const rangeLabel = getRangeLabel();
     const generatedAt = new Date().toLocaleString();
     const totalIncome = reconciliationData.reduce((sum, row) => sum + row.income, 0);
-    const totalExpense = reconciliationData.reduce((sum, row) => sum + row.expense, 0);
     const mismatchCount = reconciliationData.filter((row) => !row.isReconciled).length;
 
     const summaryRows = [
@@ -186,18 +182,16 @@ export default function ReconciliationReport({ token, showToast }) {
       ['Generated', generatedAt],
       ['Records', reconciliationData.length],
       ['Total Income', formatCurrency(totalIncome)],
-      ['Total Expense', formatCurrency(totalExpense)],
       ['Mismatches', mismatchCount],
       [],
     ];
 
     const dataRows = [
-      ['Date', 'Opening Balance', 'Income', 'Expense', 'Closing Balance', 'Status', 'Variance'],
+      ['Date', 'Opening Balance', 'Income', 'Closing Balance', 'Status', 'Variance'],
       ...reconciliationData.map((row) => [
         row.date,
         row.openingBalance,
         row.income,
-        row.expense,
         row.closingBalance,
         row.isReconciled ? 'OK' : 'MISMATCH',
         row.variance !== undefined && row.variance !== 0 ? row.variance : '',
@@ -253,7 +247,7 @@ export default function ReconciliationReport({ token, showToast }) {
               onClick={() => setDateRange(r)}
               className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
                 dateRange === r
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }`}
             >
@@ -264,7 +258,7 @@ export default function ReconciliationReport({ token, showToast }) {
             onClick={() => setDateRange('custom')}
             className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
               dateRange === 'custom'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-primary text-white'
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
             }`}
           >
@@ -299,7 +293,6 @@ export default function ReconciliationReport({ token, showToast }) {
               <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Opening Balance</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Income</th>
-              <th className="px-4 py-3 text-right font-semibold text-gray-700">Expense</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Closing Balance</th>
               <th className="px-4 py-3 text-center font-semibold text-gray-700">Status</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-700">Variance</th>
@@ -308,7 +301,7 @@ export default function ReconciliationReport({ token, showToast }) {
           <tbody>
             {reconciliationData.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-4 py-6 text-center text-gray-500">
+                <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
                   No reconciliation data available
                 </td>
               </tr>
@@ -321,9 +314,6 @@ export default function ReconciliationReport({ token, showToast }) {
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-green-600">
                     ৳ {row.income.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-red-600">
-                    ৳ {row.expense.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-semibold text-gray-800">
                     ৳ {row.closingBalance.toLocaleString()}
@@ -357,7 +347,7 @@ export default function ReconciliationReport({ token, showToast }) {
 
       {/* Summary Stats */}
       {reconciliationData.length > 0 && (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="card p-4">
             <p className="text-sm text-gray-600">Total Records</p>
             <p className="text-2xl font-bold text-gray-800">{reconciliationData.length}</p>
@@ -368,19 +358,13 @@ export default function ReconciliationReport({ token, showToast }) {
               ৳ {reconciliationData.reduce((s, r) => s + r.income, 0).toLocaleString()}
             </p>
           </div>
-          <div className="card p-4">
-            <p className="text-sm text-gray-600">Total Expense</p>
-            <p className="text-2xl font-bold text-red-600">
-              ৳ {reconciliationData.reduce((s, r) => s + r.expense, 0).toLocaleString()}
-            </p>
-          </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm font-semibold text-blue-900 mb-2">📌 Legend:</p>
-        <div className="grid md:grid-cols-2 gap-3 text-xs text-blue-800">
+      <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+        <p className="text-sm font-semibold text-primary mb-2">📌 Legend:</p>
+        <div className="grid md:grid-cols-2 gap-3 text-xs text-primary">
           <div>
             <p className="font-medium">✓ OK</p>
             <p>Opening Balance = Previous Day's Closing (Reconciled)</p>

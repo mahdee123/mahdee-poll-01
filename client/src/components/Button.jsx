@@ -22,7 +22,7 @@ export default function Button({
   };
 
   const variantClasses = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed',
+    primary: 'bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed',
     secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed',
     danger: 'bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed',
     ghost: 'bg-transparent hover:bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed'

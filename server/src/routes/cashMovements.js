@@ -49,6 +49,10 @@ router.post('/', authRequired, requireRole('admin', 'manager'), validateCompanyC
     });
 
     await cashMovement.save();
+    try {
+      const { createCashMovementEntry } = await import('../utils/journalEngine.js');
+      await createCashMovementEntry(req.companyDb, cashMovement);
+    } catch (je) { console.warn('[Journal] Failed to create cash movement entry:', je.message); }
 
     console.log(
       `[CashMovement] ✓ Created ${type} (${category}): ৳${amount} on ${date} (Company: ${req.companyId})`

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../api.js';
 import StudentProfileModal from './StudentProfileModal.jsx';
 import TrainingPaymentModal from './TrainingPaymentModal.jsx';
+import TrainingSettingsModal from './TrainingSettingsModal.jsx';
 import ActionDropdown from './ActionDropdown.jsx';
 import DateRangeFilter from './DateRangeFilter.jsx';
 
@@ -42,14 +43,14 @@ const formatDate = (d) => {
 };
 
 const StatCard = ({ title, value, hint }) => (
-  <div className="card p-4 flex flex-col gap-2">
-    <span className="text-sm text-gray-500">{title}</span>
-    <span className="text-2xl font-semibold text-secondary">{value}</span>
+  <div className="card p-3 sm:p-4 flex flex-col gap-1 sm:gap-2">
+    <span className="text-xs sm:text-sm text-gray-500">{title}</span>
+    <span className="text-xl sm:text-2xl font-semibold text-secondary">{value}</span>
     {hint ? <span className="text-xs text-gray-400">{hint}</span> : null}
   </div>
 );
 
-export default function TrainingPage({ token, showToast, user, setLastReceipt }) {
+export default function TrainingPage({ token, showToast, setLastReceipt }) {
   // ============ SUMMARY STATS ============
   const [stats, setStats] = useState({ newToday: 0, newMonth: 0, activeStudents: 0, revenueMonth: 0, trainingIncome: 0, trainingDue: 0 });
 
@@ -90,17 +91,43 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedPaymentStudent, setSelectedPaymentStudent] = useState(null);
 
+  // ============ TRAINING SETTINGS STATE ============
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [trainingSettings, setTrainingSettings] = useState(null);
+
+  // Dynamic constants from settings
+  const DYNAMIC_AGE_GROUPS = useMemo(() => {
+    if (!trainingSettings?.ageGroups) return [{ value: '4-8', label: '4-8 years (16 classes)' }, { value: '9+', label: '9+ years (12 classes)' }];
+    return trainingSettings.ageGroups.map((ag) => ({ value: ag.label, label: `${ag.label} years (${ag.classes.Regular} classes)` }));
+  }, [trainingSettings]);
+
+  const DYNAMIC_BATCH_TYPES = useMemo(() => {
+    if (!trainingSettings?.batches) return [{ value: 'Regular', label: 'Regular (30 days)' }, { value: 'Weekend', label: 'Weekend (40 days)' }];
+    return trainingSettings.batches.map((b) => ({ value: b.name, label: `${b.name} (${b.days} days)` }));
+  }, [trainingSettings]);
+
+  const DYNAMIC_CLASS_SLOTS = useMemo(() => {
+    if (!trainingSettings?.classSlots) return CLASS_SLOTS;
+    const map = {};
+    trainingSettings.classSlots.forEach((s) => { map[s.id] = { label: s.label, time: `${s.startTime} - ${s.endTime}`, period: s.period }; });
+    return map;
+  }, [trainingSettings]);
+
+  const DYNAMIC_SLOT_LIMIT = trainingSettings?.slotLimit || SLOT_LIMIT;
+  const DYNAMIC_PAYMENT_METHODS = trainingSettings?.paymentMethods || PAYMENT_METHODS;
+
   // ============ DERIVED CALCULATIONS ============
   const deriveTraining = useMemo(() => {
-    const preset = BATCH_PRESETS[form.batchType];
-    const key = form.ageGroup === '4-8' ? 'kids' : 'adults';
-    const totalClasses = preset.totalClasses[key];
-    const price = preset.pricing[key];
+    const ageConfig = trainingSettings?.ageGroups?.find((a) => a.label === form.ageGroup);
+    const batchConfig = trainingSettings?.batches?.find((b) => b.name === form.batchType);
+    const totalClasses = ageConfig?.classes?.[form.batchType] || 12;
+    const price = ageConfig?.pricing?.[form.batchType] || 9000;
+    const days = batchConfig?.days || 30;
     const startDate = new Date(form.startDate);
-    const endDate = new Date(startDate.setDate(startDate.getDate() + preset.days));
+    const endDate = new Date(startDate.setDate(startDate.getDate() + days));
     const endDateStr = endDate.toISOString().split('T')[0];
-    return { totalClasses, price, durationDays: preset.days, endDate: endDateStr };
-  }, [form.ageGroup, form.batchType, form.startDate]);
+    return { totalClasses, price, durationDays: days, endDate: endDateStr };
+  }, [form.ageGroup, form.batchType, form.startDate, trainingSettings]);
 
   const finalAmount = deriveTraining.price - Number(form.discount || 0);
   const paidAmount = form.amountPaid !== null && form.amountPaid !== '' ? Number(form.amountPaid) : finalAmount;
@@ -120,6 +147,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
 
       setTrainingSummary(dashRes.summary || []);
       setRemainingList(dashRes.remainingByStudent || []);
+      if (dashRes.settings) setTrainingSettings(dashRes.settings);
 
       // Set stats from response
       setStats({ 
@@ -237,122 +265,24 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
 
   // ============ CLASS SLOT COLOR ============
   const getSlotColor = (totalStudents) => {
-    if (totalStudents >= SLOT_LIMIT) return 'bg-red-100 border-red-300';
+    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'bg-red-100 border-red-300';
     if (totalStudents >= 10) return 'bg-yellow-100 border-yellow-300';
     return 'bg-green-100 border-green-300';
   };
 
   const getSlotTextColor = (totalStudents) => {
-    if (totalStudents >= SLOT_LIMIT) return 'text-red-700';
+    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'text-red-700';
     if (totalStudents >= 10) return 'text-yellow-700';
     return 'text-green-700';
   };
 
   const getProgressBarColor = (totalStudents) => {
-    if (totalStudents >= SLOT_LIMIT) return 'bg-red-500';
+    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'bg-red-500';
     if (totalStudents >= 10) return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
   // ============ RENDER ============
-
-  if (user.role !== 'admin') {
-    // Manager: Read-only dashboard
-    return (
-      <div className="grid gap-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <StatCard title="New Enrollments Today" value={stats.newToday} />
-          <StatCard title="Enrollments This Month" value={stats.newMonth} />
-          <StatCard title="Active Students" value={stats.activeStudents} />
-          <StatCard title="Training Revenue (This Month)" value={`৳ ${stats.revenueMonth.toLocaleString()}`} />
-          <StatCard title="🟢 Training Income (This Month)" value={`৳ ${stats.trainingIncome.toLocaleString()}`} hint="Collected from students" />
-          <StatCard title="🔴 Pending Due (Training)" value={`৳ ${stats.trainingDue.toLocaleString()}`} hint="Outstanding payments" />
-        </div>
-
-        {/* Class Slots */}
-        <div className="card p-4">
-          <h3 className="text-lg font-semibold mb-3">Class Slots</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {trainingSummary.map((slot) => {
-              const fillPct = (slot.totalStudents / SLOT_LIMIT) * 100;
-              return (
-                <div key={slot.classSlot} className={`border-2 rounded-lg p-3 space-y-2 ${getSlotColor(slot.totalStudents)}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`font-semibold ${getSlotTextColor(slot.totalStudents)}`}>{slot.label}</p>
-                      <p className="text-xs text-gray-600">{slot.time}</p>
-                    </div>
-                    <span className={`text-sm font-bold ${getSlotTextColor(slot.totalStudents)}`}>
-                      {slot.totalStudents} / {SLOT_LIMIT}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-300 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${getProgressBarColor(slot.totalStudents)}`}
-                      style={{ width: `${Math.min(fillPct, 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    Attended: {slot.attended} · Missed: {slot.missed} · Makeup: {slot.makeup}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Remaining Classes */}
-        <div className="card p-4">
-          <h3 className="text-lg font-semibold mb-3">Remaining Classes</h3>
-          <div className="max-h-96 overflow-auto divide-y text-sm">
-            {remainingList.length === 0 ? (
-              <p className="text-gray-500 py-4">No students found</p>
-            ) : (
-              remainingList.map((s) => {
-                const daysLeft = Math.ceil((new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24));
-                const isExpiringSoon = daysLeft < 7 && daysLeft >= 0;
-                const isExpired = daysLeft < 0;
-                const isLowClasses = s.remainingClasses < 3;
-
-                return (
-                  <div key={s.id} className="py-3 flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-semibold">{s.name}</p>
-                      <p className="text-xs text-gray-500">Slot {s.classSlot} · {formatDate(s.endDate)}</p>
-                      <div className="flex gap-2 mt-2">
-                        {isLowClasses && (
-                          <span className="inline-block bg-orange-200 text-orange-800 px-2 py-1 rounded text-xs font-semibold">
-                            ⚠️ Less than 3 classes
-                          </span>
-                        )}
-                        {isExpiringSoon && !isExpired && (
-                          <span className="inline-block bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">
-                            ⚠️ Expiring soon
-                          </span>
-                        )}
-                        {isExpired && (
-                          <span className="inline-block bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">
-                            🔴 Expired
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold text-lg">{s.remainingClasses}</span>
-                      <p className="text-xs text-gray-500">Classes</p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ============ ADMIN VIEW ============
 
   if (viewMode === 'form') {
     // STUDENT ENROLLMENT FORM PAGE
@@ -396,7 +326,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
                 value={form.ageGroup}
                 onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
               >
-                {AGE_GROUPS.map((a) => (
+                {DYNAMIC_AGE_GROUPS.map((a) => (
                   <option key={a.value} value={a.value}>
                     {a.label}
                   </option>
@@ -408,7 +338,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
                 value={form.batchType}
                 onChange={(e) => setForm({ ...form, batchType: e.target.value })}
               >
-                {BATCH_TYPES.map((b) => (
+                {DYNAMIC_BATCH_TYPES.map((b) => (
                   <option key={b.value} value={b.value}>
                     {b.label}
                   </option>
@@ -429,9 +359,9 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
                   value={form.classSlot}
                   onChange={(e) => setForm({ ...form, classSlot: e.target.value })}
                 >
-                  {[1, 2, 3, 4].map((slot) => (
+                  {Object.keys(DYNAMIC_CLASS_SLOTS).map((slot) => (
                     <option key={slot} value={slot}>
-                      {CLASS_SLOTS[slot].label} - {CLASS_SLOTS[slot].time}
+                      {DYNAMIC_CLASS_SLOTS[slot].label} - {DYNAMIC_CLASS_SLOTS[slot].time}
                     </option>
                   ))}
                 </select>
@@ -517,7 +447,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
 
           {/* SUMMARY CARD */}
           <div className="space-y-3">
-            <div className="card p-4 space-y-2 bg-blue-50">
+            <div className="card p-4 space-y-2 bg-primary/5">
               <h3 className="text-lg font-semibold">📋 Summary</h3>
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
@@ -575,7 +505,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
                 </div>
                 <div className="flex justify-between text-lg">
                   <span className="text-gray-600 font-semibold">Amount Paid:</span>
-                  <span className="font-bold text-blue-600">৳ {paidAmount.toLocaleString()}</span>
+                  <span className="font-bold text-primary">৳ {paidAmount.toLocaleString()}</span>
                 </div>
                 <div className={`flex justify-between text-xl p-2 rounded font-semibold ${dueAmount > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
                   <span>Remaining Due:</span>
@@ -592,7 +522,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
               <p className="font-semibold mb-2">ℹ️ Important Notes:</p>
               <ul className="space-y-1 list-disc list-inside">
                 <li>Max 2 makeup classes allowed per student</li>
-                <li>Class slot capacity: {SLOT_LIMIT} students</li>
+                <li>Class slot capacity: {DYNAMIC_SLOT_LIMIT} students</li>
                 <li>Transaction will be auto-created on save</li>
                 <li>Receipt will auto-print if "Save & Print" is selected</li>
               </ul>
@@ -622,14 +552,22 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
   return (
     <div className="grid gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-bold">Training</h2>
-        <button
-          onClick={() => setViewMode('form')}
-          className="btn-primary"
-        >
-          ➕ Add New Student
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="px-4 py-2 text-sm rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium min-h-[44px]"
+          >
+            ⚙️ Settings
+          </button>
+          <button
+            onClick={() => setViewMode('form')}
+            className="btn-primary"
+          >
+            ➕ Add New Student
+          </button>
+        </div>
       </div>
 
       {/* ====== ANALYTICS FILTER SECTION (TOP MARKED AREA) ====== */}
@@ -657,7 +595,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         <h3 className="text-lg font-semibold">Students List</h3>
 
         {/* List Filters - Separate from Analytics */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
           <div>
             <label className="text-xs text-gray-600 block mb-1">🔍 Search (Name / Phone)</label>
             <input
@@ -682,8 +620,57 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile card view */}
+        <div className="md:hidden space-y-3">
+          {filteredStudents.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">No students found</div>
+          ) : (
+            filteredStudents.map((s) => (
+              <div key={s._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold text-gray-900">{s.name}</div>
+                    <div className="text-xs text-gray-500">{s.phone}</div>
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                    s.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {s.status === 'active' ? '🟢 Active' : '🔴 Expired'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-xs text-gray-500">Package</span><p className="font-medium">{s.totalClasses} classes</p></div>
+                  <div><span className="text-xs text-gray-500">Batch</span><p className="font-medium">{s.batchType}</p></div>
+                  <div><span className="text-xs text-gray-500">Start</span><p className="font-medium text-xs">{formatDate(s.startDate)}</p></div>
+                  <div><span className="text-xs text-gray-500">End</span><p className="font-medium text-xs">{formatDate(s.endDate)}</p></div>
+                  <div><span className="text-xs text-gray-500">Remaining</span><p className="font-semibold">{s.remainingClasses}</p></div>
+                  <div><span className="text-xs text-gray-500">Due</span><p className={`font-semibold ${s.due > 0 ? 'text-orange-600' : 'text-gray-500'}`}>{s.due > 0 ? `৳ ${s.due.toLocaleString()}` : '-'}</p></div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t">
+                  <span className="text-xs text-green-700 font-semibold">Collected: ৳ {((s.price - (s.discount || 0)) - (s.due || 0)).toLocaleString()}</span>
+                  <ActionDropdown
+                    actions={[
+                      { label: 'View Profile', onClick: async () => { const res = await apiRequest(`/training/students/${s._id}`, { token }); setSelectedStudent(res.student); setProfileModalOpen(true); } },
+                      ...(s.due > 0 ? [{ label: '💳 Collect Payment', onClick: () => { setSelectedPaymentStudent(s); setPaymentModalOpen(true); } }] : []),
+                      { label: 'Mark Completed', onClick: () => { const res = apiRequest(`/training/students/${s._id}`, { token }); res.then(r => { setSelectedStudent(r.student); setProfileModalOpen(true); }); } },
+                      { label: 'Mark Expired', onClick: () => { const res = apiRequest(`/training/students/${s._id}`, { token }); res.then(r => { setSelectedStudent(r.student); setProfileModalOpen(true); }); }, destructive: true },
+                    ]}
+                  />
+                </div>
+              </div>
+            ))
+          )}
+          {filteredStudents.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-3 text-sm font-semibold">
+              <div className="flex justify-between"><span>Total: {filteredStudents.length} students</span></div>
+              <div className="flex justify-between"><span className="text-orange-600">Total Due: ৳ {filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0).toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-green-700">Total Collected: ৳ {filteredStudents.reduce((sum, s) => sum + ((s.price - (s.discount || 0)) - (s.due || 0)), 0).toLocaleString()}</span></div>
+            </div>
+          )}
+        </div>
+
+        {/* Desktop table view */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-100 border-b">
               <tr>
@@ -805,7 +792,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         <h3 className="text-lg font-semibold mb-3">🎯 Class Slots</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {trainingSummary.map((slot) => {
-            const fillPct = (slot.totalStudents / SLOT_LIMIT) * 100;
+            const fillPct = (slot.totalStudents / DYNAMIC_SLOT_LIMIT) * 100;
             return (
               <div key={slot.classSlot} className={`border-2 rounded-lg p-3 space-y-2 ${getSlotColor(slot.totalStudents)}`}>
                 <div className="flex items-center justify-between">
@@ -814,7 +801,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
                     <p className="text-xs text-gray-600">{slot.time}</p>
                   </div>
                   <span className={`text-sm font-bold ${getSlotTextColor(slot.totalStudents)}`}>
-                    {slot.totalStudents} / {SLOT_LIMIT}
+                    {slot.totalStudents} / {DYNAMIC_SLOT_LIMIT}
                   </span>
                 </div>
                 <div className="w-full bg-gray-300 rounded-full h-2">
@@ -888,6 +875,7 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         }}
         token={token}
         showToast={showToast}
+        settings={trainingSettings}
         onSave={() => {
           loadAnalyticsData();
           loadListData();
@@ -910,6 +898,17 @@ export default function TrainingPage({ token, showToast, user, setLastReceipt })
         showToast={showToast}
         token={token}
       />
+
+      {showSettingsModal && (
+        <TrainingSettingsModal
+          token={token}
+          onClose={() => setShowSettingsModal(false)}
+          onSuccess={() => {
+            setShowSettingsModal(false);
+            loadAnalyticsData();
+          }}
+        />
+      )}
     </div>
   );
 }

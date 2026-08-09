@@ -1,32 +1,45 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { connectDB } from './config/db.js';
+import { authRequired } from './middleware/auth.js';
+import { validateCompanyContext } from './middleware/tenantContext.js';
 import authRoutes from './routes/auth.js';
 import transactionRoutes from './routes/transactions.js';
 import trainingRoutes from './routes/training.js';
 import membershipRoutes from './routes/memberships.js';
 import packageRoutes from './routes/packages.js';
 import reportRoutes from './routes/reports.js';
-import expenseRoutes from './routes/expenses.js';
 import cashMovementRoutes from './routes/cashMovements.js';
 import beverageRoutes from './routes/beverages.js';
 import hourlySessionRoutes from './routes/hourlySessions.js';
 import diagnosticRoutes from './routes/diagnostic.js';
 import openingBalanceRoutes from './routes/openingBalance.js';
+import lockerRoutes from './routes/lockers.js';
+import dressRentalRoutes from './routes/dressRentals.js';
+import accountRoutes from './routes/accounts.js';
+import journalRoutes from './routes/journal.js';
+import dailyExpenseRoutes from './routes/dailyExpenses.js';
+import expenseCategoryRoutes from './routes/expenseCategories.js';
+import trainingSettingsRoutes from './routes/trainingSettings.js';
+import { getCompanyConnection, buildCompanyMongoUri } from './utils/companyDb.js';
+import { initializeCompanySchemas, getCompanyModel } from './utils/modelRegistry.js';
 import User from './models/User.js';
 import Company from './models/Company.js';
 
 dotenv.config();
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT || 4000;
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',');
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map(o => o.trim());
 
+app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -48,35 +61,55 @@ app.use('/api/training', trainingRoutes);
 app.use('/api/memberships', membershipRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/expenses', expenseRoutes);
 app.use('/api/cash-movements', cashMovementRoutes);
 app.use('/api/beverages', beverageRoutes);
 app.use('/api/hourly-sessions', hourlySessionRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api/opening-balance', openingBalanceRoutes);
+app.use('/api/lockers', lockerRoutes);
+app.use('/api/dress-rentals', dressRentalRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/journal', journalRoutes);
+app.use('/api/daily-expenses', dailyExpenseRoutes);
+app.use('/api/expense-categories', expenseCategoryRoutes);
+app.use('/api/training/settings', trainingSettingsRoutes);
+
+app.use((req, res) => {
+  return res.status(404).json({ message: 'Not found' });
+});
 
 app.use((err, req, res, next) => {
   console.error(err);
-  return res.status(500).json({ message: 'Server error', detail: err.message });
+  return res.status(500).json({
+    message: 'Server error',
+    // Only leak error internals outside production
+    ...(isProduction ? {} : { detail: err.message }),
+  });
 });
 
 /**
- * Ensure default admin exists in system (for backwards compatibility / dev)
- * Creates a default company and admin user if none exist
+ * Seed a default admin + company on a completely fresh install only.
+ * Never touches an existing admin account, so restarts/redeploys don't
+ * reset a real admin's password or reassign their company.
  */
 const ensureDefaultAdmin = async () => {
   try {
-    // Check if any companies exist
-    const existingCompany = await Company.findOne();
-    if (existingCompany) {
-      console.log(`✓ System already initialized with companies`);
+    const email = (process.env.ADMIN_EMAIL || 'admin@raya.com').toLowerCase();
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      // Admin already provisioned - leave credentials/company assignment alone.
       return;
     }
 
-    const email = (process.env.ADMIN_EMAIL || 'admin@raya.com').toLowerCase();
-    const password = process.env.ADMIN_PASSWORD || 'admin123';
+    const totalUsers = await User.countDocuments();
+    if (totalUsers > 0) {
+      // System already has real accounts (e.g. via self-service signup);
+      // don't inject an unrelated default admin into it.
+      return;
+    }
 
-    // Create admin user first (without companyId initially)
+    const password = process.env.ADMIN_PASSWORD || 'admin123';
     const passwordHash = await bcrypt.hash(password, 10);
     const user = new User({
       name: 'Admin',
@@ -85,22 +118,23 @@ const ensureDefaultAdmin = async () => {
       role: 'admin',
     });
     await user.save();
+    console.log(`✓ Created initial admin user ${email}`);
 
-    // Now create default company with the user as owner
+    // Falls back to a database on the same host/cluster as the system DB
+    // (same pattern as self-service company registration) unless an explicit
+    // override is provided - no need to hand-configure a second Mongo URI.
     const company = new Company({
       name: 'Default Pool',
       ownerId: user._id,
-      mongoUri: process.env.DEFAULT_COMPANY_MONGO_URI || 'mongodb://127.0.0.1:27017/raya_pool_default',
+      mongoUri: process.env.DEFAULT_COMPANY_MONGO_URI || buildCompanyMongoUri('default'),
     });
     await company.save();
+    console.log(`✓ Created default company "${company.name}"`);
 
-    // Update user with company reference
     user.companyId = company._id;
     await user.save();
-
-    console.log(`✓ Seeded default admin ${email} in company "${company.name}"`);
   } catch (err) {
-    console.error('Error seeding default admin:', err);
+    console.error('Error ensuring default admin:', err);
   }
 };
 
@@ -113,6 +147,20 @@ const start = async () => {
 
     // Initialize system database
     await ensureDefaultAdmin();
+
+    // Run migrations for all existing companies
+    try {
+      const companies = await Company.find({});
+      for (const company of companies) {
+        const companyDbUri = company.mongoUri;
+        const companyDb = await getCompanyConnection(company._id.toString(), companyDbUri);
+        
+        // Initialize schemas for this company
+        initializeCompanySchemas(companyDb);
+      }
+    } catch (migrationErr) {
+      console.warn('Migration error (non-blocking):', migrationErr.message);
+    }
 
     app.listen(PORT, () => console.log(`API running on port ${PORT}`));
   } catch (err) {

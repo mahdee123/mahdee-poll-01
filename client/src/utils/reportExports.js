@@ -30,7 +30,6 @@ const buildSummaryRows = ({ reportSummary, selectedDaySummary, selectedDayLabel,
   ['Selected Day', selectedDayLabel || ''],
   ['Generated At', new Date().toLocaleString()],
   ['Period Total Income', currency(reportSummary?.totalIncome)],
-  ['Period Total Expense', currency(reportSummary?.totalExpense)],
   ['Period Net Cash', currency(reportSummary?.netCash)],
   ['Day Total Income', currency(selectedDaySummary?.totalIncome)],
   ['Day Billing', currency(selectedDaySummary?.billingAmount)],
@@ -94,7 +93,7 @@ const addMetricCards = (doc, cards, startY) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const left = 14;
   const gutter = 4;
-  const cardWidth = (pageWidth - left * 2 - gutter * 3) / 4;
+  const cardWidth = (pageWidth - left * 2 - gutter * 2) / 3;
   const cardHeight = 22;
 
   cards.forEach((card, index) => {
@@ -179,7 +178,6 @@ export const downloadDailyReportPdf = async ({ reportSummary, selectedDaySummary
   const overviewCardsY = 46;
   addMetricCards(doc, [
     { title: 'Period Income', value: currency(reportSummary?.totalIncome), fill: [239, 246, 255], text: [30, 64, 175] },
-    { title: 'Period Expense', value: currency(reportSummary?.totalExpense), fill: [255, 247, 237], text: [194, 65, 12] },
     { title: 'Net Cash', value: currency(reportSummary?.netCash), fill: [240, 253, 244], text: [21, 128, 61] },
     { title: 'Selected Day', value: formatDateLabel(selectedDayBreakdown?.date), fill: [245, 243, 255], text: [91, 33, 182] },
   ], overviewCardsY);
@@ -304,4 +302,204 @@ export const downloadDailyReportPdf = async ({ reportSummary, selectedDaySummary
   });
 
   doc.save(`daily-report-${fileDate}.pdf`);
+};
+
+// Professional Report - Row per day with opening/closing balances
+export const downloadProfessionalReportPdf = async ({ report, startDate, endDate }) => {
+  const { jsPDF, autoTable } = await loadPdfTools();
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  // Header
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFillColor(14, 61, 124);
+  doc.rect(0, 0, pageWidth, 25, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text('Raya Pool - Professional Business Report', 14, 11);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Period: ${formatDateLabel(startDate)} to ${formatDateLabel(endDate)}`, 14, 18);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+  doc.setTextColor(0, 0, 0);
+
+  // Prepare table data
+  const tableData = report.dailyData.map(day => [
+    formatDateLabel(day.date),
+    currency(day.openingBalance),
+    currency(day.transactions.Bill),
+    currency(day.transactions.Training),
+    currency(day.transactions.Membership),
+    currency(day.transactions.Beverage),
+    currency(day.transactions['Hourly Session']),
+    currency(day.transactions.totalIncome),
+    currency(day.paymentMethods.Cash),
+    currency(day.paymentMethods.Bank),
+    currency(day.paymentMethods.bKash),
+    currency(day.closingBalance),
+  ]);
+
+  // Add totals row
+  tableData.push([
+    'TOTAL',
+    currency(report.totals.openingBalance),
+    currency(report.totals.billIncome),
+    currency(report.totals.trainingIncome),
+    currency(report.totals.membershipIncome),
+    currency(report.totals.beverageIncome),
+    currency(report.totals.hourlySessionIncome),
+    currency(report.totals.totalIncome),
+    currency(report.totals.cashIncome),
+    currency(report.totals.bankIncome),
+    currency(report.totals.bkashIncome),
+    currency(report.totals.closingBalance),
+  ]);
+
+  autoTable(doc, {
+    startY: 30,
+    head: [[
+      'Date',
+      'Opening',
+      'Bill',
+      'Training',
+      'Member',
+      'Beverage',
+      'Hourly',
+      'Total Income',
+      'Cash',
+      'Bank',
+      'bKash',
+      'Closing'
+    ]],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      fontSize: 7,
+      cellPadding: 2,
+      valign: 'middle',
+      halign: 'right',
+    },
+    headStyles: {
+      fillColor: [14, 61, 124],
+      textColor: 255,
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    alternateRowStyles: {
+      fillColor: [245, 248, 252],
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 18 },
+      1: { cellWidth: 15 },
+      2: { cellWidth: 13 },
+      3: { cellWidth: 13 },
+      4: { cellWidth: 13 },
+      5: { cellWidth: 13 },
+      6: { cellWidth: 13 },
+      7: { cellWidth: 15, fillColor: [200, 220, 255], fontStyle: 'bold' },
+      8: { cellWidth: 12 },
+      9: { cellWidth: 12 },
+      10: { cellWidth: 12 },
+      11: { cellWidth: 15, fillColor: [200, 255, 200], fontStyle: 'bold' },
+    },
+    margin: { left: 5, right: 5 },
+  });
+
+  // Footer
+  const finalY = doc.lastAutoTable?.finalY || 30;
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Report Details:', 14, finalY + 5);
+  doc.text(`• Opening Balance: ${currency(report.totals.openingBalance)}`, 14, finalY + 9);
+  doc.text(`• Total Income: ${currency(report.totals.totalIncome)}`, 70, finalY + 9);
+  doc.text(`• Closing Balance: ${currency(report.totals.closingBalance)}`, 14, finalY + 13);
+
+  const filename = `professional-report-${startDate}-to-${endDate}.pdf`;
+  doc.save(filename);
+};
+
+// Professional Report - Google Sheets Export
+export const downloadProfessionalReportSheet = ({ report, startDate, endDate }) => {
+  const workbook = XLSX.utils.book_new();
+
+  // Sheet 1: Daily Breakdown
+  const dailyData = report.dailyData.map(day => [
+    day.date,
+    day.openingBalance,
+    day.transactions.Bill,
+    day.transactions.Training,
+    day.transactions.Membership,
+    day.transactions.Beverage,
+    day.transactions['Hourly Session'],
+    day.transactions.totalIncome,
+    day.paymentMethods.Cash,
+    day.paymentMethods.Bank,
+    day.paymentMethods.bKash,
+    day.closingBalance,
+  ]);
+
+  const dailyHeaders = [
+    'Date',
+    'Opening Balance',
+    'Bill Income',
+    'Training Income',
+    'Membership Income',
+    'Beverage Income',
+    'Hourly Session Income',
+    'Total Income',
+    'Cash Payment',
+    'Bank Payment',
+    'bKash Payment',
+    'Closing Balance',
+  ];
+
+  // Add totals row
+  dailyData.push([
+    'TOTAL',
+    report.totals.openingBalance,
+    report.totals.billIncome,
+    report.totals.trainingIncome,
+    report.totals.membershipIncome,
+    report.totals.beverageIncome,
+    report.totals.hourlySessionIncome,
+    report.totals.totalIncome,
+    report.totals.cashIncome,
+    report.totals.bankIncome,
+    report.totals.bkashIncome,
+    report.totals.closingBalance,
+  ]);
+
+  const dailyWorksheet = XLSX.utils.aoa_to_sheet([dailyHeaders, ...dailyData]);
+  dailyWorksheet['!cols'] = Array(12).fill({ wch: 16 });
+  XLSX.utils.book_append_sheet(workbook, dailyWorksheet, 'Daily Report');
+
+  // Sheet 2: Summary
+  const summaryData = [
+    ['Report Summary', ''],
+    ['Date Range', `${startDate} to ${endDate}`],
+    ['Generated', new Date().toLocaleString()],
+    ['', ''],
+    ['Metric', 'Amount (BDT)'],
+    ['Opening Balance', report.totals.openingBalance],
+    ['Total Income', report.totals.totalIncome],
+    ['  - Bill', report.totals.billIncome],
+    ['  - Training', report.totals.trainingIncome],
+    ['  - Membership', report.totals.membershipIncome],
+    ['  - Beverage', report.totals.beverageIncome],
+    ['  - Hourly Session', report.totals.hourlySessionIncome],
+    ['Payment Methods', ''],
+    ['  - Cash', report.totals.cashIncome],
+    ['  - Bank', report.totals.bankIncome],
+    ['  - bKash', report.totals.bkashIncome],
+    ['Closing Balance', report.totals.closingBalance],
+    ['Net Profit/Loss', report.totals.closingBalance - report.totals.openingBalance],
+  ];
+
+  const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryData);
+  summaryWorksheet['!cols'] = [{ wch: 24 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+
+  const filename = `professional-report-${startDate}-to-${endDate}.xlsx`;
+  XLSX.writeFile(workbook, filename);
 };

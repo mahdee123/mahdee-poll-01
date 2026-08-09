@@ -38,10 +38,10 @@ export default function Toast({ message, type = 'success', onClose, duration = 4
     },
     info: {
       icon: Info,
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      textColor: 'text-blue-800',
-      iconColor: 'text-blue-600'
+      bgColor: 'bg-primary/5',
+      borderColor: 'border-primary/20',
+      textColor: 'text-primary',
+      iconColor: 'text-primary'
     }
   };
 
@@ -49,7 +49,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 4
   const Icon = cfg.icon;
 
   return (
-    <div className={`fixed top-4 right-4 ${cfg.bgColor} border ${cfg.borderColor} rounded-lg p-4 shadow-lg max-w-md flex items-start gap-3 animate-slideIn`}>
+    <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-auto ${cfg.bgColor} border ${cfg.borderColor} rounded-lg p-4 shadow-lg max-w-md flex items-start gap-3 animate-slideIn z-[60]`}>
       <Icon size={20} className={cfg.iconColor} />
       <p className={`${cfg.textColor} flex-1`}>{message}</p>
       <button

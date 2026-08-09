@@ -16,6 +16,8 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
   const [activeSessions, setActiveSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionLockers, setSessionLockers] = useState({}); // Map of sessionId -> lockerAssignments
+  const [sessionDresses, setSessionDresses] = useState({}); // Map of sessionId -> dressRentals
   const [filters, setFilters] = useState({
     search: '',
     dateRange: 'today',
@@ -60,6 +62,53 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
       setSessionLoading(false);
     }
   };
+
+  // Fetch locker assignments for a session
+  const fetchLockerData = async (sessionId) => {
+    try {
+      const response = await apiRequest(`/lockers/assignments-by-bill/${sessionId}`, {
+        method: 'GET',
+        token,
+      });
+      if (response.success && response.lockerAssignments) {
+        setSessionLockers((prev) => ({
+          ...prev,
+          [sessionId]: response.lockerAssignments,
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching locker data for session ${sessionId}:`, error);
+      // Don't show error toast for locker fetching - it's optional
+    }
+  };
+
+  // Fetch dress rental assignments for a session
+  const fetchDressData = async (sessionId) => {
+    try {
+      const response = await apiRequest(`/dress-rentals/assignments-by-bill/${sessionId}`, {
+        method: 'GET',
+        token,
+      });
+      if (response.success && response.dressAssignments) {
+        setSessionDresses((prev) => ({
+          ...prev,
+          [sessionId]: response.dressAssignments,
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching dress data for session ${sessionId}:`, error);
+    }
+  };
+
+  // Fetch locker and dress data for all active sessions
+  useEffect(() => {
+    if (activeSessions.length > 0) {
+      activeSessions.forEach((session) => {
+        fetchLockerData(session._id);
+        fetchDressData(session._id);
+      });
+    }
+  }, [activeSessions]);
 
   // Load bills and stats
   const loadBills = async () => {
@@ -264,15 +313,15 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
   };
 
   const handleCloseSession = async (session) => {
-    const paymentMethod = window.prompt('Enter payment method for session close (Cash, Bank, bKash):', 'Cash');
-    if (!paymentMethod) return;
+    // Default to 'Cash' payment method without prompting
+    const paymentMethod = 'Cash';
 
     try {
       await apiRequest(`/hourly-sessions/${session._id}/close`, {
         method: 'POST',
         token,
         body: {
-          paymentMethod: ['Cash', 'Bank', 'bKash'].includes(paymentMethod) ? paymentMethod : 'Cash',
+          paymentMethod,
         },
       });
 
@@ -287,6 +336,171 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     }
   };
 
+  const getSessionLockers = (sessionId) => {
+    const lockers = sessionLockers[sessionId] || [];
+    if (lockers.length === 0) return '—';
+    return lockers
+      .map((l) => l.lockerNumber)
+      .sort()
+      .join(', ');
+  };
+
+  const getLockerDue = (sessionId) => {
+    const lockers = sessionLockers[sessionId] || [];
+    return lockers
+      .filter((l) => l.paymentStatus === 'Due' && l.chargeAmount > 0)
+      .reduce((sum, l) => sum + (l.chargeAmount || 0), 0);
+  };
+
+  const handleCollectLockerDue = async (sessionId) => {
+    const lockers = sessionLockers[sessionId] || [];
+    const dueLockers = lockers.filter((l) => l.paymentStatus === 'Due' && l.chargeAmount > 0 && l.transactionId);
+
+    if (dueLockers.length === 0) {
+      showToast('No locker due to collect', 'warning');
+      return;
+    }
+
+    try {
+      for (const locker of dueLockers) {
+        await apiRequest(`/lockers/payment/${locker.transactionId}`, {
+          method: 'POST',
+          token,
+          body: {
+            amount: locker.chargeAmount,
+            paymentMethod: 'Cash',
+            notes: 'Collected from billing section',
+          },
+        });
+      }
+      showToast(`Locker due collected from ${dueLockers.length} locker(s)`, 'success');
+      fetchLockerData(sessionId);
+    } catch (error) {
+      console.error('Error collecting locker due:', error);
+      showToast(error.message || 'Failed to collect locker due', 'error');
+    }
+  };
+
+  const getSessionDresses = (sessionId) => {
+    const dresses = sessionDresses[sessionId] || [];
+    if (dresses.length === 0) return '—';
+    return dresses
+      .map((d) => d.dressNumber)
+      .sort()
+      .join(', ');
+  };
+
+  const getDressDue = (sessionId) => {
+    const dresses = sessionDresses[sessionId] || [];
+    return dresses
+      .filter((d) => d.paymentStatus === 'Due' && d.chargeAmount > 0)
+      .reduce((sum, d) => sum + (d.chargeAmount || 0), 0);
+  };
+
+  const handleCollectDressDue = async (sessionId) => {
+    const dresses = sessionDresses[sessionId] || [];
+    const dueDresses = dresses.filter((d) => d.paymentStatus === 'Due' && d.chargeAmount > 0 && d.transactionId);
+
+    if (dueDresses.length === 0) {
+      showToast('No dress due to collect', 'warning');
+      return;
+    }
+
+    try {
+      for (const dress of dueDresses) {
+        await apiRequest(`/dress-rentals/payment/${dress.transactionId}`, {
+          method: 'POST',
+          token,
+          body: {
+            amount: dress.chargeAmount,
+            paymentMethod: 'Cash',
+            notes: 'Collected from billing section',
+          },
+        });
+      }
+      showToast(`Dress due collected from ${dueDresses.length} dress(es)`, 'success');
+      fetchDressData(sessionId);
+    } catch (error) {
+      console.error('Error collecting dress due:', error);
+      showToast(error.message || 'Failed to collect dress due', 'error');
+    }
+  };
+
+  const renderActiveSessionCard = (session) => {
+    const remainingMinutes = session.remainingMinutes || 0;
+    const isExpired = remainingMinutes <= 0;
+    const overtimeMinutes = session.overtimeMinutes || 0;
+    const displayRemaining = isExpired ? `Overtime ${formatMinutes(overtimeMinutes)}` : formatMinutes(remainingMinutes);
+    const lockerDue = getLockerDue(session._id);
+    const dressDue = getDressDue(session._id);
+
+    return (
+      <div key={session._id} className={`rounded-lg border p-4 space-y-3 ${isExpired ? 'bg-red-50/70 border-red-200' : 'bg-white border-gray-200'}`}>
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="font-semibold text-gray-900">{session.customerName}</div>
+            <div className="text-xs text-gray-500">{session.phone || 'No phone'}</div>
+          </div>
+          <span className={`text-sm font-bold px-2 py-1 rounded ${isExpired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {displayRemaining}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="text-xs text-gray-500">Start</span>
+            <p className="font-medium">{formatSessionTime(session.startTime)}</p>
+          </div>
+          <div>
+            <span className="text-xs text-gray-500">Planned End</span>
+            <p className="font-medium">{formatSessionTime(session.plannedEndTime)}</p>
+          </div>
+          <div>
+            <span className="text-xs text-gray-500">Total</span>
+            <p className="font-semibold">{formatCurrency(session.totalAmount || session.baseCharge || 0)}</p>
+          </div>
+          <div>
+            <span className="text-xs text-gray-500">Beverage</span>
+            <p className="font-semibold">{formatCurrency(session.beverageCharge || 0)}</p>
+          </div>
+        </div>
+
+        {(getSessionLockers(session._id) !== '—' || getSessionDresses(session._id) !== '—') && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {getSessionLockers(session._id) !== '—' && (
+              <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">🔐 {getSessionLockers(session._id)}</span>
+            )}
+            {getSessionDresses(session._id) !== '—' && (
+              <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded">👕 {getSessionDresses(session._id)}</span>
+            )}
+          </div>
+        )}
+
+        {(lockerDue > 0 || dressDue > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {lockerDue > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-600 font-semibold">Locker: {formatCurrency(lockerDue)}</span>
+                <button type="button" onClick={() => handleCollectLockerDue(session._id)} className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 min-h-[36px]">Collect</button>
+              </div>
+            )}
+            {dressDue > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-600 font-semibold">Dress: {formatCurrency(dressDue)}</span>
+                <button type="button" onClick={() => handleCollectDressDue(session._id)} className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 min-h-[36px]">Collect</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={() => handleExtendSession(session._id)} className="btn-ghost flex-1 text-sm py-2">+1 hr</button>
+          <button type="button" onClick={() => handleCloseSession(session)} className="btn-primary flex-1 text-sm py-2">Collect</button>
+        </div>
+      </div>
+    );
+  };
+
   const renderActiveSessionRow = (session) => {
     const remainingMinutes = session.remainingMinutes || 0;
     const isExpired = remainingMinutes <= 0;
@@ -299,6 +513,8 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           <div className="font-semibold text-gray-900">{session.customerName}</div>
           <div className="text-xs text-gray-500">{session.phone || 'No phone provided'}</div>
         </td>
+        <td className="px-4 py-3 text-sm text-gray-700">{getSessionLockers(session._id)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{getSessionDresses(session._id)}</td>
         <td className="px-4 py-3 text-sm text-gray-700">{formatSessionTime(session.startTime)}</td>
         <td className="px-4 py-3 text-sm text-gray-700">{formatSessionTime(session.plannedEndTime)}</td>
         <td className="px-4 py-3 text-sm font-semibold">
@@ -306,6 +522,44 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
         </td>
         <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatCurrency(session.totalAmount || session.baseCharge || 0)}</td>
         <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(session.beverageCharge || 0)}</td>
+        <td className="px-4 py-3 text-sm">
+          {(() => {
+            const lockerDue = getLockerDue(session._id);
+            return lockerDue > 0 ? (
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 font-semibold">{formatCurrency(lockerDue)}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCollectLockerDue(session._id)}
+                  className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors"
+                >
+                  Collect
+                </button>
+              </div>
+            ) : (
+              <span className="text-gray-700">{formatCurrency(0)}</span>
+            );
+          })()}
+        </td>
+        <td className="px-4 py-3 text-sm">
+          {(() => {
+            const dressDue = getDressDue(session._id);
+            return dressDue > 0 ? (
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 font-semibold">{formatCurrency(dressDue)}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCollectDressDue(session._id)}
+                  className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors"
+                >
+                  Collect
+                </button>
+              </div>
+            ) : (
+              <span className="text-gray-700">{formatCurrency(0)}</span>
+            );
+          })()}
+        </td>
         <td className="px-4 py-3">
           <div className="flex flex-wrap justify-end gap-2">
             <button type="button" onClick={() => handleExtendSession(session._id)} className="btn-ghost">+1 hr</button>
@@ -349,6 +603,44 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     setLastReceipt(receipt);
   };
 
+  const renderBillCard = (bill) => (
+    <div key={bill._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-2">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="font-semibold text-gray-900">{bill.name || '—'}</div>
+          <div className="text-xs text-gray-500">{bill.phone || 'No phone'}</div>
+        </div>
+        <span className="text-lg font-bold text-secondary">৳ {bill.amount.toLocaleString()}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        <span>{formatDate(bill.date)}</span>
+        <span>•</span>
+        <span>{bill.numberOfPersons || 1} person(s)</span>
+        <span>•</span>
+        <span>৳ {(bill.amountPerPerson || 0).toLocaleString()}/person</span>
+      </div>
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            bill.paymentMethod === 'Cash' ? 'bg-green-100 text-green-800'
+              : bill.paymentMethod === 'Bank' ? 'bg-primary/10 text-primary'
+              : 'bg-purple-100 text-purple-800'
+          }`}>
+            {bill.paymentMethod}
+          </span>
+          {bill.discount > 0 && (
+            <span className="text-xs text-red-600 font-medium">-৳ {bill.discount.toLocaleString()}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => handleViewReceipt(bill)} className="text-primary hover:text-primary font-medium p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="View Receipt">👁️</button>
+          <button onClick={() => { handleViewReceipt(bill); setTimeout(() => window.print(), 300); }} className="text-green-600 hover:text-green-800 font-medium p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Print">🖨️</button>
+          <button onClick={() => handleDeleteBill(bill._id)} className="text-red-600 hover:text-red-800 font-medium p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Delete">🗑️</button>
+        </div>
+      </div>
+    </div>
+  );
+
   const StatCard = ({ title, value, hint }) => (
     <div className="card p-4 flex flex-col gap-2">
       <span className="text-sm text-gray-500">{title}</span>
@@ -369,6 +661,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
 
   return (
     <div className="grid gap-4">
+      <h1 className="text-2xl font-bold text-secondary">Billing</h1>
       <div className="card p-4 space-y-4 border-l-4 border-l-amber-400">
         <div>
           <h2 className="text-lg font-semibold">Live billing timers</h2>
@@ -382,24 +675,35 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
             No active timers right now.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 border-b text-gray-600">
-                <tr>
-                  <th className="px-4 py-3 text-left">Customer</th>
-                  <th className="px-4 py-3 text-left">Start</th>
-                  <th className="px-4 py-3 text-left">Planned End</th>
-                  <th className="px-4 py-3 text-left">Live Timer</th>
-                  <th className="px-4 py-3 text-left">Live Total</th>
-                  <th className="px-4 py-3 text-left">Beverage Due</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {activeSessions.map(renderActiveSessionRow)}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden space-y-3">
+              {activeSessions.map(renderActiveSessionCard)}
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 border-b text-gray-600">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Customer</th>
+                    <th className="px-4 py-3 text-left">Assigned Lockers</th>
+                    <th className="px-4 py-3 text-left">Assigned Dresses</th>
+                    <th className="px-4 py-3 text-left">Start</th>
+                    <th className="px-4 py-3 text-left">Planned End</th>
+                    <th className="px-4 py-3 text-left">Live Timer</th>
+                    <th className="px-4 py-3 text-left">Live Total</th>
+                    <th className="px-4 py-3 text-left">Beverage Due</th>
+                    <th className="px-4 py-3 text-left">Locker Due</th>
+                    <th className="px-4 py-3 text-left">Dress Due</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {activeSessions.map(renderActiveSessionRow)}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -429,7 +733,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
 
       {/* Toolbar & Filters */}
       <div className="card p-4 space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">📝 Bills List</h2>
           <button
             onClick={() => setShowBillForm(true)}
@@ -440,7 +744,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
         </div>
 
         {/* Filters */}
-        <div className="grid md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <input
             type="text"
             placeholder="🔍 Search by name or phone..."
@@ -484,7 +788,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
       </div>
 
       {/* Bills Table */}
-      <div className="card overflow-x-auto">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-500">Loading bills...</div>
         ) : bills.length === 0 ? (
@@ -492,100 +796,115 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
             No bills found for the selected filters.
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-sm font-semibold">📅 Date</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">👤 Name</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">📱 Phone</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">💵 Per Person</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">👥 Persons</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">🏷 Discount</th>
-                <th className="px-4 py-2 text-right text-sm font-semibold">💰 Total</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">💳 Method</th>
-                <th className="px-4 py-2 text-center text-sm font-semibold">⚙️ Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {bills.map((bill) => (
-                <tr key={bill._id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-2 text-sm">{formatDate(bill.date)}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{bill.name || '—'}</td>
-                  <td className="px-4 py-2 text-sm">{bill.phone || '—'}</td>
-                  <td className="px-4 py-2 text-sm">৳ {(bill.amountPerPerson || 0).toLocaleString()}</td>
-                  <td className="px-4 py-2 text-sm text-center">{bill.numberOfPersons || 1}</td>
-                  <td className="px-4 py-2 text-sm">
-                    {bill.discount > 0 ? (
-                      <span className="text-red-600 font-medium">- ৳ {bill.discount.toLocaleString()}</span>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-sm font-semibold text-secondary text-right">
-                    ৳ {bill.amount.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      bill.paymentMethod === 'Cash'
-                        ? 'bg-green-100 text-green-800'
-                        : bill.paymentMethod === 'Bank'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-purple-100 text-purple-800'
-                    }`}>
-                      {bill.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-sm text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleViewReceipt(bill)}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                        title="View Receipt"
-                      >
-                        👁️
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleViewReceipt(bill);
-                          setTimeout(() => window.print(), 300);
-                        }}
-                        className="text-green-600 hover:text-green-800 font-medium"
-                        title="Print"
-                      >
-                        🖨️
-                      </button>
-                      <button
-                        onClick={() => handleDeleteBill(bill._id)}
-                        className="text-red-600 hover:text-red-800 font-medium"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {bills.length > 0 && (
-              <tfoot className="bg-gray-100 border-t-2 font-semibold sticky bottom-0">
-                <tr>
-                  <td colSpan="4" className="px-4 py-3 text-right">
-                    TOTAL
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    👥 {bills.reduce((sum, b) => sum + (b.numberOfPersons || 1), 0)}
-                  </td>
-                  <td className="px-4 py-3">
-                    - ৳ {bills.reduce((sum, b) => sum + b.discount, 0).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-right text-secondary">
-                    💰 ৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
-                  </td>
-                  <td colSpan="2"></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden p-4 space-y-3">
+              {bills.map(renderBillCard)}
+              {/* Mobile totals */}
+              <div className="bg-gray-50 rounded-lg p-3 text-sm font-semibold flex flex-col gap-1">
+                <div className="flex justify-between"><span>Total Persons:</span><span>{bills.reduce((sum, b) => sum + (b.numberOfPersons || 1), 0)}</span></div>
+                <div className="flex justify-between"><span>Total Discount:</span><span className="text-red-600">-৳ {bills.reduce((sum, b) => sum + b.discount, 0).toLocaleString()}</span></div>
+                <div className="flex justify-between text-base"><span>TOTAL:</span><span className="text-secondary">৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}</span></div>
+              </div>
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">📅 Date</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">👤 Name</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">📱 Phone</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">💵 Per Person</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">👥 Persons</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">🏷 Discount</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold">💰 Total</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold">💳 Method</th>
+                    <th className="px-4 py-2 text-center text-sm font-semibold">⚙️ Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {bills.map((bill) => (
+                    <tr key={bill._id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-2 text-sm">{formatDate(bill.date)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{bill.name || '—'}</td>
+                      <td className="px-4 py-2 text-sm">{bill.phone || '—'}</td>
+                      <td className="px-4 py-2 text-sm">৳ {(bill.amountPerPerson || 0).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-sm text-center">{bill.numberOfPersons || 1}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {bill.discount > 0 ? (
+                          <span className="text-red-600 font-medium">- ৳ {bill.discount.toLocaleString()}</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-semibold text-secondary text-right">
+                        ৳ {bill.amount.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          bill.paymentMethod === 'Cash'
+                            ? 'bg-green-100 text-green-800'
+                            : bill.paymentMethod === 'Bank'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {bill.paymentMethod}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleViewReceipt(bill)}
+                            className="text-primary hover:text-primary font-medium"
+                            title="View Receipt"
+                          >
+                            👁️
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleViewReceipt(bill);
+                              setTimeout(() => window.print(), 300);
+                            }}
+                            className="text-green-600 hover:text-green-800 font-medium"
+                            title="Print"
+                          >
+                            🖨️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBill(bill._id)}
+                            className="text-red-600 hover:text-red-800 font-medium"
+                            title="Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {bills.length > 0 && (
+                  <tfoot className="bg-gray-100 border-t-2 font-semibold sticky bottom-0">
+                    <tr>
+                      <td colSpan="4" className="px-4 py-3 text-right">
+                        TOTAL
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        👥 {bills.reduce((sum, b) => sum + (b.numberOfPersons || 1), 0)}
+                      </td>
+                      <td className="px-4 py-3">
+                        - ৳ {bills.reduce((sum, b) => sum + b.discount, 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-secondary">
+                        💰 ৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
+                      </td>
+                      <td colSpan="2"></td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </>
         )}
       </div>
 

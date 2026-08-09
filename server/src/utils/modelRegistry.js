@@ -21,11 +21,16 @@ const createSchemas = () => ({
       totalDue: { type: Number, default: 0 },
       lastPaymentDate: Date,
       advanceCredit: { type: Number, default: 0 },
+      monthlyFeeAmount: { type: Number, default: 2000 },
       dueHistory: [
         {
           month: String,
           amount: Number,
-          paid: Boolean,
+          paid: { type: Boolean, default: false },
+          date: Date,
+          paidDate: Date,
+          reason: String,
+          type: { type: String, enum: ['Due', 'Payment'] },
         },
       ],
     },
@@ -90,7 +95,7 @@ const createSchemas = () => ({
       companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
       name: String,
       phone: String,
-      serviceType: { type: String, enum: ['Daily Entry', 'Training', 'Membership', 'Bill', 'Beverage', 'Hourly Session'] },
+      serviceType: { type: String, enum: ['Daily Entry', 'Training', 'Membership', 'Bill', 'Beverage', 'Hourly Session', 'Locker', 'Dress Rental'] },
       amount: Number,
       paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'] },
       date: { type: Date, default: Date.now },
@@ -139,19 +144,6 @@ const createSchemas = () => ({
       transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', default: null },
       notes: { type: String, default: '' },
       closedAt: { type: Date, default: null },
-    },
-    { timestamps: true }
-  ),
-
-  Expense: new mongoose.Schema(
-    {
-      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
-      date: { type: Date, default: Date.now },
-      title: String,
-      category: { type: String, enum: ['Staff Salary', 'Maintenance', 'Utility', 'Supplies', 'Other'] },
-      amount: Number,
-      paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'] },
-      note: String,
     },
     { timestamps: true }
   ),
@@ -317,7 +309,6 @@ const createSchemas = () => ({
           'Petty Cash Out',
           'Customer Advance',
           'Salary Payment',
-          'Expense Payment',
           'Other',
         ],
         required: true,
@@ -332,6 +323,228 @@ const createSchemas = () => ({
       reference: { type: String, default: '' },
       notes: { type: String, default: '' },
       createdBy: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  Locker: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      lockerNumber: { type: String, required: true, index: true },
+      status: {
+        type: String,
+        enum: ['Available', 'Occupied', 'Maintenance', 'Disabled'],
+        default: 'Available',
+        index: true,
+      },
+    },
+    { timestamps: true }
+  ),
+
+  LockerAssignment: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      lockerId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true, ref: 'Locker' },
+      memberId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      memberType: { type: String, enum: ['Member', 'Student', 'BillPayer'], required: true },
+      memberName: { type: String, required: true },
+      memberPhone: { type: String, default: '' },
+      assignedTime: { type: Date, required: true, default: Date.now },
+      returnedTime: { type: Date, default: null },
+      status: { type: String, enum: ['Active', 'Returned'], default: 'Active', index: true },
+      chargeType: { type: String, enum: ['None', 'SeparateTransaction', 'AttachedToExistingBill'], default: 'None' },
+      chargeAmount: { type: Number, default: 0 },
+      transactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      existingBillTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      assignedByAdmin: { type: String, default: '' },
+      notes: { type: String, default: '' },
+      isBillPayer: { type: Boolean, default: false },
+      billPayerTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    },
+    { timestamps: true }
+  ),
+
+  LockerSettings: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, unique: true, index: true },
+      totalLockers: { type: Number, default: 0, min: 0 },
+      lockerPrefix: { type: String, default: 'Locker' },
+      pricingMode: { type: String, enum: ['Free', 'PaidPerUse', 'Fixed'], default: 'Free' },
+      chargeAmount: { type: Number, default: 0, min: 0 },
+      autoNumbering: { type: Boolean, default: true },
+    },
+    { timestamps: true }
+  ),
+
+  Dress: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      dressNumber: { type: String, required: true, index: true },
+      type: { type: String, required: true, index: true },
+      chargeAmount: { type: Number, default: 0, min: 0 },
+      status: {
+        type: String,
+        enum: ['Available', 'Rented', 'Maintenance', 'Disabled'],
+        default: 'Available',
+        index: true,
+      },
+    },
+    { timestamps: true }
+  ),
+
+  DressRental: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      dressId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true, ref: 'Dress' },
+      memberId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+      memberType: { type: String, enum: ['Member', 'Student', 'BillPayer'], required: true },
+      memberName: { type: String, required: true },
+      memberPhone: { type: String, default: '' },
+      assignedTime: { type: Date, required: true, default: Date.now },
+      returnedTime: { type: Date, default: null },
+      status: { type: String, enum: ['Active', 'Returned'], default: 'Active', index: true },
+      chargeType: { type: String, enum: ['None', 'SeparateTransaction', 'AttachedToExistingBill'], default: 'None' },
+      chargeAmount: { type: Number, default: 0 },
+      transactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      existingBillTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      billPayerTransactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      assignedByAdmin: { type: String, default: '' },
+      notes: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  DressRentalSettings: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, unique: true, index: true },
+      dressTypes: [{
+        name: { type: String, required: true },
+        chargeAmount: { type: Number, default: 0, min: 0 },
+        count: { type: Number, default: 1, min: 0 },
+      }],
+      prefix: { type: String, default: 'Dress' },
+      autoNumbering: { type: Boolean, default: true },
+    },
+    { timestamps: true }
+  ),
+
+  TrainingSettings: new mongoose.Schema(
+    {
+      companyId: { type: mongoose.Schema.Types.ObjectId, required: true, unique: true, index: true },
+      ageGroups: [
+        {
+          label: { type: String, required: true },
+          classes: {
+            Regular: { type: Number, default: 12 },
+            Weekend: { type: Number, default: 12 },
+          },
+          pricing: {
+            Regular: { type: Number, default: 9000 },
+            Weekend: { type: Number, default: 11000 },
+          },
+        },
+      ],
+      batches: [
+        {
+          name: { type: String, required: true },
+          days: { type: Number, required: true, default: 30 },
+        },
+      ],
+      classSlots: [
+        {
+          id: { type: Number, required: true },
+          label: { type: String, required: true },
+          startTime: { type: String, required: true },
+          endTime: { type: String, required: true },
+          period: { type: String, enum: ['Morning', 'Evening'], required: true },
+        },
+      ],
+      slotLimit: { type: Number, default: 15, min: 1 },
+      maxMakeupClasses: { type: Number, default: 2, min: 0 },
+      paymentMethods: [{ type: String }],
+    },
+    { timestamps: true }
+  ),
+
+  Account: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      code: { type: String, required: true, index: true },
+      name: { type: String, required: true },
+      type: { type: String, enum: ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'], required: true, index: true },
+      parentCode: { type: String, default: null },
+      isActive: { type: Boolean, default: true },
+      description: { type: String, default: '' },
+    },
+    { timestamps: true }
+  ),
+
+  JournalEntry: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      date: { type: Date, required: true, index: true },
+      description: { type: String, required: true },
+      referenceType: { type: String, enum: ['Transaction', 'CashMovement', 'DailyExpense', 'OpeningBalance', 'Manual'], required: true },
+      referenceId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      lines: [{
+        accountCode: { type: String, required: true },
+        accountName: { type: String, required: true },
+        debit: { type: Number, default: 0 },
+        credit: { type: Number, default: 0 },
+      }],
+      totalDebit: { type: Number, required: true },
+      totalCredit: { type: Number, required: true },
+      createdBy: { type: String, default: '' },
+      reversedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+      isReversal: { type: Boolean, default: false },
+    },
+    { timestamps: true }
+  ),
+
+  AccountBalance: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true },
+      accountCode: { type: String, required: true },
+      accountName: { type: String, required: true },
+      accountType: { type: String, required: true },
+      period: { type: String, required: true },
+      debitTotal: { type: Number, default: 0 },
+      creditTotal: { type: Number, default: 0 },
+      balance: { type: Number, default: 0 },
+    },
+    { timestamps: true }
+  ),
+
+  DailyExpense: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      date: { type: Date, required: true, index: true },
+      categories: [{
+        name: { type: String, required: true },
+        subcategory: { type: String, default: '' },
+        amount: { type: Number, required: true, min: 0 },
+        notes: { type: String, default: '' },
+      }],
+      totalAmount: { type: Number, required: true, default: 0 },
+      paymentMethod: { type: String, enum: ['Cash', 'Bank', 'bKash'], default: 'Cash' },
+      recordedBy: { type: String, default: '' },
+      notes: { type: String, default: '' },
+      journalEntryId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    },
+    { timestamps: true }
+  ),
+
+  ExpenseCategory: new mongoose.Schema(
+    {
+      companyId: { type: String, required: true, index: true },
+      name: { type: String, required: true },
+      color: { type: String, default: '#6366F1' },
+      isActive: { type: Boolean, default: true },
+      sortOrder: { type: Number, default: 0 },
+      subcategories: [{
+        name: { type: String, required: true },
+        sortOrder: { type: Number, default: 0 },
+      }],
     },
     { timestamps: true }
   ),
