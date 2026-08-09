@@ -74,9 +74,27 @@ app.use('/api/daily-expenses', dailyExpenseRoutes);
 app.use('/api/expense-categories', expenseCategoryRoutes);
 app.use('/api/training/settings', trainingSettingsRoutes);
 
-app.use((req, res) => {
-  return res.status(404).json({ message: 'Not found' });
-});
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const clientDistPath = join(__dirname, '..', '..', 'client', 'dist');
+
+import { existsSync } from 'fs';
+if (existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      return res.sendFile(join(clientDistPath, 'index.html'));
+    }
+    return res.status(404).json({ message: 'Not found' });
+  });
+} else {
+  app.use((req, res) => {
+    return res.status(404).json({ message: 'Not found' });
+  });
+}
 
 app.use((err, req, res, next) => {
   console.error(err);
