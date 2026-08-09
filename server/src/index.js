@@ -84,7 +84,7 @@ const clientDistPath = join(__dirname, '..', '..', 'client', 'dist');
 import { existsSync } from 'fs';
 if (existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
-  app.get('*', (req, res) => {
+  app.get('/{*splat}', (req, res) => {
     if (!req.path.startsWith('/api')) {
       return res.sendFile(join(clientDistPath, 'index.html'));
     }
