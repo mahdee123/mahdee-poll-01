@@ -20,9 +20,14 @@ export const buildCompanyMongoUri = (companyId) => {
   try {
     const url = new URL(base);
     url.pathname = `/pool_${companyId}`;
+    const params = new URLSearchParams(url.search);
+    if (!params.has('authSource')) {
+      params.set('authSource', 'admin');
+    }
+    url.search = params.toString();
     return url.toString();
   } catch {
-    return `mongodb://127.0.0.1:27017/pool_${companyId}`;
+    return `mongodb://127.0.0.1:27017/pool_${companyId}?authSource=admin`;
   }
 };
 
@@ -36,6 +41,12 @@ export const buildCompanyMongoUri = (companyId) => {
 export const getCompanyConnection = async (companyId, mongoUri) => {
   if (!companyId || !mongoUri) {
     throw new Error('companyId and mongoUri are required');
+  }
+
+  // Ensure authSource=admin is always present for Railway MongoDB
+  if (!mongoUri.includes('authSource=')) {
+    const separator = mongoUri.includes('?') ? '&' : '?';
+    mongoUri = `${mongoUri}${separator}authSource=admin`;
   }
 
   // Return cached connection if exists
