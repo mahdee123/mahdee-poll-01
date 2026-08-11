@@ -282,7 +282,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
               {selectedProduct && (
                 <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
                   <p className="text-gray-700">
-                    <strong>Cost Price:</strong> {selectedProduct.costPrice} BDT
+                    <strong>Cost Price:</strong> ৳{selectedProduct.costPrice}
                   </p>
                   <p className={`text-gray-700 ${selectedProduct.currentStock === 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}`}>
                     <strong>Available Stock:</strong> {selectedProduct.currentStock} {selectedProduct.unit}s
@@ -322,10 +322,10 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
                     <tr key={index} className="border-b hover:bg-gray-50">
                       <td className="border px-3 py-2 text-sm">{item.productName}</td>
                       <td className="border px-3 py-2 text-center text-sm">{item.quantity} {item.unit}</td>
-                      <td className="border px-3 py-2 text-right text-sm">{item.costPricePerUnit} BDT</td>
-                      <td className="border px-3 py-2 text-right text-sm">{item.sellingPricePerUnit} BDT</td>
-                      <td className="border px-3 py-2 text-right text-sm font-semibold">{item.lineTotal.toFixed(2)} BDT</td>
-                      <td className="border px-3 py-2 text-right text-sm font-semibold text-green-600">{item.lineProfit.toFixed(2)} BDT</td>
+                      <td className="border px-3 py-2 text-right text-sm">৳{item.costPricePerUnit}</td>
+                      <td className="border px-3 py-2 text-right text-sm">৳{item.sellingPricePerUnit}</td>
+                      <td className="border px-3 py-2 text-right text-sm font-semibold">৳{item.lineTotal.toFixed(2)}</td>
+                      <td className="border px-3 py-2 text-right text-sm font-semibold text-green-600">৳{item.lineProfit.toFixed(2)}</td>
                       <td className="border px-3 py-2 text-center">
                         <button
                           type="button"
@@ -421,17 +421,17 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
                 </div>
                 <div className="flex justify-between">
                   <span>Total Revenue:</span>
-                  <span className="font-semibold text-primary">{calculation.totalAmount.toFixed(2)} BDT</span>
+                  <span className="font-semibold text-primary">৳{calculation.totalAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total Cost:</span>
-                  <span className="font-semibold text-gray-600">{calculation.totalCost.toFixed(2)} BDT</span>
+                  <span className="font-semibold text-gray-600">৳{calculation.totalCost.toFixed(2)}</span>
                 </div>
               </div>
               <div className="border-t pt-2 flex justify-between items-center bg-white p-2 rounded">
                 <span className="font-bold">💳 Total Payment:</span>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-green-600">{calculation.totalAmount.toFixed(2)} BDT</p>
+                  <p className="text-lg font-bold text-green-600">৳{calculation.totalAmount.toFixed(2)}</p>
                 </div>
               </div>
             </div>

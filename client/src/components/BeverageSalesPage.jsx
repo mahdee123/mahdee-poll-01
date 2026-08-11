@@ -3,8 +3,12 @@ import { API_BASE_URL } from '../api';
 import BeverageProductManager from './BeverageProductManager';
 import InventoryPurchaseForm from './InventoryPurchaseForm';
 import BeverageSalesForm from './BeverageSalesForm';
+import { useToast } from '../context/ToastContext';
+import useConfirm from '../hooks/useConfirm';
 
 export default function BeverageSalesPage({ token, setLastReceipt }) {
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
@@ -284,7 +288,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       setActiveModal(null);
     } catch (err) {
       console.error('Error adding product:', err);
-      alert(`Failed to add product: ${err.message}`);
+      toast.error(`Could not add product. ${err.message}`);
     }
   };
 
@@ -298,7 +302,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       setActiveModal(null);
     } catch (err) {
       console.error('Error updating product:', err);
-      alert(`Failed to update product: ${err.message}`);
+      toast.error(`Could not update product. ${err.message}`);
     }
   };
 
@@ -310,7 +314,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       setProducts(products.filter((p) => p._id !== productId));
     } catch (err) {
       console.error('Error deleting product:', err);
-      alert(`Failed to delete product: ${err.message}`);
+      toast.error(`Could not delete product. ${err.message}`);
     }
   };
 
@@ -322,10 +326,10 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       });
       setProducts(products.map((p) => (p._id === formData.productId ? response.product : p)));
       setActiveModal(null);
-      alert('✓ Purchase recorded successfully!');
+      toast.success('Purchase recorded.');
     } catch (err) {
       console.error('Error recording purchase:', err);
-      alert(`Failed to record purchase: ${err.message}`);
+      toast.error(`Could not record purchase. ${err.message}`);
     }
   };
 
@@ -362,7 +366,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
         setTimeout(() => window.print(), 500);
       }
       
-      alert('✓ Sale recorded successfully!');
+      toast.success('Sale recorded.');
       
       // IMPORTANT: Refresh cash management data since sales affect cash balance
       if (activeTab === 'cash-mgmt' || activeTab === 'dashboard') {
@@ -374,12 +378,12 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       if (err.responseData?.error) {
         errorMessage = err.responseData.error;
       }
-      alert(`❌ Failed to record sale:\n${errorMessage}`);
+      toast.error(`Could not record sale. ${errorMessage}`);
     }
   };
 
   const handleDeleteSale = async (saleId) => {
-    if (!window.confirm('Delete this sale? Inventory will be restored.')) return;
+    if (!(await confirm({ title: 'Delete this sale?', message: 'Inventory will be restored to stock.', confirmText: 'Delete sale', destructive: true }))) return;
 
     try {
       await fetchWithToken(`${API_BASE_URL}/beverages/sales/${saleId}`, {
@@ -396,7 +400,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       }
     } catch (err) {
       console.error('Error deleting sale:', err);
-      alert(`Failed to delete sale: ${err.message}`);
+      toast.error(`Could not delete sale. ${err.message}`);
     }
   };
 
@@ -414,7 +418,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
         }),
       });
 
-      alert(`✓ Due sale collected for ${sale.receiptId}`);
+      toast.success(`Due collected for ${sale.receiptId}.`);
       await Promise.all([
         fetchWithToken(`${API_BASE_URL}/hourly-sessions/active`)
           .then((response) => setActiveSessions(response.sessions || [])),
@@ -434,7 +438,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       ]);
     } catch (err) {
       console.error('Error collecting due sale:', err);
-      alert(`Failed to collect due sale: ${err.message}`);
+      toast.error(`Could not collect due sale. ${err.message}`);
     }
   };
 
@@ -453,7 +457,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
   const handleSetOpeningBalance = async () => {
     try {
       if (!openingBalanceForm || parseFloat(openingBalanceForm) < 0) {
-        alert('Please enter a valid opening balance');
+        toast.error('Enter a valid opening balance.');
         return;
       }
 
@@ -466,22 +470,22 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
         }),
       });
 
-      alert('✓ Opening balance saved!');
+      toast.success('Opening balance saved.');
       await handleLoadCashData(cashSelectedDate);
     } catch (err) {
-      alert(`Failed to save opening balance: ${err.message}`);
+      toast.error(`Could not save opening balance. ${err.message}`);
     }
   };
 
   const handleRecordWithdrawal = async () => {
     try {
       if (!withdrawalForm.amount || parseFloat(withdrawalForm.amount) <= 0) {
-        alert('Please enter a valid withdrawal amount');
+        toast.error('Enter a valid withdrawal amount.');
         return;
       }
 
       if (!withdrawalForm.reason.trim()) {
-        alert('Please enter a reason for withdrawal');
+        toast.error('Enter a reason for the withdrawal.');
         return;
       }
 
@@ -494,26 +498,26 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
         }),
       });
 
-      alert('✓ Withdrawal recorded!');
+      toast.success('Withdrawal recorded.');
       setWithdrawalForm({ amount: '', reason: '' });
       await handleLoadCashData(cashSelectedDate);
     } catch (err) {
-      alert(`Failed to record withdrawal: ${err.message}`);
+      toast.error(`Could not record withdrawal. ${err.message}`);
     }
   };
 
   const handleDeleteWithdrawal = async (withdrawalId) => {
-    if (!window.confirm('Delete this withdrawal?')) return;
+    if (!(await confirm({ title: 'Delete this withdrawal?', message: 'The cash drawer total will be recalculated.', confirmText: 'Delete', destructive: true }))) return;
 
     try {
       await fetchWithToken(`${API_BASE_URL}/beverages/cash/withdrawal/${withdrawalId}`, {
         method: 'DELETE',
       });
 
-      alert('✓ Withdrawal deleted!');
+      toast.success('Withdrawal deleted.');
       await handleLoadCashData(cashSelectedDate);
     } catch (err) {
-      alert(`Failed to delete withdrawal: ${err.message}`);
+      toast.error(`Could not delete withdrawal. ${err.message}`);
     }
   };
 
@@ -1305,10 +1309,12 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
+      {confirmDialog}
+
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-ink">Beverage Sales</h1>
       </div>
 
       {/* Tab Navigation */}

@@ -1,15 +1,27 @@
 /**
- * Loading spinner component
- * Used for async operation feedback
+ * Async feedback. `inline` renders a compact row for use inside cards/tables.
  */
-export default function LoadingSpinner({ message = 'Loading...' }) {
+export default function LoadingSpinner({ message = 'Loading…', inline = false }) {
+  const spinner = (
+    <span
+      className={`${inline ? 'w-4 h-4 border-2' : 'w-8 h-8 border-[3px]'} rounded-full border-line border-t-primary animate-spin flex-shrink-0`}
+      aria-hidden="true"
+    />
+  );
+
+  if (inline) {
+    return (
+      <span className="inline-flex items-center gap-2 text-sm text-ink-soft" role="status">
+        {spinner}
+        {message}
+      </span>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-12">
-      <div className="relative w-12 h-12 mb-4">
-        <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
-        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary border-r-primary animate-spin"></div>
-      </div>
-      <p className="text-gray-600 font-medium">{message}</p>
+    <div className="flex flex-col items-center justify-center py-12 gap-3" role="status">
+      {spinner}
+      <p className="text-sm text-ink-soft">{message}</p>
     </div>
   );
 }

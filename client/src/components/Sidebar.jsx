@@ -1,26 +1,53 @@
 import { useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Receipt,
+  CupSoda,
+  Dumbbell,
+  UsersRound,
+  Lock,
+  Shirt,
+  Wallet,
+  Scale,
+  BookOpen,
+  BarChart3,
+  Package,
+  Settings,
+  LogOut,
+  X,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const ALL_ITEMS = [
-  { key: 'dashboard', label: '📊 Dashboard' },
-  { key: 'billing', label: '🧾 Bills / Receipts' },
-  { key: 'beverages', label: '🧃 Beverage Sales' },
-  { key: 'training', label: '🏋️ Training' },
-  { key: 'members', label: '👥 Memberships' },
-  { key: 'packages', label: '📦 Packages' },
-  { key: 'lockers', label: '🔐 Lockers' },
-  { key: 'dress-rentals', label: '👕 Dress Rentals' },
-  { key: 'cash-movements', label: '💰 Cash Movements' },
-  { key: 'reconciliation', label: '📊 Reconciliation' },
-  { key: 'accounting', label: '📒 Accounting' },
-  { key: 'reports', label: '📈 Reports' },
+// Grouped by how often a screen actually gets opened, not alphabetically —
+// daily operator tasks first, monthly/back-office tasks second.
+const NAV_GROUPS = [
+  {
+    label: 'Daily operations',
+    items: [
+      { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { key: 'billing', label: 'Bills / Receipts', icon: Receipt },
+      { key: 'beverages', label: 'Beverage Sales', icon: CupSoda },
+      { key: 'training', label: 'Training', icon: Dumbbell },
+      { key: 'members', label: 'Memberships', icon: UsersRound },
+      { key: 'lockers', label: 'Lockers', icon: Lock },
+      { key: 'dress-rentals', label: 'Dress Rentals', icon: Shirt },
+    ],
+  },
+  {
+    label: 'Back office',
+    items: [
+      { key: 'cash-movements', label: 'Cash Movements', icon: Wallet },
+      { key: 'reconciliation', label: 'Reconciliation', icon: Scale },
+      { key: 'accounting', label: 'Accounting', icon: BookOpen },
+      { key: 'reports', label: 'Reports', icon: BarChart3 },
+      { key: 'packages', label: 'Packages', icon: Package },
+    ],
+  },
 ];
 
 export default function Sidebar({ view, setView, user, isOpen, onClose }) {
   const navigate = useNavigate();
   const { clearAuth } = useAuth();
-
-  const items = ALL_ITEMS;
 
   const handleLogout = () => {
     clearAuth();
@@ -51,28 +78,42 @@ export default function Sidebar({ view, setView, user, isOpen, onClose }) {
           ${isOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'}
         `}
       >
-        <div className="flex items-center justify-between mb-6 sm:justify-start">
+        <div className="flex items-center justify-between mb-4 sm:justify-start">
           <div className="text-xl font-bold">Raya Pool</div>
           <button
             onClick={onClose}
-            className="sm:hidden text-white/70 hover:text-white text-2xl leading-none p-1"
+            className="sm:hidden text-white/70 hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Close menu"
           >
-            ✕
+            <X size={22} />
           </button>
         </div>
 
-        <nav className="space-y-1 flex-1 overflow-y-auto">
-          {items.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => handleNav(item.key)}
-              className={`w-full text-left px-3 py-2.5 rounded-lg transition min-h-[44px] flex items-center ${
-                view === item.key ? 'bg-white text-secondary font-semibold' : 'hover:bg-white/10'
-              }`}
-            >
-              {item.label}
-            </button>
+        <nav className="flex-1 overflow-y-auto">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="mb-2">
+              <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                {group.label}
+              </div>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = view === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => handleNav(item.key)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg transition min-h-[44px] flex items-center gap-3 ${
+                        active ? 'bg-white text-secondary font-semibold' : 'hover:bg-white/10'
+                      }`}
+                    >
+                      <Icon size={17} className={active ? 'text-secondary' : 'text-white/70'} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -80,16 +121,18 @@ export default function Sidebar({ view, setView, user, isOpen, onClose }) {
           {user?.role === 'admin' && (
             <button
               onClick={() => { navigate('/settings/company'); if (onClose) onClose(); }}
-              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 transition text-sm min-h-[44px] flex items-center"
+              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 transition text-sm min-h-[44px] flex items-center gap-3"
             >
-              ⚙️ Company Settings
+              <Settings size={17} className="text-white/70" />
+              Company Settings
             </button>
           )}
           <button
             onClick={handleLogout}
-            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-500 transition text-sm min-h-[44px] flex items-center"
+            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-500 transition text-sm min-h-[44px] flex items-center gap-3"
           >
-            🚪 Logout
+            <LogOut size={17} className="text-white/70" />
+            Logout
           </button>
         </div>
       </aside>

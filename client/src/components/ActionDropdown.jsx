@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 export default function ActionDropdown({ actions = [] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,9 +27,11 @@ export default function ActionDropdown({ actions = [] }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-1 text-sm rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition"
+        className="px-3 py-1 text-sm rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition flex items-center gap-1"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
       >
-        Actions ▼
+        Actions <ChevronDown size={14} />
       </button>
       {isOpen && (
         <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">

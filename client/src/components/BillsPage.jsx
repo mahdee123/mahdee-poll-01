@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiRequest } from '../api.js';
 import BillForm from './BillForm.jsx';
+import useConfirm from '../hooks/useConfirm';
 
 export default function BillsPage({ token, showToast, setLastReceipt }) {
+  const [confirm, confirmDialog] = useConfirm();
   const [bills, setBills] = useState([]);
   const [stats, setStats] = useState({
     totalBillsToday: 0,
@@ -571,7 +573,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
   };
 
   const handleDeleteBill = async (id) => {
-    if (!window.confirm('⚠️ Are you sure you want to delete this bill?')) return;
+    if (!(await confirm({ title: 'Delete this bill?', message: 'The receipt will be permanently removed.', confirmText: 'Delete bill', destructive: true }))) return;
 
     try {
       await apiRequest(`/transactions/${id}`, {
@@ -661,6 +663,8 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
 
   return (
     <div className="grid gap-4">
+      {confirmDialog}
+
       <h1 className="text-2xl font-bold text-secondary">Billing</h1>
       <div className="card p-4 space-y-4 border-l-4 border-l-amber-400">
         <div>

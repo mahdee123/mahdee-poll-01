@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function LoginForm() {
+  useDocumentTitle('Sign In');
   const navigate = useNavigate();
   const { setAuth } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -102,7 +104,6 @@ export default function LoginForm() {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />

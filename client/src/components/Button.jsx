@@ -1,6 +1,7 @@
 /**
- * Reusable Button component
- * Supports primary, secondary, and danger variants with optional icons
+ * Shared button. Variants map to the .btn-* classes in index.css so that
+ * buttons written as raw CSS classes and buttons written as <Button/> render
+ * identically.
  */
 export default function Button({
   children,
@@ -11,32 +12,36 @@ export default function Button({
   loading = false,
   className = '',
   icon: Icon = null,
-  type = 'button'
+  type = 'button',
+  ...rest
 }) {
-  const baseClasses = 'font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 justify-center';
+  const variantClass = {
+    primary: 'btn-primary',
+    secondary: 'btn-secondary',
+    danger: 'btn-danger',
+    ghost: 'btn-ghost',
+  }[variant] || 'btn-primary';
 
-  const sizeClasses = {
-    sm: 'py-1 px-3 text-sm',
-    md: 'py-2 px-4 text-base',
-    lg: 'py-3 px-6 text-lg'
-  };
-
-  const variantClasses = {
-    primary: 'bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed',
-    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed',
-    danger: 'bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed',
-    ghost: 'bg-transparent hover:bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed'
-  };
+  const sizeClass = { sm: 'btn-sm', md: '', lg: 'btn-lg' }[size] || '';
 
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
+      aria-busy={loading || undefined}
+      className={`${variantClass} ${sizeClass} ${className}`}
+      {...rest}
     >
-      {Icon && <Icon size={18} />}
-      {loading ? 'Loading...' : children}
+      {loading ? (
+        <span
+          className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin"
+          aria-hidden="true"
+        />
+      ) : (
+        Icon && <Icon size={size === 'sm' ? 14 : 16} />
+      )}
+      {children}
     </button>
   );
 }

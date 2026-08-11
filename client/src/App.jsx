@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
+import { Wallet, TrendingUp, Banknote, Target, Calculator, BarChart3, Menu, X, Printer, FileText } from 'lucide-react';
 import './index.css';
 import { apiRequest } from './api.js';
+import useDocumentTitle from './hooks/useDocumentTitle.js';
 import MembershipPage from './components/MembershipPage.jsx';
 import TrainingPage from './components/TrainingPage.jsx';
 import BillsPage from './components/BillsPage.jsx';
@@ -29,12 +31,28 @@ const PLAN_PRESETS = {
   Yearly: 365,
 };
 
+const VIEW_TITLES = {
+  dashboard: 'Dashboard',
+  billing: 'Bills',
+  beverages: 'Beverage Sales',
+  training: 'Training',
+  members: 'Memberships',
+  packages: 'Packages',
+  lockers: 'Lockers',
+  'dress-rentals': 'Dress Rentals',
+  'cash-movements': 'Cash Movements',
+  reconciliation: 'Reconciliation',
+  accounting: 'Accounting',
+  reports: 'Reports',
+};
+
 const formatDate = (value) => new Date(value).toISOString().split('T')[0];
 
-const StatCard = ({ title, value, hint, highlight }) => {
+const StatCard = ({ title, value, hint, icon: Icon }) => {
   return (
     <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200 hover:border-gray-300 transition hover:shadow-sm flex flex-col gap-1 sm:gap-2">
-      <span className="text-xs sm:text-sm font-medium text-gray-600">
+      <span className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-600">
+        {Icon ? <Icon size={15} className="text-primary" /> : null}
         {title}
       </span>
       <span className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -214,7 +232,7 @@ const Toast = ({ toast, onClose }) => {
     <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-auto bg-white border border-primary text-secondary shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 z-[60]">
       <span className="flex-1 text-sm">{toast.message}</span>
       <button className="text-primary min-h-[44px] min-w-[44px] flex items-center justify-center" onClick={onClose} aria-label="Close toast">
-        ✕
+        <X size={16} />
       </button>
     </div>
   );
@@ -226,6 +244,8 @@ function App() {
   const [view, setView] = useState('dashboard');
   const [toast, setToast] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useDocumentTitle(VIEW_TITLES[view]);
 
   const [billForm, setBillForm] = useState({
     name: '',
@@ -548,10 +568,10 @@ function App() {
       <header className="sm:hidden sticky top-0 z-30 bg-secondary text-white px-4 py-3 flex items-center gap-3">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="text-white text-2xl p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Open menu"
         >
-          ☰
+          <Menu size={24} />
         </button>
         <span className="text-lg font-bold">Raya Pool</span>
       </header>
@@ -635,33 +655,37 @@ function App() {
               {/* Stats Row */}
               {dateFilter.range === 'today' && report.dailyBalance ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard 
-                    title="💰 Cash in Hand" 
-                    value={`৳ ${report.dailyBalance.closingBalance.toLocaleString()}`} 
+                  <StatCard
+                    icon={Wallet}
+                    title="Cash in Hand"
+                    value={`৳ ${report.dailyBalance.closingBalance.toLocaleString()}`}
                     hint="Current cash position"
                   />
-                  <StatCard 
-                    title="📈 Income" 
-                    value={`৳ ${report.dailyBalance.income.toLocaleString()}`} 
+                  <StatCard
+                    icon={TrendingUp}
+                    title="Income"
+                    value={`৳ ${report.dailyBalance.income.toLocaleString()}`}
                     hint="Today's earnings"
                   />
-                  <StatCard 
-                    title="💸 Expense" 
-                    value={`৳ ${(report.totalExpense || 0).toLocaleString()}`} 
+                  <StatCard
+                    icon={Banknote}
+                    title="Expense"
+                    value={`৳ ${(report.totalExpense || 0).toLocaleString()}`}
                     hint="Today's costs"
                   />
-                  <StatCard 
-                    title="🎯 Closing Balance" 
-                    value={`৳ ${report.dailyBalance.closingBalance.toLocaleString()}`} 
-                    hint={report.dailyBalance.closingBalance >= 0 ? "End of day" : "Deficit"} 
+                  <StatCard
+                    icon={Target}
+                    title="Closing Balance"
+                    value={`৳ ${report.dailyBalance.closingBalance.toLocaleString()}`}
+                    hint={report.dailyBalance.closingBalance >= 0 ? "End of day" : "Deficit"}
                   />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <StatCard title="💰 Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} hint="All services" />
-                  <StatCard title="💸 Total Expense" value={`৳ ${(report.totalExpense || 0).toLocaleString()}`} hint="All costs" />
-                  <StatCard title="🧮 Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income" : "Deficit"} />
-                  <StatCard title="📊 Entry" value={`৳ ${report.entryIncome.toLocaleString()}`} hint="Daily income" />
+                  <StatCard icon={Wallet} title="Total Income" value={`৳ ${report.totalIncome.toLocaleString()}`} hint="All services" />
+                  <StatCard icon={Banknote} title="Total Expense" value={`৳ ${(report.totalExpense || 0).toLocaleString()}`} hint="All costs" />
+                  <StatCard icon={Calculator} title="Net Cash" value={`৳ ${report.netCash.toLocaleString()}`} hint={report.netCash >= 0 ? "Income" : "Deficit"} />
+                  <StatCard icon={BarChart3} title="Entry" value={`৳ ${report.entryIncome.toLocaleString()}`} hint="Daily income" />
                 </div>
               )}
 
@@ -784,10 +808,10 @@ function App() {
           {lastReceipt && (
             <div className="card p-4 mt-6">
               <div className="flex items-center justify-between mb-4 no-print">
-                <h3 className="text-lg font-semibold">📄 Receipt</h3>
+                <h3 className="text-lg font-semibold flex items-center gap-2"><FileText size={18} className="text-primary" />Receipt</h3>
                 <div className="flex gap-2">
-                  <button className="btn-ghost" onClick={() => window.print()}>🖨 Print</button>
-                  <button className="btn-ghost" onClick={() => setLastReceipt(null)}>✕ Close</button>
+                  <button className="btn-ghost flex items-center gap-1.5" onClick={() => window.print()}><Printer size={16} />Print</button>
+                  <button className="btn-ghost flex items-center gap-1.5" onClick={() => setLastReceipt(null)}><X size={16} />Close</button>
                 </div>
               </div>
               <Receipt receipt={lastReceipt} receiptDetails={lastReceiptDetails} />

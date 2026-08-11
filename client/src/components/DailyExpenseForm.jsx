@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { apiRequest } from '../api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
+import useConfirm from '../hooks/useConfirm';
 
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
 const formatCurrency = (v) => v ? `৳${Number(v).toLocaleString('en-IN')}` : '৳0';
@@ -10,6 +11,7 @@ const toLocalDateStr = (d) => { const year = d.getFullYear(); const month = Stri
 const toDateKey = (d) => d ? toLocalDateStr(new Date(d)) : '';
 
 export default function DailyExpenseForm({ token, onManageCategories }) {
+  const [confirm, confirmDialog] = useConfirm();
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const searchRef = useRef(null);
@@ -74,7 +76,7 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
     } catch (e) { toast_(e?.message || 'Failed', 'error'); } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id) => { if (!confirm('Delete?')) return; try { await apiRequest(`/daily-expenses/${id}`, { method: 'DELETE', token }); toast_('Deleted'); fetchExp(); } catch (e) { toast_(e?.message || 'Failed', 'error'); } };
+  const handleDelete = async (id) => { if (!(await confirm({ title: 'Delete this expense?', message: 'This entry will be removed from the day’s totals.', confirmText: 'Delete', destructive: true }))) return; try { await apiRequest(`/daily-expenses/${id}`, { method: 'DELETE', token }); toast_('Deleted'); fetchExp(); } catch (e) { toast_(e?.message || 'Failed', 'error'); } };
 
   const uniqueCats = [...new Set(expenses.flatMap(e => (e.categories || []).map(c => c.name)))];
 
@@ -147,6 +149,8 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
 
   return (
     <div className="space-y-4">
+      {confirmDialog}
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* ADD EXPENSE BUTTON / FORM */}

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../api.js';
+import useConfirm from '../hooks/useConfirm';
 
 export default function CashMovementPage({ token, showToast }) {
+  const [confirm, confirmDialog] = useConfirm();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -146,7 +148,7 @@ export default function CashMovementPage({ token, showToast }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this cash movement?')) return;
+    if (!(await confirm({ title: 'Delete this cash movement?', message: 'The cash balance will be recalculated.', confirmText: 'Delete', destructive: true }))) return;
     try {
       await apiRequest(`/cash-movements/${id}`, { method: 'DELETE', token });
       showToast('✓ Movement deleted');
@@ -176,6 +178,8 @@ export default function CashMovementPage({ token, showToast }) {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

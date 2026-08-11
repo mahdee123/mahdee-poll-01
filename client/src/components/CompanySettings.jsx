@@ -12,8 +12,10 @@ import EditCompanyModal from './EditCompanyModal';
 import EditUserRoleModal from './EditUserRoleModal';
 import ConfirmDeleteUserModal from './ConfirmDeleteUserModal';
 import Sidebar from './Sidebar';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function CompanySettings({ token }) {
+  useDocumentTitle('Company Settings');
   const navigate = useNavigate();
   // State for data
   const [company, setCompany] = useState(null);

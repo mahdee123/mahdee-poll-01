@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
+import useConfirm from '../hooks/useConfirm';
 
 export default function ExpenseCategoriesPage({ token }) {
+  const [confirm, confirmDialog] = useConfirm();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -78,7 +80,7 @@ export default function ExpenseCategoriesPage({ token }) {
   };
 
   const handleDeleteCategory = async (id, name) => {
-    if (!confirm(`Delete "${name}" and all its subcategories?`)) return;
+    if (!(await confirm({ title: `Delete ${name}?`, message: 'This category and all of its subcategories will be removed.', confirmText: 'Delete category', destructive: true }))) return;
     try {
       await apiRequest(`/expense-categories/${id}`, { method: 'DELETE', token });
       if (selectedCat === id) setSelectedCat(null);
@@ -114,7 +116,7 @@ export default function ExpenseCategoriesPage({ token }) {
   };
 
   const handleDeleteSub = async (subId) => {
-    if (!confirm('Delete this subcategory?')) return;
+    if (!(await confirm({ title: 'Delete this subcategory?', confirmText: 'Delete', destructive: true }))) return;
     try {
       const res = await apiRequest(`/expense-categories/${selectedCat}/subcategories/${subId}`, {
         method: 'DELETE', token,
@@ -126,6 +128,8 @@ export default function ExpenseCategoriesPage({ token }) {
 
   return (
     <div className="space-y-4">
+      {confirmDialog}
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <div className="flex gap-4">

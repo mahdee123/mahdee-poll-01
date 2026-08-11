@@ -1,24 +1,38 @@
 /**
- * Reusable Card component
- * Standardized with shadow, border, and rounded corners
+ * Shared surface. Renders the same `.card` class the rest of the app uses,
+ * so component-built and class-built cards stay identical.
  */
-export default function Card({ children, className = '', header = null, title = null, icon: Icon = null }) {
+export default function Card({
+  children,
+  className = '',
+  header = null,
+  title = null,
+  subtitle = null,
+  actions = null,
+  icon: Icon = null,
+  padded = true,
+}) {
+  const hasHeading = header || title || Icon || actions;
+
   return (
-    <div className={`bg-white rounded-lg shadow-lg border border-gray-100 p-6 ${className}`}>
-      {header && (
-        <div className="mb-6 pb-4 border-b border-gray-200">
-          {header}
+    <div className={`card ${className}`}>
+      {hasHeading && (
+        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line">
+          {header || (
+            <>
+              <div className="flex items-center gap-2.5 min-w-0">
+                {Icon && <Icon size={18} className="text-primary flex-shrink-0" />}
+                <div className="min-w-0">
+                  {title && <h2 className="section-title truncate">{title}</h2>}
+                  {subtitle && <p className="muted mt-0.5">{subtitle}</p>}
+                </div>
+              </div>
+              {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+            </>
+          )}
         </div>
       )}
-      
-      {(title || Icon) && !header && (
-        <div className="flex items-center gap-3 mb-6">
-          {Icon && <Icon className="w-6 h-6 text-primary" />}
-          {title && <h2 className="text-xl font-bold text-gray-800">{title}</h2>}
-        </div>
-      )}
-      
-      {children}
+      <div className={padded ? 'p-5' : ''}>{children}</div>
     </div>
   );
 }

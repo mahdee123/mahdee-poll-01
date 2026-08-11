@@ -3,8 +3,12 @@ import { API_BASE_URL } from '../api';
 import BeverageProductManager from './BeverageProductManager';
 import InventoryPurchaseForm from './InventoryPurchaseForm';
 import BeverageSalesForm from './BeverageSalesForm';
+import { useToast } from '../context/ToastContext';
+import useConfirm from '../hooks/useConfirm';
 
 export default function BeverageSalesDashboard({ token }) {
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [stats, setStats] = useState({
@@ -104,7 +108,7 @@ export default function BeverageSalesDashboard({ token }) {
       setActiveModal(null);
     } catch (err) {
       console.error('Error adding product:', err);
-      alert(`Failed to add product: ${err.message}`);
+      toast.error(`Could not add product. ${err.message}`);
     }
   };
 
@@ -118,7 +122,7 @@ export default function BeverageSalesDashboard({ token }) {
       setActiveModal(null);
     } catch (err) {
       console.error('Error updating product:', err);
-      alert(`Failed to update product: ${err.message}`);
+      toast.error(`Could not update product. ${err.message}`);
     }
   };
 
@@ -130,7 +134,7 @@ export default function BeverageSalesDashboard({ token }) {
       setProducts(products.filter((p) => p._id !== productId));
     } catch (err) {
       console.error('Error deleting product:', err);
-      alert(`Failed to delete product: ${err.message}`);
+      toast.error(`Could not delete product. ${err.message}`);
     }
   };
 
@@ -144,7 +148,7 @@ export default function BeverageSalesDashboard({ token }) {
       setActiveModal(null);
     } catch (err) {
       console.error('Error recording purchase:', err);
-      alert(`Failed to record purchase: ${err.message}`);
+      toast.error(`Could not record purchase. ${err.message}`);
     }
   };
 
@@ -165,7 +169,7 @@ export default function BeverageSalesDashboard({ token }) {
       
       setSales([response.sale, ...sales]);
       setActiveModal(null);
-      alert('✓ Sale recorded successfully!');
+      toast.success('Sale recorded.');
     } catch (err) {
       console.error('[Error] Failed to record sale:', err);
       
@@ -178,12 +182,12 @@ export default function BeverageSalesDashboard({ token }) {
         errorMessage += `\nDetails: ${err.responseData.details}`;
       }
       
-      alert(`❌ Failed to record sale:\n${errorMessage}`);
+      toast.error(`Could not record sale. ${errorMessage}`);
     }
   };
 
   const handleDeleteSale = async (saleId) => {
-    if (!window.confirm('Delete this sale? Inventory will be restored.')) return;
+    if (!(await confirm({ title: 'Delete this sale?', message: 'Inventory will be restored to stock.', confirmText: 'Delete sale', destructive: true }))) return;
 
     try {
       await fetchWithToken(`${API_BASE_URL}/beverages/sales/${saleId}`, {
@@ -195,7 +199,7 @@ export default function BeverageSalesDashboard({ token }) {
       setProducts(resp.products || []);
     } catch (err) {
       console.error('Error deleting sale:', err);
-      alert(`Failed to delete sale: ${err.message}`);
+      toast.error(`Could not delete sale. ${err.message}`);
     }
   };
 
@@ -233,10 +237,12 @@ export default function BeverageSalesDashboard({ token }) {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
+      {confirmDialog}
+
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">🧃 Beverage Sales Management</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-ink">Beverage Sales</h1>
       </div>
 
       {/* Top Stats */}

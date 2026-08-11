@@ -168,7 +168,7 @@ export default function ReconciliationReport({ token, showToast }) {
     }
   };
 
-  const formatCurrency = (value) => `Tk. ${Number(value || 0).toLocaleString()}`;
+  const formatCurrency = (value) => `৳${Number(value || 0).toLocaleString()}`;
 
   const downloadSheet = () => {
     const rangeLabel = getRangeLabel();

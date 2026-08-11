@@ -5,6 +5,9 @@ import TrainingPaymentModal from './TrainingPaymentModal.jsx';
 import TrainingSettingsModal from './TrainingSettingsModal.jsx';
 import ActionDropdown from './ActionDropdown.jsx';
 import DateRangeFilter from './DateRangeFilter.jsx';
+import EmptyState from './EmptyState.jsx';
+import Button from './Button.jsx';
+import { Search, Settings, UserPlus, GraduationCap, CalendarPlus, Users } from 'lucide-react';
 
 const BATCH_PRESETS = {
   Regular: {
@@ -42,11 +45,14 @@ const formatDate = (d) => {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const StatCard = ({ title, value, hint }) => (
-  <div className="card p-3 sm:p-4 flex flex-col gap-1 sm:gap-2">
-    <span className="text-xs sm:text-sm text-gray-500">{title}</span>
-    <span className="text-xl sm:text-2xl font-semibold text-secondary">{value}</span>
-    {hint ? <span className="text-xs text-gray-400">{hint}</span> : null}
+const StatCard = ({ title, value, hint, icon: Icon }) => (
+  <div className="stat-card">
+    <span className="stat-label">
+      {Icon ? <Icon size={15} className="text-primary" /> : null}
+      {title}
+    </span>
+    <span className="stat-value">{value}</span>
+    {hint ? <span className="stat-hint">{hint}</span> : null}
   </div>
 );
 
@@ -264,22 +270,20 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
   };
 
   // ============ CLASS SLOT COLOR ============
-  const getSlotColor = (totalStudents) => {
-    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'bg-red-100 border-red-300';
-    if (totalStudents >= 10) return 'bg-yellow-100 border-yellow-300';
-    return 'bg-green-100 border-green-300';
+  // Capacity states. An empty slot is *not* a success state — it reads as
+  // neutral "open", so a full class is the only thing that draws the eye.
+  const getSlotState = (totalStudents) => {
+    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'full';
+    if (totalStudents >= DYNAMIC_SLOT_LIMIT * 0.8) return 'filling';
+    if (totalStudents === 0) return 'empty';
+    return 'open';
   };
 
-  const getSlotTextColor = (totalStudents) => {
-    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'text-red-700';
-    if (totalStudents >= 10) return 'text-yellow-700';
-    return 'text-green-700';
-  };
-
-  const getProgressBarColor = (totalStudents) => {
-    if (totalStudents >= DYNAMIC_SLOT_LIMIT) return 'bg-red-500';
-    if (totalStudents >= 10) return 'bg-yellow-500';
-    return 'bg-green-500';
+  const SLOT_STYLES = {
+    full:    { border: 'border-danger/30 bg-danger-soft',  bar: 'bg-danger',  text: 'text-danger-ink',  badge: 'badge-danger',  note: 'Full' },
+    filling: { border: 'border-warning/30 bg-warning-soft', bar: 'bg-warning', text: 'text-warning-ink', badge: 'badge-warning', note: 'Almost full' },
+    open:    { border: 'border-line bg-white',              bar: 'bg-primary', text: 'text-ink',         badge: 'badge-info',    note: 'Open' },
+    empty:   { border: 'border-line bg-white',              bar: 'bg-line',    text: 'text-ink',         badge: 'badge-neutral', note: 'No students yet' },
   };
 
   // ============ RENDER ============
@@ -553,105 +557,182 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
     <div className="grid gap-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-bold">Training</h2>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="px-4 py-2 text-sm rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium min-h-[44px]"
-          >
-            ⚙️ Settings
-          </button>
-          <button
-            onClick={() => setViewMode('form')}
-            className="btn-primary"
-          >
-            ➕ Add New Student
-          </button>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-semibold text-ink">Training</h2>
+          <p className="muted mt-0.5">Enrollments, payments and class capacity</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" icon={Settings} onClick={() => setShowSettingsModal(true)}>
+            Settings
+          </Button>
+          <Button icon={UserPlus} onClick={() => setViewMode('form')}>
+            Add student
+          </Button>
         </div>
       </div>
 
-      {/* ====== ANALYTICS FILTER SECTION (TOP MARKED AREA) ====== */}
-      {/* Date Range Filter - Only affects stats cards */}
-      <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
-        <DateRangeFilter 
-          dateFilter={analyticsFilter} 
-          setDateFilter={setAnalyticsFilter} 
-          onFilterChange={() => {}} 
-        />
-      </div>
+      {/* ====== SUMMARY (driven by the date filter below) ====== */}
+      <div className="card">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 border-b border-line">
+          <div>
+            <h3 className="section-title">Summary</h3>
+            <p className="muted mt-0.5">Totals for the selected period. The student list below is not affected.</p>
+          </div>
+          <DateRangeFilter
+            dateFilter={analyticsFilter}
+            setDateFilter={setAnalyticsFilter}
+            onFilterChange={() => {}}
+          />
+        </div>
 
-      {/* Summary Cards (Filtered by Analytics Filter) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-        <StatCard title="New Enrollments Today" value={stats.newToday} />
-        <StatCard title="Enrollments This Month" value={stats.newMonth} />
-        <StatCard title="Active Students" value={stats.activeStudents} />
-        <StatCard title="Training Revenue (This Month)" value={`৳ ${stats.revenueMonth.toLocaleString()}`} />
-        <StatCard title="🟢 Training Income (This Month)" value={`৳ ${stats.trainingIncome.toLocaleString()}`} hint="Collected from students" />
-        <StatCard title="🔴 Pending Due (Training)" value={`৳ ${stats.trainingDue.toLocaleString()}`} hint="Outstanding payments" />
+        <div className="p-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          {/* People */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-3">Enrollment</p>
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard icon={CalendarPlus} title="New today" value={stats.newToday} />
+              <StatCard icon={UserPlus} title="New this period" value={stats.newMonth} />
+              <StatCard icon={Users} title="Active students" value={stats.activeStudents} />
+            </div>
+          </div>
+
+          {/* Money — shown as one story so billed / collected / outstanding relate to each other */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-3">Payments</p>
+            {(() => {
+              const billed = stats.revenueMonth || 0;
+              const collected = stats.trainingIncome || 0;
+              const outstanding = stats.trainingDue || 0;
+              const pct = billed > 0 ? Math.min(100, Math.round((collected / billed) * 100)) : 0;
+
+              return (
+                <div className="card p-4 sm:p-5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm text-ink-soft">Total billed</span>
+                    <span className="text-xl sm:text-2xl font-semibold text-ink tabular">
+                      ৳ {billed.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div
+                    className="mt-3 h-2 w-full rounded-full bg-line overflow-hidden"
+                    role="img"
+                    aria-label={`${pct}% of billed training fees collected`}
+                  >
+                    <div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="mt-1.5 text-xs text-ink-faint">{pct}% collected</p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-line">
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+                        <span className="w-2 h-2 rounded-full bg-success" aria-hidden="true" />
+                        Collected
+                      </span>
+                      <p className="mt-1 text-lg font-semibold text-success tabular">
+                        ৳ {collected.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+                        <span className="w-2 h-2 rounded-full bg-warning" aria-hidden="true" />
+                        Outstanding
+                      </span>
+                      <p className="mt-1 text-lg font-semibold text-warning tabular">
+                        ৳ {outstanding.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       </div>
 
       {/* ====== STUDENT LIST SECTION (INDEPENDENT FROM ANALYTICS) ====== */}
-      <div className="card p-4 space-y-4">
-        <h3 className="text-lg font-semibold">Students List</h3>
-
-        {/* List Filters - Separate from Analytics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
+      <div className="card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-line">
           <div>
-            <label className="text-xs text-gray-600 block mb-1">🔍 Search (Name / Phone)</label>
-            <input
-              type="text"
-              className="border rounded-lg px-3 py-2 w-full text-sm"
-              placeholder="Search..."
-              value={listFilter.search}
-              onChange={(e) => setListFilter({ ...listFilter, search: e.target.value })}
-            />
+            <h3 className="section-title">Students</h3>
+            <p className="muted mt-0.5">
+              {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
+              {listFilter.search || listFilter.batch ? ' matching your filters' : ' enrolled'}
+            </p>
           </div>
-          <div>
-            <label className="text-xs text-gray-600 block mb-1">📅 Batch</label>
+
+          {/* List filters — independent of the summary filter above */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <div className="relative">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                className="input pl-9 sm:w-56"
+                placeholder="Search name or phone"
+                aria-label="Search students by name or phone"
+                value={listFilter.search}
+                onChange={(e) => setListFilter({ ...listFilter, search: e.target.value })}
+              />
+            </div>
             <select
-              className="border rounded-lg px-3 py-2 w-full text-sm"
+              className="select sm:w-40"
+              aria-label="Filter by batch"
               value={listFilter.batch}
               onChange={(e) => setListFilter({ ...listFilter, batch: e.target.value })}
             >
-              <option value="">All Batches</option>
+              <option value="">All batches</option>
               <option value="Regular">Regular</option>
               <option value="Weekend">Weekend</option>
             </select>
           </div>
         </div>
 
+        <div className="p-5 pt-0 sm:p-0">
+
         {/* Mobile card view */}
         <div className="md:hidden space-y-3">
           {filteredStudents.length === 0 ? (
-            <div className="text-center py-6 text-gray-500">No students found</div>
+            <EmptyState
+              icon={GraduationCap}
+              title={listFilter.search || listFilter.batch ? 'No matching students' : 'No students enrolled yet'}
+              message={
+                listFilter.search || listFilter.batch
+                  ? 'Try a different name, phone number or batch.'
+                  : 'Add your first student to start tracking classes and payments.'
+              }
+              actionLabel={listFilter.search || listFilter.batch ? null : 'Add student'}
+              onAction={listFilter.search || listFilter.batch ? null : () => setViewMode('form')}
+            />
           ) : (
             filteredStudents.map((s) => (
-              <div key={s._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-900">{s.name}</div>
-                    <div className="text-xs text-gray-500">{s.phone}</div>
+              <div key={s._id} className="border border-line rounded-card p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium text-ink truncate">{s.name}</div>
+                    <div className="text-xs text-ink-faint tabular">{s.phone}</div>
                   </div>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                    s.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {s.status === 'active' ? '🟢 Active' : '🔴 Expired'}
+                  <span className={s.status === 'active' ? 'badge-success' : 'badge-danger'}>
+                    {s.status === 'active' ? 'Active' : 'Expired'}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-xs text-gray-500">Package</span><p className="font-medium">{s.totalClasses} classes</p></div>
-                  <div><span className="text-xs text-gray-500">Batch</span><p className="font-medium">{s.batchType}</p></div>
-                  <div><span className="text-xs text-gray-500">Start</span><p className="font-medium text-xs">{formatDate(s.startDate)}</p></div>
-                  <div><span className="text-xs text-gray-500">End</span><p className="font-medium text-xs">{formatDate(s.endDate)}</p></div>
-                  <div><span className="text-xs text-gray-500">Remaining</span><p className="font-semibold">{s.remainingClasses}</p></div>
-                  <div><span className="text-xs text-gray-500">Due</span><p className={`font-semibold ${s.due > 0 ? 'text-orange-600' : 'text-gray-500'}`}>{s.due > 0 ? `৳ ${s.due.toLocaleString()}` : '-'}</p></div>
+                  <div><span className="text-xs text-ink-faint">Package</span><p className="font-medium text-ink">{s.totalClasses} classes</p></div>
+                  <div><span className="text-xs text-ink-faint">Batch</span><p className="font-medium text-ink">{s.batchType}</p></div>
+                  <div><span className="text-xs text-ink-faint">Start</span><p className="text-xs text-ink tabular">{formatDate(s.startDate)}</p></div>
+                  <div><span className="text-xs text-ink-faint">End</span><p className="text-xs text-ink tabular">{formatDate(s.endDate)}</p></div>
+                  <div><span className="text-xs text-ink-faint">Classes left</span><p className="font-semibold text-ink tabular">{s.remainingClasses}</p></div>
+                  <div><span className="text-xs text-ink-faint">Due</span><p className={`font-semibold tabular ${s.due > 0 ? 'text-warning' : 'text-ink-faint'}`}>{s.due > 0 ? `৳ ${s.due.toLocaleString()}` : '—'}</p></div>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t">
-                  <span className="text-xs text-green-700 font-semibold">Collected: ৳ {((s.price - (s.discount || 0)) - (s.due || 0)).toLocaleString()}</span>
+                <div className="flex items-center justify-between pt-2 border-t border-line">
+                  <span className="text-xs text-success font-medium tabular">Paid ৳ {((s.price - (s.discount || 0)) - (s.due || 0)).toLocaleString()}</span>
                   <ActionDropdown
                     actions={[
                       { label: 'View Profile', onClick: async () => { const res = await apiRequest(`/training/students/${s._id}`, { token }); setSelectedStudent(res.student); setProfileModalOpen(true); } },
-                      ...(s.due > 0 ? [{ label: '💳 Collect Payment', onClick: () => { setSelectedPaymentStudent(s); setPaymentModalOpen(true); } }] : []),
+                      ...(s.due > 0 ? [{ label: 'Collect Payment', onClick: () => { setSelectedPaymentStudent(s); setPaymentModalOpen(true); } }] : []),
                       { label: 'Mark Completed', onClick: () => { const res = apiRequest(`/training/students/${s._id}`, { token }); res.then(r => { setSelectedStudent(r.student); setProfileModalOpen(true); }); } },
                       { label: 'Mark Expired', onClick: () => { const res = apiRequest(`/training/students/${s._id}`, { token }); res.then(r => { setSelectedStudent(r.student); setProfileModalOpen(true); }); }, destructive: true },
                     ]}
@@ -661,67 +742,82 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
             ))
           )}
           {filteredStudents.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-3 text-sm font-semibold">
-              <div className="flex justify-between"><span>Total: {filteredStudents.length} students</span></div>
-              <div className="flex justify-between"><span className="text-orange-600">Total Due: ৳ {filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0).toLocaleString()}</span></div>
-              <div className="flex justify-between"><span className="text-green-700">Total Collected: ৳ {filteredStudents.reduce((sum, s) => sum + ((s.price - (s.discount || 0)) - (s.due || 0)), 0).toLocaleString()}</span></div>
+            <div className="bg-canvas border border-line rounded-card p-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Students</span>
+                <span className="font-semibold text-ink tabular">{filteredStudents.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Outstanding</span>
+                <span className="font-semibold text-warning tabular">৳ {filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-soft">Collected</span>
+                <span className="font-semibold text-success tabular">৳ {filteredStudents.reduce((sum, s) => sum + ((s.price - (s.discount || 0)) - (s.due || 0)), 0).toLocaleString()}</span>
+              </div>
             </div>
           )}
         </div>
 
         {/* Desktop table view */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100 border-b">
+          <table className="table-modern">
+            <thead>
               <tr>
-                <th className="text-left px-3 py-2 font-semibold">Name</th>
-                <th className="text-left px-3 py-2 font-semibold">Phone</th>
-                <th className="text-left px-3 py-2 font-semibold">Package</th>
-                <th className="text-left px-3 py-2 font-semibold">Batch</th>
-                <th className="text-left px-3 py-2 font-semibold">Start Date</th>
-                <th className="text-left px-3 py-2 font-semibold">End Date</th>
-                <th className="text-center px-3 py-2 font-semibold">Remaining</th>
-                <th className="text-center px-3 py-2 font-semibold">Due Amount</th>
-                <th className="text-center px-3 py-2 font-semibold">🟢 Collected</th>
-                <th className="text-center px-3 py-2 font-semibold">Status</th>
-                <th className="text-center px-3 py-2 font-semibold">Action</th>
+                <th>Student</th>
+                <th>Package</th>
+                <th>Enrolled period</th>
+                <th className="text-center">Classes left</th>
+                <th className="text-right">Due</th>
+                <th className="text-right">Paid</th>
+                <th className="text-center">Status</th>
+                <th className="text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="text-center py-6 text-gray-500">
-                    No students found
+                  <td colSpan="8" className="p-0">
+                    <EmptyState
+                      icon={GraduationCap}
+                      title={listFilter.search || listFilter.batch ? 'No matching students' : 'No students enrolled yet'}
+                      message={
+                        listFilter.search || listFilter.batch
+                          ? 'Try a different name, phone number or batch.'
+                          : 'Add your first student to start tracking classes and payments.'
+                      }
+                      actionLabel={listFilter.search || listFilter.batch ? null : 'Add student'}
+                      onAction={listFilter.search || listFilter.batch ? null : () => setViewMode('form')}
+                    />
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((s) => (
-                  <tr key={s._id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 font-semibold">{s.name}</td>
-                    <td className="px-3 py-2">{s.phone}</td>
-                    <td className="px-3 py-2">{s.totalClasses} classes</td>
-                    <td className="px-3 py-2">{s.batchType}</td>
-                    <td className="px-3 py-2 text-sm">{formatDate(s.startDate)}</td>
-                    <td className="px-3 py-2 text-sm">{formatDate(s.endDate)}</td>
-                    <td className="px-3 py-2 text-center font-semibold">{s.remainingClasses}</td>
-                    <td className={`px-3 py-2 text-center font-semibold ${s.due > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
-                      {s.due > 0 ? `৳ ${s.due.toLocaleString()}` : '-'}
+                  <tr key={s._id}>
+                    <td>
+                      <div className="font-medium text-ink">{s.name}</div>
+                      <div className="text-xs text-ink-faint tabular">{s.phone}</div>
                     </td>
-                    <td className="px-3 py-2 text-center font-semibold text-green-700">
+                    <td>
+                      <div className="text-ink">{s.totalClasses} classes</div>
+                      <div className="text-xs text-ink-faint">{s.batchType}</div>
+                    </td>
+                    <td className="text-xs text-ink-soft tabular whitespace-nowrap">
+                      {formatDate(s.startDate)} → {formatDate(s.endDate)}
+                    </td>
+                    <td className="text-center font-semibold tabular">{s.remainingClasses}</td>
+                    <td className={`text-right font-semibold tabular ${s.due > 0 ? 'text-warning' : 'text-ink-faint'}`}>
+                      {s.due > 0 ? `৳ ${s.due.toLocaleString()}` : '—'}
+                    </td>
+                    <td className="text-right font-semibold text-success tabular">
                       ৳ {((s.price - (s.discount || 0)) - (s.due || 0)).toLocaleString()}
                     </td>
-                    <td className="px-3 py-2 text-center">
-                      {s.status === 'active' ? (
-                        <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
-                          🟢 Active
-                        </span>
-                      ) : (
-                        <span className="inline-block bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">
-                          🔴 Expired
-                        </span>
-                      )}
+                    <td className="text-center">
+                      <span className={s.status === 'active' ? 'badge-success' : 'badge-danger'}>
+                        {s.status === 'active' ? 'Active' : 'Expired'}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="text-right">
                       <ActionDropdown
                         actions={[
                           {
@@ -733,7 +829,7 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
                             },
                           },
                           ...(s.due > 0 ? [{
-                            label: '💳 Collect Payment',
+                            label: 'Collect Payment',
                             onClick: () => {
                               setSelectedPaymentStudent(s);
                               setPaymentModalOpen(true);
@@ -768,100 +864,132 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
                 ))
               )}
               {filteredStudents.length > 0 && (
-                <tr className="bg-gray-100 font-semibold border-t-2 border-gray-300 sticky bottom-0">
-                  <td colSpan="2" className="px-3 py-3 text-left">
-                    👥 Total: {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}
+                <tr className="bg-canvas font-semibold border-t border-line-strong">
+                  <td colSpan="4" className="text-ink">
+                    {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}
                   </td>
-                  <td colSpan="5" className="px-3 py-3"></td>
-                  <td className="px-3 py-3 text-center text-orange-600">
-                    🔴 ৳ {filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0).toLocaleString()}
+                  <td className="text-right text-warning tabular">
+                    ৳ {filteredStudents.reduce((sum, s) => sum + (s.due || 0), 0).toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-center text-green-700">
-                    💰 ৳ {filteredStudents.reduce((sum, s) => sum + ((s.price - (s.discount || 0)) - (s.due || 0)), 0).toLocaleString()}
+                  <td className="text-right text-success tabular">
+                    ৳ {filteredStudents.reduce((sum, s) => sum + ((s.price - (s.discount || 0)) - (s.due || 0)), 0).toLocaleString()}
                   </td>
-                  <td colSpan="2" className="px-3 py-3"></td>
+                  <td colSpan="2"></td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        </div>
       </div>
 
       {/* Class Slots */}
-      <div className="card p-4">
-        <h3 className="text-lg font-semibold mb-3">🎯 Class Slots</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="card">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-line">
+          <div>
+            <h3 className="section-title">Class capacity</h3>
+            <p className="muted mt-0.5">Seats booked in each daily slot · limit {DYNAMIC_SLOT_LIMIT} per class</p>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-ink-soft">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" aria-hidden="true" />Open</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" aria-hidden="true" />Almost full</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-danger" aria-hidden="true" />Full</span>
+          </div>
+        </div>
+
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {trainingSummary.map((slot) => {
-            const fillPct = (slot.totalStudents / DYNAMIC_SLOT_LIMIT) * 100;
+            const booked = slot.totalStudents;
+            const fillPct = Math.min((booked / DYNAMIC_SLOT_LIMIT) * 100, 100);
+            const style = SLOT_STYLES[getSlotState(booked)];
+            const seatsLeft = Math.max(DYNAMIC_SLOT_LIMIT - booked, 0);
+
             return (
-              <div key={slot.classSlot} className={`border-2 rounded-lg p-3 space-y-2 ${getSlotColor(slot.totalStudents)}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`font-semibold ${getSlotTextColor(slot.totalStudents)}`}>{slot.label}</p>
-                    <p className="text-xs text-gray-600">{slot.time}</p>
+              <div key={slot.classSlot} className={`border rounded-card p-4 space-y-3 ${style.border}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`font-medium ${style.text}`}>{slot.label}</p>
+                    <p className="text-xs text-ink-soft tabular">{slot.time}</p>
                   </div>
-                  <span className={`text-sm font-bold ${getSlotTextColor(slot.totalStudents)}`}>
-                    {slot.totalStudents} / {DYNAMIC_SLOT_LIMIT}
-                  </span>
+                  <span className={style.badge}>{style.note}</span>
                 </div>
-                <div className="w-full bg-gray-300 rounded-full h-2">
+
+                <div>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className="text-sm text-ink-soft">
+                      <strong className={`text-base ${style.text} tabular`}>{booked}</strong>
+                      <span className="text-ink-faint tabular"> / {DYNAMIC_SLOT_LIMIT} booked</span>
+                    </span>
+                    <span className="text-xs text-ink-faint tabular">
+                      {seatsLeft > 0 ? `${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} left` : 'No seats left'}
+                    </span>
+                  </div>
                   <div
-                    className={`h-2 rounded-full transition-all ${getProgressBarColor(slot.totalStudents)}`}
-                    style={{ width: `${Math.min(fillPct, 100)}%` }}
-                  />
+                    className="w-full bg-line rounded-full h-2 overflow-hidden"
+                    role="img"
+                    aria-label={`${booked} of ${DYNAMIC_SLOT_LIMIT} seats booked`}
+                  >
+                    <div className={`h-full rounded-full transition-all ${style.bar}`} style={{ width: `${fillPct}%` }} />
+                  </div>
                 </div>
-                <p className="text-xs text-gray-600">
-                  Attended: {slot.attended} · Missed: {slot.missed} · Makeup: {slot.makeup}
-                </p>
+
+                <div className="flex gap-4 text-xs text-ink-soft pt-1 border-t border-line/70">
+                  <span>Attended <strong className="text-ink tabular">{slot.attended}</strong></span>
+                  <span>Missed <strong className="text-ink tabular">{slot.missed}</strong></span>
+                  <span>Makeup <strong className="text-ink tabular">{slot.makeup}</strong></span>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Remaining Classes */}
-      <div className="card p-4">
-        <h3 className="text-lg font-semibold mb-3">📚 Remaining Classes</h3>
-        <div className="max-h-96 overflow-auto divide-y text-sm">
+      {/* Needs attention — students running low on classes or time */}
+      <div className="card">
+        <div className="px-5 py-4 border-b border-line">
+          <h3 className="section-title">Needs attention</h3>
+          <p className="muted mt-0.5">Active students running low on classes or nearing their end date</p>
+        </div>
+        <div className="max-h-96 overflow-auto">
           {remainingList.length === 0 ? (
-            <p className="text-gray-500 py-4">No active students</p>
+            <EmptyState
+              icon={Users}
+              title="No active students"
+              message="Students with classes remaining will appear here."
+            />
           ) : (
-            remainingList.map((s) => {
-              const daysLeft = Math.ceil((new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24));
-              const isExpiringSoon = daysLeft < 7 && daysLeft >= 0;
-              const isExpired = daysLeft < 0;
-              const isLowClasses = s.remainingClasses < 3;
+            <div className="divide-y divide-line">
+              {remainingList.map((s) => {
+                const daysLeft = Math.ceil((new Date(s.endDate) - new Date()) / (1000 * 60 * 60 * 24));
+                const isExpiringSoon = daysLeft < 7 && daysLeft >= 0;
+                const isExpired = daysLeft < 0;
+                const isLowClasses = s.remainingClasses < 3;
 
-              return (
-                <div key={s.id} className="py-3 flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-semibold">{s.name}</p>
-                    <p className="text-xs text-gray-500">Slot {s.classSlot} · {formatDate(s.endDate)}</p>
-                    <div className="flex gap-2 mt-2 flex-wrap">
-                      {isLowClasses && (
-                        <span className="inline-block bg-orange-200 text-orange-800 px-2 py-1 rounded text-xs font-semibold">
-                          ⚠️ Less than 3 classes
-                        </span>
-                      )}
-                      {isExpiringSoon && !isExpired && (
-                        <span className="inline-block bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">
-                          ⚠️ Expiring soon
-                        </span>
-                      )}
-                      {isExpired && (
-                        <span className="inline-block bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-semibold">
-                          🔴 Expired
-                        </span>
-                      )}
+                return (
+                  <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-ink truncate">{s.name}</p>
+                      <p className="text-xs text-ink-faint tabular">
+                        Slot {s.classSlot} · ends {formatDate(s.endDate)}
+                      </p>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {isLowClasses && <span className="badge-warning">Under 3 classes left</span>}
+                        {isExpiringSoon && !isExpired && (
+                          <span className="badge-warning">
+                            Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {isExpired && <span className="badge-danger">Expired</span>}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-lg font-semibold text-ink tabular">{s.remainingClasses}</span>
+                      <p className="text-xs text-ink-faint">classes left</p>
                     </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <span className="font-semibold text-lg">{s.remainingClasses}</span>
-                    <p className="text-xs text-gray-500">Classes</p>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

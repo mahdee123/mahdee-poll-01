@@ -2,76 +2,309 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color: #1b1b1b;
-  background-color: #ffffff;
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-}
-
-body {
-  @apply bg-surface text-secondary min-h-screen;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-text-size-adjust: 100%;
-}
-
-#root {
-  @apply min-h-screen bg-surface;
-}
-
-.card {
-  @apply bg-white shadow-sm border border-gray-200 rounded-xl;
-}
-
-.btn-primary {
-  @apply bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow hover:shadow-md transition min-h-[44px];
-}
-
-.btn-ghost {
-  @apply text-secondary px-3 py-2 rounded-lg hover:bg-gray-100 min-h-[44px];
-}
-
-/* Mobile card view for tables */
-.table-card-mobile {
-  @apply bg-white rounded-lg border border-gray-200 p-4 space-y-2;
-}
-
-.table-card-label {
-  @apply text-xs font-medium text-gray-500 uppercase tracking-wide;
-}
-
-.table-card-value {
-  @apply text-sm font-semibold text-gray-900;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(400px);
-    opacity: 0;
+/* ============================================================
+   BASE — element defaults.
+   Most inputs in this app are written as `border rounded-lg px-3 py-2`,
+   which sets width/radius/padding but no color, focus or transition.
+   Styling the elements here upgrades every one of them at once.
+   ============================================================ */
+@layer base {
+  :root {
+    color-scheme: light;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
   }
-  to {
-    transform: translateX(0);
+
+  body {
+    @apply bg-canvas text-ink min-h-screen antialiased;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #root {
+    @apply min-h-screen bg-canvas;
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-ink font-semibold tracking-[-0.01em];
+    text-wrap: balance;
+  }
+
+  /* Money and counts line up in columns. */
+  td, th, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Visible, on-brand keyboard focus everywhere. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary/40 ring-offset-1 ring-offset-white;
+  }
+
+  button:not(:disabled) {
+    @apply cursor-pointer;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+  }
+
+  button:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
+  /* Text-like form controls. Checkboxes/radios keep native rendering. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    @apply bg-white text-ink border-line rounded-control;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):hover:not(:disabled),
+  select:hover:not(:disabled),
+  textarea:hover:not(:disabled) {
+    @apply border-line-strong;
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+  select:focus,
+  textarea:focus {
+    @apply outline-none border-primary ring-2 ring-primary/20 ring-offset-0;
+  }
+
+  input:disabled, select:disabled, textarea:disabled {
+    @apply bg-canvas text-ink-faint cursor-not-allowed;
+  }
+
+  ::placeholder {
+    @apply text-ink-faint;
     opacity: 1;
   }
+
+  input[type='checkbox'], input[type='radio'] {
+    @apply accent-primary cursor-pointer;
+  }
+
+  /* Native date/number controls sit flush with the text baseline. */
+  input[type='date']::-webkit-calendar-picker-indicator {
+    @apply cursor-pointer opacity-60;
+  }
+  input[type='date']:hover::-webkit-calendar-picker-indicator {
+    @apply opacity-100;
+  }
+
+  /* Quieter scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.line.strong') transparent;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.line.strong');
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: theme('colors.ink.faint'); }
 }
 
-.animate-slideIn {
-  animation: slideIn 0.3s ease-out;
+/* ============================================================
+   COMPONENTS — the shared vocabulary.
+   ============================================================ */
+@layer components {
+
+  /* ---------- Surfaces ---------- */
+  .card {
+    @apply bg-white border border-line rounded-card shadow-card;
+  }
+
+  .card-hover {
+    @apply transition hover:border-line-strong hover:shadow-raised;
+  }
+
+  .section-title {
+    @apply text-base font-semibold text-ink;
+  }
+
+  .muted {
+    @apply text-sm text-ink-soft;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-control font-medium text-sm
+           px-4 min-h-[40px] whitespace-nowrap select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-white shadow-card
+           hover:bg-primary-600 active:bg-primary-700
+           disabled:bg-line-strong disabled:text-white;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-ink border border-line
+           hover:bg-canvas hover:border-line-strong active:bg-line/40;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-soft hover:bg-line/50 hover:text-ink;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white shadow-card hover:bg-danger-ink;
+  }
+
+  .btn-sm {
+    @apply min-h-[32px] px-3 text-xs gap-1.5;
+  }
+
+  .btn-lg {
+    @apply min-h-[48px] px-6 text-base;
+  }
+
+  /* Touch targets stay at 44px on coarse pointers. */
+  @media (pointer: coarse) {
+    .btn { @apply min-h-[44px]; }
+    .btn-sm { @apply min-h-[38px]; }
+  }
+
+  /* ---------- Forms ---------- */
+  .label {
+    @apply block text-sm font-medium text-ink-soft mb-1.5;
+  }
+
+  .input, .select, .textarea {
+    @apply w-full bg-white border border-line rounded-control px-3 py-2 text-sm text-ink min-h-[40px];
+  }
+
+  .field-hint { @apply mt-1 text-xs text-ink-faint; }
+  .field-error { @apply mt-1 text-xs text-danger; }
+
+  /* ---------- Modals ---------- */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-end sm:items-center justify-center
+           bg-secondary/50 p-0 sm:p-4 animate-fade-in;
+    backdrop-filter: blur(3px);
+  }
+
+  .modal-panel {
+    @apply bg-white w-full shadow-panel flex flex-col
+           rounded-t-panel sm:rounded-panel
+           max-h-[92vh] sm:max-h-[88vh] animate-panel-in;
+  }
+
+  .modal-header {
+    @apply flex items-start justify-between gap-4 px-5 py-4 border-b border-line flex-shrink-0;
+  }
+
+  .modal-title { @apply text-base font-semibold text-ink; }
+
+  .modal-body { @apply px-5 py-4 overflow-y-auto flex-1; }
+
+  .modal-footer {
+    @apply flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-5 py-4
+           border-t border-line bg-canvas rounded-b-panel flex-shrink-0;
+  }
+
+  .modal-close {
+    @apply text-ink-faint hover:text-ink hover:bg-line/60 rounded-control
+           w-9 h-9 flex items-center justify-center flex-shrink-0 transition;
+  }
+
+  /* ---------- Badges ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+           text-xs font-medium whitespace-nowrap;
+  }
+
+  .badge-neutral { @apply badge bg-line/60 text-ink-soft; }
+  .badge-success { @apply badge bg-success-soft text-success-ink; }
+  .badge-warning { @apply badge bg-warning-soft text-warning-ink; }
+  .badge-danger  { @apply badge bg-danger-soft text-danger-ink; }
+  .badge-info    { @apply badge bg-primary-50 text-primary-700; }
+
+  /* ---------- Tables ---------- */
+  .table-shell {
+    @apply w-full overflow-x-auto border border-line rounded-card bg-white;
+  }
+
+  .table-modern { @apply w-full text-sm border-collapse; }
+
+  .table-modern thead th {
+    @apply bg-canvas text-left text-xs font-semibold uppercase tracking-wide
+           text-ink-faint px-4 py-3 border-b border-line whitespace-nowrap;
+  }
+
+  .table-modern tbody td {
+    @apply px-4 py-3 border-b border-line/70 text-ink align-middle;
+  }
+
+  .table-modern tbody tr:last-child td { @apply border-b-0; }
+  .table-modern tbody tr { @apply transition-colors hover:bg-canvas/70; }
+
+  /* ---------- Stats ----------
+     `mb-auto` on the label keeps every value on the same baseline across a
+     row, even when one card's label wraps to two lines. */
+  .stat-card {
+    @apply card p-4 sm:p-5 flex flex-col h-full;
+  }
+  .stat-label {
+    @apply flex items-center gap-1.5 text-xs sm:text-sm font-medium text-ink-soft mb-auto pb-2;
+  }
+  .stat-value {
+    @apply text-xl sm:text-2xl font-semibold text-ink tabular leading-none;
+  }
+  .stat-hint { @apply text-xs text-ink-faint mt-1.5; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    @apply flex items-start gap-3 w-full sm:w-auto sm:min-w-[320px] sm:max-w-md
+           bg-white border rounded-card shadow-raised px-4 py-3 animate-toast-in
+           pointer-events-auto;
+  }
+  .toast-success { @apply toast border-success/30; }
+  .toast-error   { @apply toast border-danger/30; }
+  .toast-info    { @apply toast border-primary/30; }
 }
 
-/* Print Media Queries */
+/* ============================================================
+   PRINT — isolate the receipt.
+   Previously `body * { display: none }` blanked the whole page,
+   so printing produced an empty sheet.
+   ============================================================ */
 @media print {
+  @page { margin: 10mm; }
+
   body {
-    background-color: white !important;
+    background: #fff !important;
     margin: 0;
     padding: 0;
   }
 
-  body * {
-    display: none;
+  /* Hide the app chrome without collapsing the receipt's ancestors. */
+  body * { visibility: hidden !important; }
+
+  #receipt, #receipt * { visibility: visible !important; }
+
+  #receipt {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  .no-print {
+  .no-print, .no-print * {
     display: none !important;
-    visibility: hidden;
+    visibility: hidden !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

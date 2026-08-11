@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function SignupForm() {
+  useDocumentTitle('Create Account');
   const navigate = useNavigate();
   const { setAuth } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -148,7 +150,7 @@ export default function SignupForm() {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
+              placeholder="At least 6 characters"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />
@@ -163,7 +165,6 @@ export default function SignupForm() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="••••••••"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               disabled={loading}
             />

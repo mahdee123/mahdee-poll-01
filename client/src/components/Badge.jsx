@@ -1,70 +1,32 @@
-import { CheckCircle, AlertCircle, Clock, Shield, Users } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Clock, Shield, Users } from 'lucide-react';
 
 /**
- * Professional badge component with icons
- * Used for status/role indicators
+ * Status / role indicator. Uses the semantic .badge-* classes so status color
+ * stays separate from the brand accent.
  */
 export default function Badge({ type = 'status', value, className = '' }) {
-  const getBadgeConfig = () => {
-    switch (type) {
-      case 'status':
-        if (value === 'Active') {
-          return {
-            icon: CheckCircle,
-            bgColor: 'bg-green-100',
-            textColor: 'text-green-800',
-            label: 'Active'
-          };
-        } else if (value === 'Pending') {
-          return {
-            icon: Clock,
-            bgColor: 'bg-amber-100',
-            textColor: 'text-amber-800',
-            label: 'Pending'
-          };
-        } else {
-          return {
-            icon: AlertCircle,
-            bgColor: 'bg-red-100',
-            textColor: 'text-red-800',
-            label: value || 'Inactive'
-          };
-        }
-
-      case 'role':
-        if (value === 'admin') {
-          return {
-            icon: Shield,
-            bgColor: 'bg-primary/10',
-            textColor: 'text-primary',
-            label: 'Admin'
-          };
-        } else {
-          return {
-            icon: Users,
-            bgColor: 'bg-amber-100',
-            textColor: 'text-amber-800',
-            label: 'Manager'
-          };
-        }
-
-      default:
-        return {
-          icon: CheckCircle,
-          bgColor: 'bg-gray-100',
-          textColor: 'text-gray-800',
-          label: value
-        };
+  const config = (() => {
+    if (type === 'role') {
+      return value === 'admin'
+        ? { icon: Shield, cls: 'badge-info', label: 'Admin' }
+        : { icon: Users, cls: 'badge-warning', label: 'Manager' };
     }
-  };
 
-  const config = getBadgeConfig();
+    if (type === 'status') {
+      if (value === 'Active') return { icon: CheckCircle2, cls: 'badge-success', label: 'Active' };
+      if (value === 'Pending') return { icon: Clock, cls: 'badge-warning', label: 'Pending' };
+      return { icon: AlertCircle, cls: 'badge-danger', label: value || 'Inactive' };
+    }
+
+    return { icon: CheckCircle2, cls: 'badge-neutral', label: value };
+  })();
+
   const Icon = config.icon;
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${config.bgColor} ${config.textColor} ${className}`}>
-      <Icon size={16} />
-      <span>{config.label}</span>
-    </div>
+    <span className={`${config.cls} ${className}`}>
+      <Icon size={13} />
+      {config.label}
+    </span>
   );
 }

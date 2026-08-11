@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import Modal from './Modal';
+import Button from './Button';
+import { useToast } from '../context/ToastContext';
 
 export default function InventoryPurchaseForm({ products = [], onClose, onSave }) {
+  const toast = useToast();
   const [formData, setFormData] = useState({
     productId: '',
     quantity: 1,
@@ -9,9 +13,7 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
     notes: '',
   });
 
-  const [calculation, setCalculation] = useState({
-    totalCost: 0,
-  });
+  const [calculation, setCalculation] = useState({ totalCost: 0 });
 
   const selectedProduct = products.find((p) => p._id === formData.productId);
 
@@ -24,9 +26,7 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
     if (name === 'quantity' || name === 'costPrice') {
       const qty = name === 'quantity' ? parseFloat(value) : formData.quantity;
       const cost = name === 'costPrice' ? parseFloat(value) : formData.costPrice;
-      setCalculation({
-        totalCost: qty && cost ? qty * cost : 0,
-      });
+      setCalculation({ totalCost: qty && cost ? qty * cost : 0 });
     }
   };
 
@@ -34,15 +34,15 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
     e.preventDefault();
 
     if (!formData.productId) {
-      alert('Please select a product');
+      toast.error('Select a product first.');
       return;
     }
     if (!formData.quantity || formData.quantity <= 0) {
-      alert('Quantity must be greater than 0');
+      toast.error('Quantity must be greater than 0.');
       return;
     }
     if (!formData.costPrice || formData.costPrice < 0) {
-      alert('Cost price must be valid');
+      toast.error('Enter a valid cost price.');
       return;
     }
 
@@ -63,147 +63,127 @@ export default function InventoryPurchaseForm({ products = [], onClose, onSave }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-screen overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">📦 Record Inventory Purchase</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center">
-            ✕
-          </button>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Record inventory purchase"
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit}>Record purchase</Button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="label">Product *</label>
+          <select
+            name="productId"
+            value={formData.productId}
+            onChange={handleInputChange}
+            className="select"
+            data-autofocus
+            required
+          >
+            <option value="">Choose a product…</option>
+            {products.map((product) => (
+              <option key={product._id} value={product._id}>
+                {product.name} ({product.unit}) — in stock: {product.currentStock}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Product Selection */}
+        {selectedProduct && (
+          <div className="p-4 bg-canvas border border-line rounded-card space-y-1">
+            <p className="text-sm text-ink-soft">
+              <strong className="text-ink">In stock:</strong>{' '}
+              <span className="tabular">{selectedProduct.currentStock}</span> {selectedProduct.unit}s
+            </p>
+            <p className="text-sm text-ink-soft">
+              <strong className="text-ink">Cost price:</strong>{' '}
+              <span className="tabular">৳{selectedProduct.costPrice}</span> per {selectedProduct.unit}
+            </p>
+            <p className="text-sm text-ink-soft">
+              <strong className="text-ink">Selling price:</strong>{' '}
+              <span className="tabular">৳{selectedProduct.sellingPrice}</span> per {selectedProduct.unit}
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🧃 Select Product *</label>
-            <select
-              name="productId"
-              value={formData.productId}
+            <label className="label">Purchase date</label>
+            <input
+              type="date"
+              name="date"
+              value={formData.date}
               onChange={handleInputChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="input"
               required
-            >
-              <option value="">-- Choose a product --</option>
-              {products.map((product) => (
-                <option key={product._id} value={product._id}>
-                  {product.name} ({product.unit}) - Current stock: {product.currentStock}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Product Info Display */}
-          {selectedProduct && (
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-              <h4 className="font-semibold text-gray-800 mb-2">📊 Product Info</h4>
-              <p className="text-sm text-gray-700">
-                <strong>Current Stock:</strong> {selectedProduct.currentStock} {selectedProduct.unit}s
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Current Cost Price:</strong> {selectedProduct.costPrice} BDT per {selectedProduct.unit}
-              </p>
-              <p className="text-sm text-gray-700">
-                <strong>Current Selling Price:</strong> {selectedProduct.sellingPrice} BDT per {selectedProduct.unit}
-              </p>
-            </div>
-          )}
-
-          {/* Purchase Details Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">📅 Purchase Date</label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">📍 Quantity *</label>
-              <input
-                type="number"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleInputChange}
-                placeholder="0"
-                min="1"
-                step="1"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                💰 Cost Price per {selectedProduct?.unit} (Taka) *
-              </label>
-              <input
-                type="number"
-                name="costPrice"
-                value={formData.costPrice}
-                onChange={handleInputChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">📝 Notes (Optional)</label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="e.g., Supplier name, invoice number"
-              rows="2"
-              className="w-full border rounded-lg px-3 py-2 text-sm"
             />
           </div>
 
-          {/* Cost Calculation */}
-          {formData.quantity && formData.costPrice && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-gray-800 mb-2">💵 Purchase Cost Summary</h4>
-              <p className="text-sm text-gray-700 mb-1">
-                Quantity: <strong>{formData.quantity}</strong> {selectedProduct?.unit}s
-              </p>
-              <p className="text-sm text-gray-700 mb-2">
-                Cost per unit: <strong>{formData.costPrice} BDT</strong>
-              </p>
-              <p className="text-lg text-gray-800 font-bold border-t pt-2">
-                Total Cost: <span className="text-green-600">{calculation.totalCost.toFixed(2)} BDT</span>
-              </p>
-            </div>
-          )}
-
-          {/* Buttons */}
-          <div className="flex gap-2 justify-end pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-            >
-              ✓ Record Purchase
-            </button>
+          <div>
+            <label className="label">Quantity *</label>
+            <input
+              type="number"
+              name="quantity"
+              value={formData.quantity}
+              onChange={handleInputChange}
+              placeholder="0"
+              min="1"
+              step="1"
+              className="input"
+              required
+            />
           </div>
-        </form>
-      </div>
-    </div>
+
+          <div className="md:col-span-2">
+            <label className="label">
+              Cost price per {selectedProduct?.unit || 'unit'} (৳) *
+            </label>
+            <input
+              type="number"
+              name="costPrice"
+              value={formData.costPrice}
+              onChange={handleInputChange}
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              className="input"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="label">Notes</label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleInputChange}
+            placeholder="e.g. supplier name, invoice number"
+            rows="2"
+            className="textarea"
+          />
+        </div>
+
+        {formData.quantity && formData.costPrice ? (
+          <div className="p-4 bg-success-soft border border-success/20 rounded-card">
+            <p className="text-sm text-ink-soft">
+              <span className="tabular">{formData.quantity}</span> {selectedProduct?.unit || 'unit'}s ×{' '}
+              <span className="tabular">৳{formData.costPrice}</span>
+            </p>
+            <p className="text-lg font-semibold text-ink mt-1 pt-2 border-t border-success/20">
+              Total cost <span className="text-success tabular">৳{calculation.totalCost.toFixed(2)}</span>
+            </p>
+          </div>
+        ) : null}
+      </form>
+    </Modal>
   );
 }

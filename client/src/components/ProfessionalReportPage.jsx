@@ -5,8 +5,8 @@ import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
 
 const formatCurrency = (value) => {
-  if (!value) return 'BDT 0.00';
-  return `BDT ${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (!value) return '৳0.00';
+  return `৳${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const formatDate = (dateString) => {
