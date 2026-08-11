@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import Modal from './Modal';
+import Button from './Button';
 
 export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) {
   const [formData, setFormData] = useState({
@@ -50,96 +53,78 @@ export default function InviteUserModal({ isOpen, onClose, onInvite, loading }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Create Manager Account</h2>
-        <p className="text-gray-600 text-sm mb-4">
-          Create a manager account to help manage your pool membership business
-        </p>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Create manager account"
+      description="Create a manager account to help manage your pool membership business."
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button type="submit" form="invite-user-form" loading={loading}>Create account</Button>
+        </>
+      }
+    >
+      {error && (
+        <div className="bg-danger-soft border border-danger/20 text-danger-ink px-4 py-3 rounded-control mb-4 text-sm">
+          {error}
+        </div>
+      )}
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
+      <form id="invite-user-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="label">Manager name</label>
+          <input
+            type="text"
+            name="managerName"
+            value={formData.managerName}
+            onChange={handleChange}
+            placeholder="Full name"
+            className="input"
+            disabled={loading}
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Manager Name
-            </label>
+        <div>
+          <label className="label">Email address</label>
+          <input
+            type="email"
+            name="managerEmail"
+            value={formData.managerEmail}
+            onChange={handleChange}
+            placeholder="manager@example.com"
+            className="input"
+            disabled={loading}
+          />
+          <p className="field-hint">Email must be unique</p>
+        </div>
+
+        <div>
+          <label className="label">Password</label>
+          <div className="relative">
             <input
-              type="text"
-              name="managerName"
-              value={formData.managerName}
+              type={showPassword ? 'text' : 'password'}
+              name="managerPassword"
+              value={formData.managerPassword}
               onChange={handleChange}
-              placeholder="Full name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Minimum 6 characters"
+              className="input pr-10"
               disabled={loading}
             />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="managerEmail"
-              value={formData.managerEmail}
-              onChange={handleChange}
-              placeholder="manager@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-            <p className="text-xs text-gray-500 mt-1">Email must be unique</p>
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="managerPassword"
-                value={formData.managerPassword}
-                onChange={handleChange}
-                placeholder="Minimum 6 characters"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary pr-10"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                disabled={loading}
-              >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">At least 6 characters</p>
-          </div>
-
-          <div className="flex gap-2 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink"
               disabled={loading}
-              className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-50 transition duration-200 disabled:opacity-50"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-            >
-              {loading ? 'Creating...' : 'Create Account'}
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+          <p className="field-hint">At least 6 characters</p>
+        </div>
+      </form>
+    </Modal>
   );
 }

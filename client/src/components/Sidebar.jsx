@@ -14,6 +14,7 @@ import {
   Package,
   Settings,
   LogOut,
+  Waves,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -59,12 +60,14 @@ export default function Sidebar({ view, setView, user, isOpen, onClose }) {
     if (onClose) onClose();
   };
 
+  const initials = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase();
+
   return (
     <>
       {/* Backdrop - mobile only */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 sm:hidden"
+          className="fixed inset-0 bg-ink/40 z-40 sm:hidden animate-fade-in"
           onClick={onClose}
         />
       )}
@@ -72,30 +75,36 @@ export default function Sidebar({ view, setView, user, isOpen, onClose }) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-full z-50 bg-secondary text-white p-4 flex flex-col
+          fixed top-0 left-0 h-full z-50 bg-white border-r border-line text-ink flex flex-col
           transition-transform duration-300 ease-in-out
-          sm:relative sm:translate-x-0 sm:w-72 sm:z-auto
+          sm:relative sm:translate-x-0 sm:w-72 sm:z-auto sm:flex-shrink-0
           ${isOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'}
         `}
       >
-        <div className="flex items-center justify-between mb-4 sm:justify-start">
-          <div className="text-xl font-bold">Raya Pool</div>
+        <div className="flex items-center justify-between gap-2 px-4 h-16 border-b border-line flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-control bg-primary flex items-center justify-center flex-shrink-0">
+              <Waves size={18} className="text-white" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-ink leading-tight truncate">Raya Pool</div>
+              <div className="text-xs text-ink-faint leading-tight truncate">Pool management</div>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="sm:hidden text-white/70 hover:text-white p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="sm:hidden text-ink-faint hover:text-ink p-1 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-control hover:bg-canvas"
             aria-label="Close menu"
           >
-            <X size={22} />
+            <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto">
+        <nav className="flex-1 overflow-y-auto px-3 pb-3">
           {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="mb-2">
-              <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
-                {group.label}
-              </div>
-              <div className="space-y-1">
+            <div key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const active = view === item.key;
@@ -103,11 +112,10 @@ export default function Sidebar({ view, setView, user, isOpen, onClose }) {
                     <button
                       key={item.key}
                       onClick={() => handleNav(item.key)}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg transition min-h-[44px] flex items-center gap-3 ${
-                        active ? 'bg-white text-secondary font-semibold' : 'hover:bg-white/10'
-                      }`}
+                      aria-current={active ? 'page' : undefined}
+                      className={active ? 'nav-item-active' : 'nav-item'}
                     >
-                      <Icon size={17} className={active ? 'text-secondary' : 'text-white/70'} />
+                      <Icon size={17} className={active ? 'text-primary' : 'text-ink-faint'} />
                       {item.label}
                     </button>
                   );
@@ -117,23 +125,28 @@ export default function Sidebar({ view, setView, user, isOpen, onClose }) {
           ))}
         </nav>
 
-        <div className="space-y-1 border-t border-white/20 pt-4 mt-4 flex-shrink-0">
+        <div className="border-t border-line p-3 flex-shrink-0 space-y-0.5">
           {user?.role === 'admin' && (
             <button
               onClick={() => { navigate('/settings/company'); if (onClose) onClose(); }}
-              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 transition text-sm min-h-[44px] flex items-center gap-3"
+              className="nav-item"
             >
-              <Settings size={17} className="text-white/70" />
+              <Settings size={17} className="text-ink-faint" />
               Company Settings
             </button>
           )}
-          <button
-            onClick={handleLogout}
-            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-red-500 transition text-sm min-h-[44px] flex items-center gap-3"
-          >
-            <LogOut size={17} className="text-white/70" />
+          <button onClick={handleLogout} className="nav-item hover:bg-danger-soft hover:text-danger-ink">
+            <LogOut size={17} className="text-ink-faint" />
             Logout
           </button>
+
+          <div className="flex items-center gap-2.5 px-3 pt-3 mt-1 border-t border-line">
+            <span className="avatar w-8 h-8 text-xs">{initials}</span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink truncate">{user?.name || 'Account'}</p>
+              <p className="text-xs text-ink-faint truncate capitalize">{user?.role || ''}</p>
+            </div>
+          </div>
         </div>
       </aside>
     </>

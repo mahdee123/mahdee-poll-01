@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { User, Wallet, Waves, ClipboardList, CreditCard, Pencil } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
+import Modal from './Modal';
+import Button from './Button';
+import Badge from './Badge';
 
 const DEFAULT_BATCH_TYPES = [
   { value: 'Regular', label: 'Regular (30 days)' },
@@ -17,6 +21,11 @@ const DEFAULT_CLASS_SLOTS = {
 const formatDate = (d) => {
   if (!d) return '';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const CLASS_STATUS_BADGE = {
+  Attended: 'badge-success',
+  Missed: 'badge-danger',
 };
 
 export default function StudentProfileModal({ isOpen, student, onClose, token, showToast, onSave, settings }) {
@@ -117,7 +126,7 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
   const handlePayDue = () => {
     setConfirmDialog({
       isOpen: true,
-      title: 'Pay Due Amount?',
+      title: 'Pay due amount?',
       message: `Process a payment for ${student.name}? Current due: ৳${student.due?.toLocaleString() || 0}. You can pay the full amount or a partial amount.`,
       action: async () => {
         try {
@@ -143,275 +152,213 @@ export default function StudentProfileModal({ isOpen, student, onClose, token, s
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-40 p-4">
-        <div className="card p-6 max-w-2xl w-full max-h-96 overflow-y-auto shadow-lg">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Student Profile</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
-            >
-              ✕
-            </button>
-          </div>
+      <Modal isOpen={isOpen} onClose={onClose} title="Student profile" size="lg">
+        {isEditMode ? (
+          // EDIT MODE
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-1.5 font-semibold text-ink"><User size={15} className="text-primary" /> Basic info</h3>
+              <input
+                type="text"
+                placeholder="Name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                className="input"
+              />
+              <input
+                type="text"
+                placeholder="Phone"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                className="input"
+              />
+            </div>
 
-          {isEditMode ? (
-            // EDIT MODE
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">👤 Basic Info</h3>
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-1.5 font-semibold text-ink"><Waves size={15} className="text-primary" /> Training details</h3>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <select
+                  value={editForm.batchType}
+                  onChange={(e) => setEditForm({ ...editForm, batchType: e.target.value })}
+                  className="select"
+                >
+                  <option value="">Select batch</option>
+                  {DYNAMIC_BATCH_TYPES.map((b) => (
+                    <option key={b.value} value={b.value}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={editForm.classSlot}
+                  onChange={(e) => setEditForm({ ...editForm, classSlot: e.target.value })}
+                  className="select"
+                >
+                  <option value="">Select slot</option>
+                  {Object.keys(DYNAMIC_CLASS_SLOTS).map((s) => (
+                    <option key={s} value={s}>
+                      {DYNAMIC_CLASS_SLOTS[s].label} - {DYNAMIC_CLASS_SLOTS[s].time}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">End date (optional)</label>
                 <input
-                  type="text"
-                  placeholder="Name"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="border rounded-lg px-3 py-2 w-full"
-                />
-                <input
-                  type="text"
-                  placeholder="Phone"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  className="border rounded-lg px-3 py-2 w-full"
+                  type="date"
+                  value={editForm.endDate}
+                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                  className="input"
                 />
               </div>
+            </div>
 
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">🏊 Training Details</h3>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <select
-                    value={editForm.batchType}
-                    onChange={(e) => setEditForm({ ...editForm, batchType: e.target.value })}
-                    className="border rounded-lg px-3 py-2"
-                  >
-                    <option value="">Select Batch</option>
-                    {DYNAMIC_BATCH_TYPES.map((b) => (
-                      <option key={b.value} value={b.value}>
-                        {b.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={editForm.classSlot}
-                    onChange={(e) => setEditForm({ ...editForm, classSlot: e.target.value })}
-                    className="border rounded-lg px-3 py-2"
-                  >
-                    <option value="">Select Slot</option>
-                    {Object.keys(DYNAMIC_CLASS_SLOTS).map((s) => (
-                      <option key={s} value={s}>
-                        {DYNAMIC_CLASS_SLOTS[s].label} - {DYNAMIC_CLASS_SLOTS[s].time}
-                      </option>
-                    ))}
-                  </select>
+            <div className="flex gap-2">
+              <Button onClick={handleSave} loading={loading} className="flex-1">Save changes</Button>
+              <Button variant="secondary" onClick={() => setIsEditMode(false)} className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        ) : (
+          // VIEW MODE
+          <div className="space-y-6">
+            <div>
+              <h3 className="flex items-center gap-1.5 font-semibold text-ink mb-3"><User size={15} className="text-primary" /> Basic info</h3>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-ink-soft">Name</p>
+                  <p className="font-semibold text-ink">{student.name}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600">End Date (optional)</label>
-                  <input
-                    type="date"
-                    value={editForm.endDate}
-                    onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
-                    className="border rounded-lg px-3 py-2 w-full"
-                  />
+                  <p className="text-ink-soft">Phone</p>
+                  <p className="font-semibold text-ink">{student.phone}</p>
                 </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="flex-1 btn-primary disabled:opacity-50"
-                >
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button
-                  onClick={() => setIsEditMode(false)}
-                  className="flex-1 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
-          ) : (
-            // VIEW MODE
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-semibold text-lg mb-3">👤 Basic Info</h3>
-                <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Name</p>
-                    <p className="font-semibold">{student.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Phone</p>
-                    <p className="font-semibold">{student.phone}</p>
-                  </div>
+
+            <div>
+              <h3 className="flex items-center gap-1.5 font-semibold text-ink mb-3"><Wallet size={15} className="text-primary" /> Payment information</h3>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div className="bg-primary-50 border border-primary/10 rounded-card p-3">
+                  <p className="text-primary text-xs uppercase font-semibold">Package price</p>
+                  <p className="text-lg font-bold text-primary tabular">৳{student.price?.toLocaleString() || 0}</p>
+                </div>
+                <div className="bg-canvas border border-line rounded-card p-3">
+                  <p className="text-ink-soft text-xs uppercase font-semibold">Amount paid</p>
+                  <p className="text-lg font-bold text-ink tabular">৳{student.amountPaid?.toLocaleString() || 0}</p>
+                </div>
+                <div className={`border rounded-card p-3 ${student.due > 0 ? 'bg-warning-soft border-warning/20' : 'bg-success-soft border-success/20'}`}>
+                  <p className={`text-xs uppercase font-semibold ${student.due > 0 ? 'text-warning' : 'text-success'}`}>Due amount</p>
+                  <p className={`text-lg font-bold tabular ${student.due > 0 ? 'text-warning-ink' : 'text-success-ink'}`}>৳{student.due?.toLocaleString() || 0}</p>
                 </div>
               </div>
+              {student.due > 0 && (
+                <Button onClick={handlePayDue} loading={loading} icon={CreditCard} className="w-full mt-3">
+                  Pay due amount (৳{student.due?.toLocaleString() || 0})
+                </Button>
+              )}
+            </div>
 
-              <div>
-                <h3 className="font-semibold text-lg mb-3">💰 Payment Information</h3>
-                <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                  <div className="bg-primary/5 border border-primary/10 rounded-lg p-3">
-                    <p className="text-primary text-xs uppercase font-semibold">Package Price</p>
-                    <p className="text-lg font-bold text-primary">৳{student.price?.toLocaleString() || 0}</p>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-3">
-                    <p className="text-slate-600 text-xs uppercase font-semibold">Amount Paid</p>
-                    <p className="text-lg font-bold text-slate-700">৳{student.amountPaid?.toLocaleString() || 0}</p>
-                  </div>
-                  <div className={`border rounded-lg p-3 ${student.due > 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
-                    <p className={`text-xs uppercase font-semibold ${student.due > 0 ? 'text-orange-600' : 'text-green-600'}`}>Due Amount</p>
-                    <p className={`text-lg font-bold ${student.due > 0 ? 'text-orange-700' : 'text-green-700'}`}>৳{student.due?.toLocaleString() || 0}</p>
-                  </div>
+            <div>
+              <h3 className="flex items-center gap-1.5 font-semibold text-ink mb-3"><Waves size={15} className="text-primary" /> Training details</h3>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-ink-soft">Age group</p>
+                  <p className="font-semibold text-ink">{student.ageGroup === '4-8' ? '4-8 years' : '9+ years'}</p>
                 </div>
-                {student.due > 0 && (
-                  <button
-                    onClick={handlePayDue}
-                    disabled={loading}
-                    className="w-full mt-3 px-4 py-2 bg-primary hover:bg-primary text-white font-medium rounded-lg disabled:opacity-50"
-                  >
-                    💳 Pay Due Amount (৳{student.due?.toLocaleString() || 0})
-                  </button>
+                <div>
+                  <p className="text-ink-soft">Package</p>
+                  <p className="font-semibold text-ink">{student.totalClasses} classes</p>
+                </div>
+                <div>
+                  <p className="text-ink-soft">Batch</p>
+                  <p className="font-semibold text-ink">{student.batchType}</p>
+                </div>
+                <div>
+                  <p className="text-ink-soft">Class slot</p>
+                  <p className="font-semibold text-ink">
+                    {DYNAMIC_CLASS_SLOTS[student.classSlot]?.label} - {DYNAMIC_CLASS_SLOTS[student.classSlot]?.time}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-ink-soft">Start date</p>
+                  <p className="font-semibold text-ink">{formatDate(student.startDate)}</p>
+                </div>
+                <div>
+                  <p className="text-ink-soft">End date</p>
+                  <p className="font-semibold text-ink">{formatDate(student.endDate)}</p>
+                </div>
+                <div>
+                  <p className="text-ink-soft">Total classes</p>
+                  <p className="font-semibold text-ink">{student.totalClasses}</p>
+                </div>
+                <div>
+                  <p className="text-ink-soft">Remaining classes</p>
+                  <p className="font-semibold text-success">{student.remainingClasses}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="flex items-center gap-1.5 font-semibold text-ink mb-3"><ClipboardList size={15} className="text-primary" /> Status</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <Badge type="status" value={student.status === 'active' ? 'Active' : student.status.charAt(0).toUpperCase() + student.status.slice(1)} />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {student.status !== 'active' && (
+                  <Button size="sm" variant="secondary" className="!bg-success-soft !text-success-ink !border-transparent hover:!bg-success-soft/80" onClick={() => handleStatusChange('active')}>
+                    Mark active
+                  </Button>
+                )}
+                {student.status !== 'completed' && (
+                  <Button size="sm" variant="secondary" className="!bg-warning-soft !text-warning-ink !border-transparent hover:!bg-warning-soft/80" onClick={() => handleStatusChange('completed')}>
+                    Mark completed
+                  </Button>
+                )}
+                {student.status !== 'expired' && (
+                  <Button size="sm" variant="secondary" className="!bg-danger-soft !text-danger-ink !border-transparent hover:!bg-danger-soft/80" onClick={() => handleStatusChange('expired')}>
+                    Mark expired
+                  </Button>
                 )}
               </div>
+            </div>
 
-              <div>
-                <h3 className="font-semibold text-lg mb-3">🏊 Training Details</h3>
-                <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Age Group</p>
-                    <p className="font-semibold">{student.ageGroup === '4-8' ? '4-8 years' : '9+ years'}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Package</p>
-                    <p className="font-semibold">{student.totalClasses} classes</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Batch</p>
-                    <p className="font-semibold">{student.batchType}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Class Slot</p>
-                    <p className="font-semibold">
-                      {DYNAMIC_CLASS_SLOTS[student.classSlot]?.label} - {DYNAMIC_CLASS_SLOTS[student.classSlot]?.time}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Start Date</p>
-                    <p className="font-semibold">{formatDate(student.startDate)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">End Date</p>
-                    <p className="font-semibold">{formatDate(student.endDate)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Total Classes</p>
-                    <p className="font-semibold">{student.totalClasses}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Remaining Classes</p>
-                    <p className="font-semibold text-green-600">{student.remainingClasses}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-lg mb-3">📊 Status</h3>
-                <div className="flex items-center gap-3 mb-4">
-                  <span
-                    className={`inline-block px-3 py-1 rounded-lg font-semibold text-sm ${
-                      student.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {student.status === 'active' ? '🟢 Active' : '🔴 ' + student.status.charAt(0).toUpperCase() + student.status.slice(1)}
-                  </span>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {student.status !== 'active' && (
-                    <button
-                      onClick={() => handleStatusChange('active')}
-                      className="px-3 py-2 text-sm rounded-lg bg-green-100 hover:bg-green-200 text-green-700 font-medium"
-                    >
-                      Mark Active
-                    </button>
-                  )}
-                  {student.status !== 'completed' && (
-                    <button
-                      onClick={() => handleStatusChange('completed')}
-                      className="px-3 py-2 text-sm rounded-lg bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-medium"
-                    >
-                      Mark Completed
-                    </button>
-                  )}
-                  {student.status !== 'expired' && (
-                    <button
-                      onClick={() => handleStatusChange('expired')}
-                      className="px-3 py-2 text-sm rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium"
-                    >
-                      Mark Expired
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-lg mb-3">📚 Class History</h3>
-                {classHistory.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No class records yet</p>
-                ) : (
-                  <div className="max-h-40 overflow-y-auto border rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-100 sticky top-0 border-b">
-                        <tr>
-                          <th className="text-left px-3 py-2 font-semibold">Date</th>
-                          <th className="text-left px-3 py-2 font-semibold">Status</th>
+            <div>
+              <h3 className="text-sm font-semibold text-ink mb-3">Class history</h3>
+              {classHistory.length === 0 ? (
+                <p className="text-ink-soft text-sm">No class records yet</p>
+              ) : (
+                <div className="max-h-40 overflow-y-auto border border-line rounded-card">
+                  <table className="table-modern w-full">
+                    <thead className="sticky top-0">
+                      <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classHistory.map((record) => (
+                        <tr key={record._id}>
+                          <td>{formatDate(record.date)}</td>
+                          <td>
+                            <span className={CLASS_STATUS_BADGE[record.status] || 'badge-warning'}>
+                              {record.status}
+                            </span>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {classHistory.map((record) => (
-                          <tr key={record._id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2">{formatDate(record.date)}</td>
-                            <td className="px-3 py-2">
-                              <span
-                                className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                                  record.status === 'Attended'
-                                    ? 'bg-green-100 text-green-800'
-                                    : record.status === 'Missed'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}
-                              >
-                                {record.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsEditMode(true)}
-                  className="flex-1 btn-primary"
-                >
-                  ✏️ Edit Profile
-                </button>
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
-                >
-                  Close
-                </button>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+
+            <div className="flex gap-2">
+              <Button onClick={() => setIsEditMode(true)} icon={Pencil} className="flex-1">Edit profile</Button>
+              <Button variant="secondary" onClick={onClose} className="flex-1">Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}

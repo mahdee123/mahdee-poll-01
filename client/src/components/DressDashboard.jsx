@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { Search, Plus, CreditCard } from 'lucide-react';
 import { apiRequest } from '../api';
-import Badge from './Badge';
 import DressAssignmentModal from './DressAssignmentModal';
 import DressReturnModal from './DressReturnModal';
 import Toast from './Toast';
+import Button from './Button';
+import LoadingSpinner from './LoadingSpinner';
+import EmptyState from './EmptyState';
+
+const STATUS_BADGE = {
+  Available: 'badge-success',
+  Rented: 'badge-warning',
+  Maintenance: 'badge-danger',
+  Disabled: 'badge-neutral',
+};
 
 export default function DressDashboard({ token }) {
   const [stats, setStats] = useState(null);
@@ -34,10 +44,7 @@ export default function DressDashboard({ token }) {
       setDresses(dressesRes.dresses);
     } catch (error) {
       console.error('Error fetching dress rental data:', error);
-      setToast({
-        type: 'error',
-        message: 'Failed to load dress rental data',
-      });
+      setToast({ type: 'error', message: 'Failed to load dress rental data' });
     } finally {
       setLoading(false);
     }
@@ -55,10 +62,7 @@ export default function DressDashboard({ token }) {
 
   const handleAssignmentSuccess = () => {
     setShowAssignModal(false);
-    setToast({
-      type: 'success',
-      message: 'Dress assigned successfully',
-    });
+    setToast({ type: 'success', message: 'Dress assigned successfully' });
     fetchData();
   };
 
@@ -88,27 +92,13 @@ export default function DressDashboard({ token }) {
     return filtered;
   };
 
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      Available: 'success',
-      Rented: 'warning',
-      Maintenance: 'danger',
-      Disabled: 'secondary',
-    };
-    return <Badge type={statusMap[status] || 'secondary'} label={status} />;
-  };
-
   const getDressTypes = () => {
     const types = [...new Set(dresses.map((d) => d.dressType).filter(Boolean))];
     return types.sort();
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading dress rental data...</div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading dress rental data…" />;
   }
 
   const filteredDresses = getFilteredDresses();
@@ -117,46 +107,46 @@ export default function DressDashboard({ token }) {
     <div className="space-y-6">
       {/* Analytics Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Total Dresses</div>
-            <div className="text-3xl font-bold text-gray-900">{stats.totalDresses}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="stat-card">
+            <span className="stat-label">Total dresses</span>
+            <span className="stat-value">{stats.totalDresses}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Available</div>
-            <div className="text-3xl font-bold text-green-600">{stats.availableDresses}</div>
+          <div className="stat-card">
+            <span className="stat-label">Available</span>
+            <span className="stat-value text-success">{stats.availableDresses}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Rented</div>
-            <div className="text-3xl font-bold text-amber-600">{stats.rentedDresses}</div>
+          <div className="stat-card">
+            <span className="stat-label">Rented</span>
+            <span className="stat-value text-warning">{stats.rentedDresses}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Revenue Today</div>
-            <div className="text-3xl font-bold text-primary">৳{stats.revenueToday}</div>
+          <div className="stat-card">
+            <span className="stat-label">Revenue today</span>
+            <span className="stat-value text-primary tabular">৳{stats.revenueToday}</span>
           </div>
         </div>
       )}
 
       {/* Dress List */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="card overflow-hidden">
         {/* List Header */}
-        <div className="border-b border-gray-200 p-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-          <div className="flex gap-4 items-center flex-1">
-            <input
-              type="text"
-              placeholder="Search dress..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-            />
+        <div className="border-b border-line p-5 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+          <div className="flex gap-3 items-center flex-1 flex-wrap">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search dress…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input pl-9 w-auto"
+              />
+            </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="select w-auto"
             >
               <option value="All">All Status</option>
               <option value="Available">Available</option>
@@ -168,7 +158,7 @@ export default function DressDashboard({ token }) {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="select w-auto"
             >
               <option value="All">All Types</option>
               {getDressTypes().map((type) => (
@@ -179,63 +169,36 @@ export default function DressDashboard({ token }) {
             </select>
           </div>
 
-          <button
-            onClick={() => handleAssignClick(null)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            ➕ Assign Dress
-          </button>
+          <Button icon={Plus} onClick={() => handleAssignClick(null)}>Assign dress</Button>
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+          <table className="table-modern w-full">
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Dress No
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Assigned To
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Assigned Time
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Charge
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
-                  Actions
-                </th>
+                <th>Dress No</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Phone</th>
+                <th>Assigned Time</th>
+                <th>Charge</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {filteredDresses.length > 0 ? (
                 filteredDresses.map((dress) => (
-                  <tr key={dress._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {dress.dressNumber}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {dress.type || '—'}
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(dress.status)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                  <tr key={dress._id}>
+                    <td className="font-medium text-ink">{dress.dressNumber}</td>
+                    <td className="text-ink-soft">{dress.type || '—'}</td>
+                    <td><span className={STATUS_BADGE[dress.status] || 'badge-neutral'}>{dress.status}</span></td>
+                    <td className="text-ink-soft">
                       {dress.rental ? (
                         <div className="flex items-center gap-2">
                           {dress.rental.isBillPayer && (
-                            <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">
-                              💳 Payer
-                            </span>
+                            <span className="badge-info"><CreditCard size={11} /> Payer</span>
                           )}
                           <span>{dress.rental.memberName}</span>
                         </div>
@@ -243,53 +206,39 @@ export default function DressDashboard({ token }) {
                         '—'
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="text-ink-soft">
                       {dress.rental ? dress.rental.memberPhone : '—'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="text-ink-soft">
                       {dress.rental
                         ? new Date(dress.rental.assignedTime).toLocaleString()
                         : '—'}
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <td className="font-medium text-ink tabular">
                       {dress.rental ? `৳${dress.rental.chargeAmount}` : '—'}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {dress.status === 'Available' && (
-                          <button
-                            onClick={() => handleAssignClick(dress)}
-                            className="px-4 py-1.5 text-sm font-medium text-white bg-green-500 rounded hover:bg-green-600 transition-colors"
-                          >
+                          <Button size="sm" variant="secondary" className="!bg-success-soft !text-success-ink !border-transparent hover:!bg-success-soft/80" onClick={() => handleAssignClick(dress)}>
                             Assign
-                          </button>
+                          </Button>
                         )}
                         {dress.status === 'Rented' && dress.rental && (
-                          <button
-                            onClick={() => handleReturnClick(dress)}
-                            className="px-4 py-1.5 text-sm font-medium text-white bg-amber-500 rounded hover:bg-amber-600 transition-colors"
-                          >
+                          <Button size="sm" variant="secondary" className="!bg-warning-soft !text-warning-ink !border-transparent hover:!bg-warning-soft/80" onClick={() => handleReturnClick(dress)}>
                             Return
-                          </button>
+                          </Button>
                         )}
-                        {dress.status === 'Maintenance' && (
-                          <span className="px-4 py-1.5 text-sm font-medium text-white bg-yellow-500 rounded">
-                            Maintenance
-                          </span>
-                        )}
-                        {dress.status === 'Disabled' && (
-                          <span className="px-4 py-1.5 text-sm font-medium text-white bg-gray-500 rounded">
-                            Disabled
-                          </span>
-                        )}
+                        {dress.status === 'Maintenance' && <span className="badge-warning">Maintenance</span>}
+                        {dress.status === 'Disabled' && <span className="badge-neutral">Disabled</span>}
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
-                    No dresses found
+                  <td colSpan="8" className="p-0">
+                    <EmptyState title="No dresses found" message="Try a different search, status or type filter." />
                   </td>
                 </tr>
               )}
@@ -298,7 +247,7 @@ export default function DressDashboard({ token }) {
         </div>
 
         {/* Show count */}
-        <div className="border-t border-gray-200 p-6 text-sm text-gray-600">
+        <div className="border-t border-line px-5 py-3 text-sm text-ink-soft">
           Showing {filteredDresses.length} of {dresses.length} dresses
         </div>
       </div>
@@ -326,13 +275,7 @@ export default function DressDashboard({ token }) {
         />
       )}
 
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
     </div>
   );
 }

@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Receipt, Waves, Ticket, CupSoda, Clock, Wallet, Landmark, Smartphone,
+  ChevronDown, Tag, CreditCard, BarChart3, Check,
+} from 'lucide-react';
 
-// Category configuration with colors and icons
+// Category configuration with icons and a restrained accent per category —
+// the chip carries the color, the card itself stays neutral.
 const CATEGORIES = {
-  Bill: { icon: '🧾', color: '#FF6B6B', bgColor: 'bg-red-50', textColor: 'text-red-600', borderColor: 'border-red-200' },
-  Training: { icon: '🏊', color: '#4ECDC4', bgColor: 'bg-teal-50', textColor: 'text-teal-600', borderColor: 'border-teal-200' },
-  Membership: { icon: '🎟️', color: '#FFD93D', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600', borderColor: 'border-yellow-200' },
-  Beverage: { icon: '🧃', color: '#008CFF', bgColor: 'bg-primary/5', textColor: 'text-primary', borderColor: 'border-primary/20' },
-  'Hourly Session': { icon: '⏱️', color: '#F97316', bgColor: 'bg-orange-50', textColor: 'text-orange-600', borderColor: 'border-orange-200' }
+  Bill: { icon: Receipt, accent: 'bg-primary-50 text-primary' },
+  Training: { icon: Waves, accent: 'bg-success-soft text-success' },
+  Membership: { icon: Ticket, accent: 'bg-warning-soft text-warning' },
+  Beverage: { icon: CupSoda, accent: 'bg-danger-soft text-danger' },
+  'Hourly Session': { icon: Clock, accent: 'bg-warning-soft text-warning' },
 };
 
 const PAYMENT_METHODS = {
-  Cash: { icon: '💵', color: '#06B6D4', bgColor: 'bg-cyan-50' },
-  Bank: { icon: '🏦', color: '#0EA5E9', bgColor: 'bg-sky-50' },
-  bKash: { icon: '📱', color: '#EC4899', bgColor: 'bg-pink-50' }
+  Cash: { icon: Wallet, accent: 'bg-success-soft text-success' },
+  Bank: { icon: Landmark, accent: 'bg-primary-50 text-primary' },
+  bKash: { icon: Smartphone, accent: 'bg-warning-soft text-warning' },
 };
 
 const DailyTransactionBreakdown = ({ data, filters, onFiltersChange }) => {
@@ -21,10 +26,10 @@ const DailyTransactionBreakdown = ({ data, filters, onFiltersChange }) => {
     return (
       <div className="flex flex-col gap-4">
         <FilterSection filters={filters} onFiltersChange={onFiltersChange} />
-        <div className="flex flex-col items-center justify-center gap-3 h-56 text-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300">
-          <div className="text-4xl">📊</div>
-          <div className="text-gray-600 font-medium">No transactions found</div>
-          <div className="text-sm text-gray-500">Try adjusting your filters above</div>
+        <div className="flex flex-col items-center justify-center gap-2 h-56 text-center bg-canvas rounded-panel border-2 border-dashed border-line-strong">
+          <BarChart3 size={28} className="text-ink-faint" />
+          <div className="text-ink-soft font-medium">No transactions found</div>
+          <div className="text-sm text-ink-faint">Try adjusting your filters above</div>
         </div>
       </div>
     );
@@ -71,50 +76,51 @@ const DailyTransactionBreakdown = ({ data, filters, onFiltersChange }) => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {Object.entries(categoryTotals).map(([category, data]) => (
-          <SummaryCard 
+          <SummaryCard
             key={category}
-            category={category} 
-            amount={data.amount} 
+            category={category}
+            amount={data.amount}
             count={data.count}
           />
         ))}
       </div>
 
       {/* Grand Total Card */}
-      <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-5 text-white shadow-lg">
+      <div className="bg-ink rounded-panel p-5 text-white">
         <div className="flex justify-between items-end">
           <div>
-            <div className="text-white/70 text-sm font-medium mb-1">Total Income</div>
-            <div className="text-3xl font-bold">৳ {grandTotal.toLocaleString()}</div>
+            <div className="text-white/60 text-sm font-medium mb-1">Total income</div>
+            <div className="text-3xl font-bold tabular">৳ {grandTotal.toLocaleString()}</div>
           </div>
-          <div className="text-5xl opacity-20">💰</div>
+          <Wallet size={36} className="text-white/20" />
         </div>
       </div>
 
       {/* Payment Method Breakdown Dropdown */}
-      <div className="bg-white rounded-lg border border-gray-200">
+      <div className="card overflow-hidden">
         <button
           onClick={() => setPaymentMethodDropdownOpen(!paymentMethodDropdownOpen)}
-          className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-canvas transition"
         >
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            💳 Payment Method Breakdown
+          <h3 className="section-title flex items-center gap-2">
+            <CreditCard size={17} className="text-primary" /> Payment method breakdown
           </h3>
-          <span className={`transition text-xl ${paymentMethodDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+          <ChevronDown size={18} className={`text-ink-faint transition-transform ${paymentMethodDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {paymentMethodDropdownOpen && (
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-line p-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Object.entries(paymentMethodTotals).map(([method, amount]) => {
                 const config = PAYMENT_METHODS[method];
+                const Icon = config.icon;
                 return (
-                  <div key={method} className={`${config.bgColor} rounded-lg p-4 border border-gray-200 transition hover:shadow-md`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-2xl">{config.icon}</span>
-                    </div>
-                    <div className="text-xs text-gray-600 font-medium mb-1">{method}</div>
-                    <div className="text-lg font-bold text-gray-800">৳ {amount.toLocaleString()}</div>
+                  <div key={method} className="border border-line rounded-card p-4">
+                    <span className={`inline-flex w-9 h-9 items-center justify-center rounded-control mb-2 ${config.accent}`}>
+                      <Icon size={17} />
+                    </span>
+                    <div className="text-xs text-ink-soft font-medium mb-1">{method}</div>
+                    <div className="text-lg font-bold text-ink tabular">৳ {amount.toLocaleString()}</div>
                   </div>
                 );
               })}
@@ -129,18 +135,53 @@ const DailyTransactionBreakdown = ({ data, filters, onFiltersChange }) => {
 // Summary Card Component
 const SummaryCard = ({ category, amount, count }) => {
   const config = CATEGORIES[category];
-  
+  const Icon = config.icon;
+
   return (
-    <div className={`${config.bgColor} rounded-lg p-4 border-2 ${config.borderColor} transition hover:shadow-md`}>
+    <div className="card p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-2xl">{config.icon}</span>
-        {count > 0 && <span className="text-xs font-bold bg-white px-2 py-1 rounded-full text-gray-600">{count}</span>}
+        <span className={`inline-flex w-9 h-9 items-center justify-center rounded-control ${config.accent}`}>
+          <Icon size={17} />
+        </span>
+        {count > 0 && <span className="badge-neutral">{count}</span>}
       </div>
-      <div className="text-xs text-gray-600 font-medium mb-1">{category}</div>
-      <div className="text-lg font-bold text-gray-800">৳ {amount.toLocaleString()}</div>
+      <div className="text-xs text-ink-soft font-medium mb-1">{category}</div>
+      <div className="text-lg font-bold text-ink tabular">৳ {amount.toLocaleString()}</div>
     </div>
   );
 };
+
+/** Small popover dropdown shared by both filters below. */
+function FilterDropdown({ label, icon: TriggerIcon, triggerLabel, open, onToggle, children }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onToggle(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, onToggle]);
+
+  return (
+    <div className="flex-1 relative" ref={ref}>
+      <label className="label">{label}</label>
+      <button
+        onClick={() => onToggle(!open)}
+        className="input flex items-center justify-between text-left"
+      >
+        <span className="flex items-center gap-2 truncate">
+          <TriggerIcon size={15} className="text-ink-faint flex-shrink-0" /> {triggerLabel}
+        </span>
+        <ChevronDown size={15} className={`text-ink-faint flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && <div className="dropdown-panel left-0 right-0 w-auto mt-1.5">{children}</div>}
+    </div>
+  );
+}
+
 // Filter Section Component
 const FilterSection = ({ filters, onFiltersChange }) => {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
@@ -161,100 +202,72 @@ const FilterSection = ({ filters, onFiltersChange }) => {
   };
 
   const getCategoryLabel = () => {
-    if (filters.categories.length === 0) return 'Select Categories';
-    if (filters.categories.length === categoryOptions.length) return 'All Categories';
-    return `${filters.categories.length} Selected`;
+    if (filters.categories.length === 0) return 'Select categories';
+    if (filters.categories.length === categoryOptions.length) return 'All categories';
+    return `${filters.categories.length} selected`;
   };
 
   const getPaymentLabel = () => {
-    if (filters.paymentMethod === 'all') return 'All Methods';
+    if (filters.paymentMethod === 'all') return 'All methods';
     return filters.paymentMethod;
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6 md:gap-8">
+    <div className="card p-4">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 md:gap-8">
         {/* Category Filter */}
-        <div className="flex-1 relative">
-          <label className="text-sm font-semibold text-gray-700 block mb-2">Filter by Category</label>
-          <button
-            onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-            className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-left text-sm font-medium text-gray-700 hover:bg-gray-100 transition flex items-center justify-between"
-          >
-            <span className="flex items-center gap-2">
-              🏷️ {getCategoryLabel()}
-            </span>
-            <span className={`transition ${categoryDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
-          </button>
-          
-          {categoryDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
-              {categoryOptions.map((cat) => {
-                const config = CATEGORIES[cat];
-                const isSelected = filters.categories.includes(cat);
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => handleCategoryToggle(cat)}
-                    className={`w-full px-4 py-3 text-left text-sm font-medium transition hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100 last:border-b-0 ${
-                      isSelected ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      readOnly
-                      className="w-4 h-4 rounded"
-                    />
-                    <span>{config.icon} {cat}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <FilterDropdown
+          label="Filter by category"
+          icon={Tag}
+          triggerLabel={getCategoryLabel()}
+          open={categoryDropdownOpen}
+          onToggle={setCategoryDropdownOpen}
+        >
+          {categoryOptions.map((cat) => {
+            const config = CATEGORIES[cat];
+            const Icon = config.icon;
+            const isSelected = filters.categories.includes(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => handleCategoryToggle(cat)}
+                className="dropdown-item justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon size={14} className="text-ink-faint" /> {cat}
+                </span>
+                {isSelected && <Check size={14} className="text-primary" />}
+              </button>
+            );
+          })}
+        </FilterDropdown>
 
         {/* Payment Method Filter */}
-        <div className="flex-1 relative">
-          <label className="text-sm font-semibold text-gray-700 block mb-2">Filter by Payment Method</label>
-          <button
-            onClick={() => setPaymentDropdownOpen(!paymentDropdownOpen)}
-            className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-left text-sm font-medium text-gray-700 hover:bg-gray-100 transition flex items-center justify-between"
-          >
-            <span className="flex items-center gap-2">
-              💳 {getPaymentLabel()}
-            </span>
-            <span className={`transition ${paymentDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
-          </button>
-          
-          {paymentDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
-              {paymentMethods.map((method) => {
-                const isSelected = filters.paymentMethod === method;
-                const label = method === 'all' ? 'All Methods' : method;
-                const icon = method === 'all' ? '💳' : PAYMENT_METHODS[method]?.icon;
-                
-                return (
-                  <button
-                    key={method}
-                    onClick={() => handlePaymentMethodChange(method)}
-                    className={`w-full px-4 py-3 text-left text-sm font-medium transition hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100 last:border-b-0 ${
-                      isSelected ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      checked={isSelected}
-                      readOnly
-                      className="w-4 h-4"
-                    />
-                    <span>{icon} {label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <FilterDropdown
+          label="Filter by payment method"
+          icon={CreditCard}
+          triggerLabel={getPaymentLabel()}
+          open={paymentDropdownOpen}
+          onToggle={setPaymentDropdownOpen}
+        >
+          {paymentMethods.map((method) => {
+            const isSelected = filters.paymentMethod === method;
+            const label = method === 'all' ? 'All methods' : method;
+            const Icon = method === 'all' ? CreditCard : PAYMENT_METHODS[method]?.icon;
+            return (
+              <button
+                key={method}
+                onClick={() => handlePaymentMethodChange(method)}
+                className="dropdown-item justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon size={14} className="text-ink-faint" /> {label}
+                </span>
+                {isSelected && <Check size={14} className="text-primary" />}
+              </button>
+            );
+          })}
+        </FilterDropdown>
       </div>
     </div>
   );

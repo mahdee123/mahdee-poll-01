@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { FileText, FileSpreadsheet, BarChart3 } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import { downloadProfessionalReportPdf, downloadProfessionalReportSheet } from '../utils/reportExports.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
+import Button from './Button.jsx';
+import EmptyState from './EmptyState.jsx';
 
 const formatCurrency = (value) => {
   if (!value) return '৳0.00';
@@ -115,21 +118,15 @@ const ProfessionalReportPage = ({ token }) => {
   }, [token]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Professional Business Report</h1>
-          <p className="text-gray-600 mt-1">Daily breakdown with opening/closing balances, income by category, and expenses</p>
-        </div>
-
+    <div className="space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Date Filter Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="card p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Date Presets */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Quick Select</label>
-              <div className="flex flex-wrap gap-2">
+              <label className="label">Quick select</label>
+              <div className="segmented flex-wrap">
                 {[
                   { label: 'Today', value: 'today' },
                   { label: 'This Week', value: 'week' },
@@ -139,11 +136,7 @@ const ProfessionalReportPage = ({ token }) => {
                   <button
                     key={preset.value}
                     onClick={() => handlePresetClick(preset.value)}
-                    className={`px-4 py-2 rounded-lg font-medium transition ${
-                      datePreset === preset.value
-                        ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={datePreset === preset.value ? 'segmented-item-active' : 'segmented-item'}
                   >
                     {preset.label}
                   </button>
@@ -153,33 +146,29 @@ const ProfessionalReportPage = ({ token }) => {
 
             {/* Custom Date Range */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Custom Range</label>
+              <label className="label">Custom range</label>
               <div className="flex flex-col sm:flex-row gap-3 items-end">
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                  <label className="text-xs text-ink-soft mb-1 block">Start date</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="input"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                  <label className="text-xs text-ink-soft mb-1 block">End date</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="input"
                   />
                 </div>
-                <button
-                  onClick={handleFetchReport}
-                  disabled={loading}
-                  className="px-6 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:bg-gray-400 transition"
-                >
-                  {loading ? 'Loading...' : 'Generate'}
-                </button>
+                <Button onClick={handleFetchReport} loading={loading} className="w-full sm:w-auto">
+                  Generate
+                </Button>
               </div>
             </div>
           </div>
@@ -187,19 +176,11 @@ const ProfessionalReportPage = ({ token }) => {
 
         {/* Download Buttons */}
         {report && (
-          <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleDownloadPdf}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition min-h-[44px]"
-            >
-              📥 Download PDF
-            </button>
-            <button
-              onClick={handleDownloadSheet}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition min-h-[44px]"
-            >
-              📊 Download Google Sheet
-            </button>
+          <div className="card p-4 flex flex-col sm:flex-row gap-3">
+            <Button variant="danger" icon={FileText} onClick={handleDownloadPdf}>Download PDF</Button>
+            <Button variant="primary" className="!bg-success hover:!bg-success/90" icon={FileSpreadsheet} onClick={handleDownloadSheet}>
+              Download Google Sheet
+            </Button>
           </div>
         )}
 
@@ -207,31 +188,31 @@ const ProfessionalReportPage = ({ token }) => {
         {loading ? (
           <LoadingSpinner />
         ) : report && report.dailyData.length > 0 ? (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="card overflow-hidden">
             {/* Mobile card view */}
             <div className="md:hidden p-4 space-y-3">
               {report.dailyData.map((day, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <div key={idx} className="border border-line rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-gray-900">{formatDate(day.date)}</span>
-                    <span className={`font-semibold px-2 py-1 rounded text-sm ${day.closingBalance >= 0 ? 'bg-green-100 text-green-900' : 'bg-red-100 text-red-900'}`}>{formatCurrency(day.closingBalance)}</span>
+                    <span className="font-semibold text-ink">{formatDate(day.date)}</span>
+                    <span className={`font-semibold px-2 py-1 rounded text-sm ${day.closingBalance >= 0 ? 'bg-success-soft text-success-ink' : 'bg-danger-soft text-danger-ink'}`}>{formatCurrency(day.closingBalance)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-gray-500">Opening</span><p className="font-medium">{formatCurrency(day.openingBalance)}</p></div>
-                    <div><span className="text-gray-500">Total Income</span><p className="font-semibold text-primary">{formatCurrency(day.transactions.totalIncome)}</p></div>
-                    <div><span className="text-gray-500">Bill</span><p>{formatCurrency(day.transactions.Bill)}</p></div>
-                    <div><span className="text-gray-500">Training</span><p>{formatCurrency(day.transactions.Training)}</p></div>
-                    <div><span className="text-gray-500">Membership</span><p>{formatCurrency(day.transactions.Membership)}</p></div>
-                    <div><span className="text-gray-500">Beverage</span><p>{formatCurrency(day.transactions.Beverage)}</p></div>
-                    <div><span className="text-gray-500">Hourly</span><p>{formatCurrency(day.transactions['Hourly Session'])}</p></div>
-                    <div><span className="text-gray-500">Cash</span><p>{formatCurrency(day.paymentMethods.Cash)}</p></div>
-                    <div><span className="text-gray-500">Bank</span><p>{formatCurrency(day.paymentMethods.Bank)}</p></div>
-                    <div><span className="text-gray-500">bKash</span><p>{formatCurrency(day.paymentMethods.bKash)}</p></div>
+                    <div><span className="text-ink-soft">Opening</span><p className="font-medium">{formatCurrency(day.openingBalance)}</p></div>
+                    <div><span className="text-ink-soft">Total Income</span><p className="font-semibold text-primary">{formatCurrency(day.transactions.totalIncome)}</p></div>
+                    <div><span className="text-ink-soft">Bill</span><p>{formatCurrency(day.transactions.Bill)}</p></div>
+                    <div><span className="text-ink-soft">Training</span><p>{formatCurrency(day.transactions.Training)}</p></div>
+                    <div><span className="text-ink-soft">Membership</span><p>{formatCurrency(day.transactions.Membership)}</p></div>
+                    <div><span className="text-ink-soft">Beverage</span><p>{formatCurrency(day.transactions.Beverage)}</p></div>
+                    <div><span className="text-ink-soft">Hourly</span><p>{formatCurrency(day.transactions['Hourly Session'])}</p></div>
+                    <div><span className="text-ink-soft">Cash</span><p>{formatCurrency(day.paymentMethods.Cash)}</p></div>
+                    <div><span className="text-ink-soft">Bank</span><p>{formatCurrency(day.paymentMethods.Bank)}</p></div>
+                    <div><span className="text-ink-soft">bKash</span><p>{formatCurrency(day.paymentMethods.bKash)}</p></div>
                   </div>
                 </div>
               ))}
               {/* Mobile totals */}
-              <div className="bg-gray-800 text-white rounded-lg p-3 text-xs font-semibold space-y-1">
+              <div className="bg-ink text-white rounded-lg p-3 text-xs font-semibold space-y-1">
                 <div className="flex justify-between"><span>TOTAL</span><span>{formatCurrency(report.totals.totalIncome)}</span></div>
                 <div className="flex justify-between"><span>Closing</span><span>{formatCurrency(report.totals.closingBalance)}</span></div>
               </div>
@@ -254,36 +235,36 @@ const ProfessionalReportPage = ({ token }) => {
                     <th className="px-4 py-3 text-right font-semibold">Cash</th>
                     <th className="px-4 py-3 text-right font-semibold">Bank</th>
                     <th className="px-4 py-3 text-right font-semibold">bKash</th>
-                    <th className="px-4 py-3 text-right font-semibold bg-green-600">Closing</th>
+                    <th className="px-4 py-3 text-right font-semibold bg-success">Closing</th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.dailyData.map((day, idx) => (
                     <tr
                       key={idx}
-                      className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-primary/5 transition`}
+                      className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-canvas'} hover:bg-primary/5 transition`}
                     >
-                      <td className="px-4 py-3 font-medium text-gray-900">{formatDate(day.date)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.openingBalance)}</td>
+                      <td className="px-4 py-3 font-medium text-ink">{formatDate(day.date)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.openingBalance)}</td>
                       
                       {/* Income Categories */}
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.transactions.Bill)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.transactions.Training)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.transactions.Membership)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.transactions.Beverage)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.transactions['Hourly Session'])}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.transactions.Bill)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.transactions.Training)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.transactions.Membership)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.transactions.Beverage)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.transactions['Hourly Session'])}</td>
                       <td className="px-4 py-3 text-right font-semibold bg-primary/10 text-primary">{formatCurrency(day.transactions.totalIncome)}</td>
 
                       {/* Payment Methods */}
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.paymentMethods.Cash)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.paymentMethods.Bank)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(day.paymentMethods.bKash)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.paymentMethods.Cash)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.paymentMethods.Bank)}</td>
+                      <td className="px-4 py-3 text-right text-ink">{formatCurrency(day.paymentMethods.bKash)}</td>
 
                       {/* Closing Balance */}
                       <td className={`px-4 py-3 text-right font-semibold ${
                         day.closingBalance >= 0
-                          ? 'bg-green-100 text-green-900'
-                          : 'bg-red-100 text-red-900'
+                          ? 'bg-success-soft text-success-ink'
+                          : 'bg-danger-soft text-danger-ink'
                       }`}>
                         {formatCurrency(day.closingBalance)}
                       </td>
@@ -291,7 +272,7 @@ const ProfessionalReportPage = ({ token }) => {
                   ))}
                   
                   {/* Summary Row */}
-                  <tr className="bg-gray-800 text-white font-bold text-sm">
+                  <tr className="bg-ink text-white font-bold text-sm">
                     <td className="px-4 py-4">TOTAL</td>
                     <td className="px-4 py-4 text-right">{formatCurrency(report.totals.openingBalance)}</td>
                     
@@ -306,17 +287,15 @@ const ProfessionalReportPage = ({ token }) => {
                     <td className="px-4 py-4 text-right">{formatCurrency(report.totals.bankIncome)}</td>
                     <td className="px-4 py-4 text-right">{formatCurrency(report.totals.bkashIncome)}</td>
 
-                    <td className="px-4 py-4 text-right bg-green-600">{formatCurrency(report.totals.closingBalance)}</td>
+                    <td className="px-4 py-4 text-right bg-success">{formatCurrency(report.totals.closingBalance)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <p className="text-gray-600 text-lg font-medium">No data available for the selected period</p>
-            <p className="text-gray-500 mt-2">Try selecting a different date range</p>
+          <div className="card">
+            <EmptyState icon={BarChart3} title="No data available for the selected period" message="Try selecting a different date range." />
           </div>
         )}
       </div>

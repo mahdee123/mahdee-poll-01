@@ -1,7 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  Plus, Search, Eye, Printer, Trash2, Receipt, Users, Wallet,
+  CalendarClock, CreditCard, Lock, Shirt, Clock,
+} from 'lucide-react';
 import { apiRequest } from '../api.js';
 import BillForm from './BillForm.jsx';
+import Button from './Button.jsx';
 import useConfirm from '../hooks/useConfirm';
+
+const PAYMENT_BADGE = {
+  Cash: 'badge-success',
+  Bank: 'badge-info',
+  bKash: 'badge-warning',
+};
 
 export default function BillsPage({ token, showToast, setLastReceipt }) {
   const [confirm, confirmDialog] = useConfirm();
@@ -222,7 +233,7 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     expiringSessions.forEach((session) => {
       if (!alertedSessionIds.current.has(session._id)) {
         alertedSessionIds.current.add(session._id);
-        showToast(`⏰ ${session.customerName} session time finished. Extend or close the session.`, 'warning');
+        showToast(`${session.customerName} session time finished. Extend or close the session.`, 'warning');
       }
     });
   }, [activeSessions, sessionTick, showToast]);
@@ -437,32 +448,32 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     const dressDue = getDressDue(session._id);
 
     return (
-      <div key={session._id} className={`rounded-lg border p-4 space-y-3 ${isExpired ? 'bg-red-50/70 border-red-200' : 'bg-white border-gray-200'}`}>
+      <div key={session._id} className={`rounded-lg border p-4 space-y-3 ${isExpired ? 'bg-danger-soft/70 border-danger/20' : 'bg-white border-line'}`}>
         <div className="flex items-start justify-between">
           <div>
-            <div className="font-semibold text-gray-900">{session.customerName}</div>
-            <div className="text-xs text-gray-500">{session.phone || 'No phone'}</div>
+            <div className="font-semibold text-ink">{session.customerName}</div>
+            <div className="text-xs text-ink-soft">{session.phone || 'No phone'}</div>
           </div>
-          <span className={`text-sm font-bold px-2 py-1 rounded ${isExpired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          <span className={`text-sm font-bold px-2 py-1 rounded ${isExpired ? 'bg-danger-soft text-danger-ink' : 'bg-success-soft text-success-ink'}`}>
             {displayRemaining}
           </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
-            <span className="text-xs text-gray-500">Start</span>
+            <span className="text-xs text-ink-soft">Start</span>
             <p className="font-medium">{formatSessionTime(session.startTime)}</p>
           </div>
           <div>
-            <span className="text-xs text-gray-500">Planned End</span>
+            <span className="text-xs text-ink-soft">Planned End</span>
             <p className="font-medium">{formatSessionTime(session.plannedEndTime)}</p>
           </div>
           <div>
-            <span className="text-xs text-gray-500">Total</span>
+            <span className="text-xs text-ink-soft">Total</span>
             <p className="font-semibold">{formatCurrency(session.totalAmount || session.baseCharge || 0)}</p>
           </div>
           <div>
-            <span className="text-xs text-gray-500">Beverage</span>
+            <span className="text-xs text-ink-soft">Beverage</span>
             <p className="font-semibold">{formatCurrency(session.beverageCharge || 0)}</p>
           </div>
         </div>
@@ -470,10 +481,10 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
         {(getSessionLockers(session._id) !== '—' || getSessionDresses(session._id) !== '—') && (
           <div className="flex flex-wrap gap-2 text-xs">
             {getSessionLockers(session._id) !== '—' && (
-              <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">🔐 {getSessionLockers(session._id)}</span>
+              <span className="badge-info"><Lock size={11} /> {getSessionLockers(session._id)}</span>
             )}
             {getSessionDresses(session._id) !== '—' && (
-              <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded">👕 {getSessionDresses(session._id)}</span>
+              <span className="badge-neutral"><Shirt size={11} /> {getSessionDresses(session._id)}</span>
             )}
           </div>
         )}
@@ -482,14 +493,14 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           <div className="flex flex-wrap gap-2">
             {lockerDue > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-red-600 font-semibold">Locker: {formatCurrency(lockerDue)}</span>
-                <button type="button" onClick={() => handleCollectLockerDue(session._id)} className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 min-h-[36px]">Collect</button>
+                <span className="text-xs text-danger font-semibold">Locker: {formatCurrency(lockerDue)}</span>
+                <button type="button" onClick={() => handleCollectLockerDue(session._id)} className="px-2 py-1 text-xs font-medium text-white bg-danger rounded hover:bg-danger-ink min-h-[36px]">Collect</button>
               </div>
             )}
             {dressDue > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-red-600 font-semibold">Dress: {formatCurrency(dressDue)}</span>
-                <button type="button" onClick={() => handleCollectDressDue(session._id)} className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 min-h-[36px]">Collect</button>
+                <span className="text-xs text-danger font-semibold">Dress: {formatCurrency(dressDue)}</span>
+                <button type="button" onClick={() => handleCollectDressDue(session._id)} className="px-2 py-1 text-xs font-medium text-white bg-danger rounded hover:bg-danger-ink min-h-[36px]">Collect</button>
               </div>
             )}
           </div>
@@ -510,36 +521,36 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     const displayRemaining = isExpired ? `Overtime ${formatMinutes(overtimeMinutes)}` : formatMinutes(remainingMinutes);
 
     return (
-      <tr key={session._id} className={isExpired ? 'bg-red-50/70' : 'bg-white'}>
+      <tr key={session._id} className={isExpired ? 'bg-danger-soft/70' : 'bg-white'}>
         <td className="px-4 py-3">
-          <div className="font-semibold text-gray-900">{session.customerName}</div>
-          <div className="text-xs text-gray-500">{session.phone || 'No phone provided'}</div>
+          <div className="font-semibold text-ink">{session.customerName}</div>
+          <div className="text-xs text-ink-soft">{session.phone || 'No phone provided'}</div>
         </td>
-        <td className="px-4 py-3 text-sm text-gray-700">{getSessionLockers(session._id)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{getSessionDresses(session._id)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatSessionTime(session.startTime)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatSessionTime(session.plannedEndTime)}</td>
+        <td className="px-4 py-3 text-sm text-ink">{getSessionLockers(session._id)}</td>
+        <td className="px-4 py-3 text-sm text-ink">{getSessionDresses(session._id)}</td>
+        <td className="px-4 py-3 text-sm text-ink">{formatSessionTime(session.startTime)}</td>
+        <td className="px-4 py-3 text-sm text-ink">{formatSessionTime(session.plannedEndTime)}</td>
         <td className="px-4 py-3 text-sm font-semibold">
-          <span className={isExpired ? 'text-red-700' : 'text-secondary'}>{displayRemaining}</span>
+          <span className={isExpired ? 'text-danger-ink' : 'text-ink'}>{displayRemaining}</span>
         </td>
-        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatCurrency(session.totalAmount || session.baseCharge || 0)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(session.beverageCharge || 0)}</td>
+        <td className="px-4 py-3 text-sm font-semibold text-ink">{formatCurrency(session.totalAmount || session.baseCharge || 0)}</td>
+        <td className="px-4 py-3 text-sm text-ink">{formatCurrency(session.beverageCharge || 0)}</td>
         <td className="px-4 py-3 text-sm">
           {(() => {
             const lockerDue = getLockerDue(session._id);
             return lockerDue > 0 ? (
               <div className="flex items-center gap-2">
-                <span className="text-red-600 font-semibold">{formatCurrency(lockerDue)}</span>
+                <span className="text-danger font-semibold">{formatCurrency(lockerDue)}</span>
                 <button
                   type="button"
                   onClick={() => handleCollectLockerDue(session._id)}
-                  className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors"
+                  className="px-2 py-1 text-xs font-medium text-white bg-danger rounded hover:bg-danger-ink transition-colors"
                 >
                   Collect
                 </button>
               </div>
             ) : (
-              <span className="text-gray-700">{formatCurrency(0)}</span>
+              <span className="text-ink">{formatCurrency(0)}</span>
             );
           })()}
         </td>
@@ -548,17 +559,17 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
             const dressDue = getDressDue(session._id);
             return dressDue > 0 ? (
               <div className="flex items-center gap-2">
-                <span className="text-red-600 font-semibold">{formatCurrency(dressDue)}</span>
+                <span className="text-danger font-semibold">{formatCurrency(dressDue)}</span>
                 <button
                   type="button"
                   onClick={() => handleCollectDressDue(session._id)}
-                  className="px-2 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600 transition-colors"
+                  className="px-2 py-1 text-xs font-medium text-white bg-danger rounded hover:bg-danger-ink transition-colors"
                 >
                   Collect
                 </button>
               </div>
             ) : (
-              <span className="text-gray-700">{formatCurrency(0)}</span>
+              <span className="text-ink">{formatCurrency(0)}</span>
             );
           })()}
         </td>
@@ -606,15 +617,15 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
   };
 
   const renderBillCard = (bill) => (
-    <div key={bill._id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-2">
+    <div key={bill._id} className="bg-white rounded-lg border border-line p-4 space-y-2">
       <div className="flex items-start justify-between">
         <div>
-          <div className="font-semibold text-gray-900">{bill.name || '—'}</div>
-          <div className="text-xs text-gray-500">{bill.phone || 'No phone'}</div>
+          <div className="font-semibold text-ink">{bill.name || '—'}</div>
+          <div className="text-xs text-ink-soft">{bill.phone || 'No phone'}</div>
         </div>
-        <span className="text-lg font-bold text-secondary">৳ {bill.amount.toLocaleString()}</span>
+        <span className="text-lg font-bold text-ink">৳ {bill.amount.toLocaleString()}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
         <span>{formatDate(bill.date)}</span>
         <span>•</span>
         <span>{bill.numberOfPersons || 1} person(s)</span>
@@ -623,31 +634,25 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
       </div>
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-            bill.paymentMethod === 'Cash' ? 'bg-green-100 text-green-800'
-              : bill.paymentMethod === 'Bank' ? 'bg-primary/10 text-primary'
-              : 'bg-purple-100 text-purple-800'
-          }`}>
-            {bill.paymentMethod}
-          </span>
+          <span className={PAYMENT_BADGE[bill.paymentMethod] || 'badge-neutral'}>{bill.paymentMethod}</span>
           {bill.discount > 0 && (
-            <span className="text-xs text-red-600 font-medium">-৳ {bill.discount.toLocaleString()}</span>
+            <span className="text-xs text-danger font-medium">-৳ {bill.discount.toLocaleString()}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => handleViewReceipt(bill)} className="text-primary hover:text-primary font-medium p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="View Receipt">👁️</button>
-          <button onClick={() => { handleViewReceipt(bill); setTimeout(() => window.print(), 300); }} className="text-green-600 hover:text-green-800 font-medium p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Print">🖨️</button>
-          <button onClick={() => handleDeleteBill(bill._id)} className="text-red-600 hover:text-red-800 font-medium p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Delete">🗑️</button>
+          <button onClick={() => handleViewReceipt(bill)} className="w-9 h-9 flex items-center justify-center rounded-control text-primary hover:bg-primary-50" title="View receipt" aria-label="View receipt"><Eye size={16} /></button>
+          <button onClick={() => { handleViewReceipt(bill); setTimeout(() => window.print(), 300); }} className="w-9 h-9 flex items-center justify-center rounded-control text-success hover:bg-success-soft" title="Print" aria-label="Print"><Printer size={16} /></button>
+          <button onClick={() => handleDeleteBill(bill._id)} className="w-9 h-9 flex items-center justify-center rounded-control text-danger hover:bg-danger-soft" title="Delete" aria-label="Delete"><Trash2 size={16} /></button>
         </div>
       </div>
     </div>
   );
 
-  const StatCard = ({ title, value, hint }) => (
-    <div className="card p-4 flex flex-col gap-2">
-      <span className="text-sm text-gray-500">{title}</span>
-      <span className="text-2xl font-semibold text-secondary">{value}</span>
-      {hint && <span className="text-xs text-gray-400">{hint}</span>}
+  const StatCard = ({ title, value, hint, icon: Icon }) => (
+    <div className="stat-card">
+      <span className="stat-label">{Icon && <Icon size={15} className="text-primary" />}{title}</span>
+      <span className="stat-value">{value}</span>
+      {hint && <span className="stat-hint">{hint}</span>}
     </div>
   );
 
@@ -665,17 +670,16 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
     <div className="grid gap-4">
       {confirmDialog}
 
-      <h1 className="text-2xl font-bold text-secondary">Billing</h1>
-      <div className="card p-4 space-y-4 border-l-4 border-l-amber-400">
+      <div className="card p-4 space-y-4 border-l-4 border-l-warning">
         <div>
-          <h2 className="text-lg font-semibold">Live billing timers</h2>
-          <p className="text-sm text-gray-500">A 1-hour timer starts automatically when a bill is saved. Overtime stays visible in red and can be extended or closed from here.</p>
+          <h2 className="text-lg font-semibold text-ink">Live billing timers</h2>
+          <p className="text-sm text-ink-soft">A 1-hour timer starts automatically when a bill is saved. Overtime stays visible and can be extended or closed from here.</p>
         </div>
 
         {sessionLoading ? (
-          <div className="text-sm text-gray-500">Loading active timers...</div>
+          <div className="text-sm text-ink-soft">Loading active timers…</div>
         ) : activeSessions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+          <div className="rounded-card border border-dashed border-line-strong p-4 text-sm text-ink-soft">
             No active timers right now.
           </div>
         ) : (
@@ -685,24 +689,24 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
               {activeSessions.map(renderActiveSessionCard)}
             </div>
             {/* Desktop table view */}
-            <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 border-b text-gray-600">
+            <div className="table-shell">
+              <table className="table-modern min-w-full">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left">Customer</th>
-                    <th className="px-4 py-3 text-left">Assigned Lockers</th>
-                    <th className="px-4 py-3 text-left">Assigned Dresses</th>
-                    <th className="px-4 py-3 text-left">Start</th>
-                    <th className="px-4 py-3 text-left">Planned End</th>
-                    <th className="px-4 py-3 text-left">Live Timer</th>
-                    <th className="px-4 py-3 text-left">Live Total</th>
-                    <th className="px-4 py-3 text-left">Beverage Due</th>
-                    <th className="px-4 py-3 text-left">Locker Due</th>
-                    <th className="px-4 py-3 text-left">Dress Due</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th>Customer</th>
+                    <th>Assigned Lockers</th>
+                    <th>Assigned Dresses</th>
+                    <th>Start</th>
+                    <th>Planned End</th>
+                    <th>Live Timer</th>
+                    <th>Live Total</th>
+                    <th>Beverage Due</th>
+                    <th>Locker Due</th>
+                    <th>Dress Due</th>
+                    <th className="text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody>
                   {activeSessions.map(renderActiveSessionRow)}
                 </tbody>
               </table>
@@ -713,23 +717,12 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
 
       {/* Summary Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Receipt} title="Total Bills Today" value={stats.totalBillsToday} hint={`${stats.totalBillsToday} bills`} />
+        <StatCard icon={Wallet} title="Today's Revenue" value={`৳ ${stats.todayRevenue.toLocaleString()}`} hint="Total collected" />
+        <StatCard icon={CalendarClock} title="This Month Revenue" value={`৳ ${stats.thisMonthRevenue.toLocaleString()}`} hint="Total month" />
         <StatCard
-          title="🧾 Total Bills Today"
-          value={stats.totalBillsToday}
-          hint={`${stats.totalBillsToday} bills`}
-        />
-        <StatCard
-          title="💰 Today's Revenue"
-          value={`৳ ${stats.todayRevenue.toLocaleString()}`}
-          hint="Total collected"
-        />
-        <StatCard
-          title="📅 This Month Revenue"
-          value={`৳ ${stats.thisMonthRevenue.toLocaleString()}`}
-          hint="Total month"
-        />
-        <StatCard
-          title="👥 Total Persons & Customers Today"
+          icon={Users}
+          title="Persons &amp; Customers Today"
           value={`${stats.totalPersonsToday} / ${stats.totalCustomersToday}`}
           hint={`${stats.totalPersonsToday} persons • ${stats.totalCustomersToday} customers`}
         />
@@ -738,30 +731,30 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
       {/* Toolbar & Filters */}
       <div className="card p-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">📝 Bills List</h2>
-          <button
-            onClick={() => setShowBillForm(true)}
-            className="btn-primary"
-          >
-            ➕ Add New Bill
-          </button>
+          <h2 className="section-title">Bills list</h2>
+          <Button onClick={() => setShowBillForm(true)} icon={Plus}>
+            Add new bill
+          </Button>
         </div>
 
         {/* Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <input
-            type="text"
-            placeholder="🔍 Search by name or phone..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
-          />
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by name or phone…"
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              className="input pl-9"
+            />
+          </div>
           <select
             value={filters.dateRange}
             onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="select"
           >
-            <option value="today">📅 Today</option>
+            <option value="today">Today</option>
             <option value="yesterday">Yesterday</option>
             <option value="thisWeek">This Week</option>
             <option value="thisMonth">This Month</option>
@@ -769,9 +762,9 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           <select
             value={filters.paymentMethod}
             onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="select"
           >
-            <option value="">💳 All Payment Methods</option>
+            <option value="">All Payment Methods</option>
             <option value="Cash">Cash</option>
             <option value="Bank">Bank</option>
             <option value="bKash">bKash</option>
@@ -779,9 +772,9 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
           <select
             value={filters.amountPerPerson}
             onChange={(e) => setFilters({ ...filters, amountPerPerson: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="select"
           >
-            <option value="">💵 All Amounts</option>
+            <option value="">All Amounts</option>
             <option value="300">৳ 300</option>
             <option value="400">৳ 400</option>
             <option value="500">৳ 500</option>
@@ -794,9 +787,9 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
       {/* Bills Table */}
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading bills...</div>
+          <div className="p-8 text-center text-sm text-ink-soft">Loading bills…</div>
         ) : bills.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-8 text-center text-sm text-ink-soft">
             No bills found for the selected filters.
           </div>
         ) : (
@@ -805,82 +798,77 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
             <div className="md:hidden p-4 space-y-3">
               {bills.map(renderBillCard)}
               {/* Mobile totals */}
-              <div className="bg-gray-50 rounded-lg p-3 text-sm font-semibold flex flex-col gap-1">
+              <div className="bg-canvas rounded-card p-3 text-sm font-semibold flex flex-col gap-1">
                 <div className="flex justify-between"><span>Total Persons:</span><span>{bills.reduce((sum, b) => sum + (b.numberOfPersons || 1), 0)}</span></div>
-                <div className="flex justify-between"><span>Total Discount:</span><span className="text-red-600">-৳ {bills.reduce((sum, b) => sum + b.discount, 0).toLocaleString()}</span></div>
-                <div className="flex justify-between text-base"><span>TOTAL:</span><span className="text-secondary">৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Total Discount:</span><span className="text-danger">-৳ {bills.reduce((sum, b) => sum + b.discount, 0).toLocaleString()}</span></div>
+                <div className="flex justify-between text-base"><span>TOTAL:</span><span className="text-ink">৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}</span></div>
               </div>
             </div>
             {/* Desktop table view */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+              <table className="table-modern w-full">
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">📅 Date</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">👤 Name</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">📱 Phone</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">💵 Per Person</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">👥 Persons</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">🏷 Discount</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold">💰 Total</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">💳 Method</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold">⚙️ Action</th>
+                    <th>Date</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Per Person</th>
+                    <th className="text-center">Persons</th>
+                    <th>Discount</th>
+                    <th className="text-right">Total</th>
+                    <th>Method</th>
+                    <th className="text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody>
                   {bills.map((bill) => (
-                    <tr key={bill._id} className="hover:bg-gray-50 transition">
-                      <td className="px-4 py-2 text-sm">{formatDate(bill.date)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{bill.name || '—'}</td>
-                      <td className="px-4 py-2 text-sm">{bill.phone || '—'}</td>
-                      <td className="px-4 py-2 text-sm">৳ {(bill.amountPerPerson || 0).toLocaleString()}</td>
-                      <td className="px-4 py-2 text-sm text-center">{bill.numberOfPersons || 1}</td>
-                      <td className="px-4 py-2 text-sm">
+                    <tr key={bill._id}>
+                      <td>{formatDate(bill.date)}</td>
+                      <td className="font-medium">{bill.name || '—'}</td>
+                      <td>{bill.phone || '—'}</td>
+                      <td>৳ {(bill.amountPerPerson || 0).toLocaleString()}</td>
+                      <td className="text-center">{bill.numberOfPersons || 1}</td>
+                      <td>
                         {bill.discount > 0 ? (
-                          <span className="text-red-600 font-medium">- ৳ {bill.discount.toLocaleString()}</span>
+                          <span className="text-danger font-medium">- ৳ {bill.discount.toLocaleString()}</span>
                         ) : (
                           '—'
                         )}
                       </td>
-                      <td className="px-4 py-2 text-sm font-semibold text-secondary text-right">
+                      <td className="font-semibold text-ink text-right">
                         ৳ {bill.amount.toLocaleString()}
                       </td>
-                      <td className="px-4 py-2 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          bill.paymentMethod === 'Cash'
-                            ? 'bg-green-100 text-green-800'
-                            : bill.paymentMethod === 'Bank'
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {bill.paymentMethod}
-                        </span>
+                      <td>
+                        <span className={PAYMENT_BADGE[bill.paymentMethod] || 'badge-neutral'}>{bill.paymentMethod}</span>
                       </td>
-                      <td className="px-4 py-2 text-sm text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      <td>
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleViewReceipt(bill)}
-                            className="text-primary hover:text-primary font-medium"
-                            title="View Receipt"
+                            className="w-8 h-8 flex items-center justify-center rounded-control text-primary hover:bg-primary-50"
+                            title="View receipt"
+                            aria-label="View receipt"
                           >
-                            👁️
+                            <Eye size={15} />
                           </button>
                           <button
                             onClick={() => {
                               handleViewReceipt(bill);
                               setTimeout(() => window.print(), 300);
                             }}
-                            className="text-green-600 hover:text-green-800 font-medium"
+                            className="w-8 h-8 flex items-center justify-center rounded-control text-success hover:bg-success-soft"
                             title="Print"
+                            aria-label="Print"
                           >
-                            🖨️
+                            <Printer size={15} />
                           </button>
                           <button
                             onClick={() => handleDeleteBill(bill._id)}
-                            className="text-red-600 hover:text-red-800 font-medium"
+                            className="w-8 h-8 flex items-center justify-center rounded-control text-danger hover:bg-danger-soft"
                             title="Delete"
+                            aria-label="Delete"
                           >
-                            🗑️
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -888,19 +876,19 @@ export default function BillsPage({ token, showToast, setLastReceipt }) {
                   ))}
                 </tbody>
                 {bills.length > 0 && (
-                  <tfoot className="bg-gray-100 border-t-2 font-semibold sticky bottom-0">
+                  <tfoot className="bg-canvas border-t-2 border-line font-semibold sticky bottom-0">
                     <tr>
                       <td colSpan="4" className="px-4 py-3 text-right">
                         TOTAL
                       </td>
                       <td className="px-4 py-3 text-center">
-                        👥 {bills.reduce((sum, b) => sum + (b.numberOfPersons || 1), 0)}
+                        {bills.reduce((sum, b) => sum + (b.numberOfPersons || 1), 0)}
                       </td>
                       <td className="px-4 py-3">
                         - ৳ {bills.reduce((sum, b) => sum + b.discount, 0).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right text-secondary">
-                        💰 ৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
+                      <td className="px-4 py-3 text-right text-ink">
+                        ৳ {bills.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}
                       </td>
                       <td colSpan="2"></td>
                     </tr>

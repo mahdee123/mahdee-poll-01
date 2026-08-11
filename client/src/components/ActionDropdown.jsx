@@ -1,7 +1,16 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useRef, useEffect, useState } from 'react';
+import { MoreHorizontal, ChevronDown } from 'lucide-react';
 
-export default function ActionDropdown({ actions = [] }) {
+/**
+ * Row/card action menu. Pass `actions` as
+ * [{ label, onClick, icon?, destructive? }], with `null` entries rendered
+ * as dividers (handy for separating a destructive action from the rest).
+ *
+ * `trigger="icon"` (default) renders a compact "···" icon button for table
+ * rows; `trigger="button"` renders the labeled "Actions ⌄" button used in
+ * card headers.
+ */
+export default function ActionDropdown({ actions = [], trigger = 'icon', label = 'Actions' }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -24,32 +33,46 @@ export default function ActionDropdown({ actions = [] }) {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="px-3 py-1 text-sm rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition flex items-center gap-1"
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-      >
-        Actions <ChevronDown size={14} />
-      </button>
+    <div className="relative inline-block" ref={dropdownRef}>
+      {trigger === 'button' ? (
+        <button
+          onClick={() => setIsOpen((v) => !v)}
+          className="btn-secondary btn-sm"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+        >
+          {label} <ChevronDown size={14} />
+        </button>
+      ) : (
+        <button
+          onClick={() => setIsOpen((v) => !v)}
+          className="w-8 h-8 flex items-center justify-center rounded-control text-ink-faint hover:text-ink hover:bg-canvas transition-colors"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-label={label}
+        >
+          <MoreHorizontal size={17} />
+        </button>
+      )}
+
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-          {actions.map((action, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleActionClick(action)}
-              className={`w-full text-left px-4 py-2 text-sm transition ${
-                action.destructive
-                  ? 'hover:bg-red-50 text-red-600 hover:text-red-700'
-                  : 'hover:bg-gray-50 text-gray-700'
-              } ${idx > 0 ? 'border-t border-gray-100' : ''} ${
-                idx === actions.length - 1 ? '' : ''
-              }`}
-            >
-              {action.label}
-            </button>
-          ))}
+        <div className="dropdown-panel right-0 mt-1.5" role="menu">
+          {actions.map((action, idx) =>
+            action === null ? (
+              <div key={idx} className="dropdown-divider" />
+            ) : (
+              <button
+                key={idx}
+                role="menuitem"
+                onClick={() => handleActionClick(action)}
+                disabled={action.disabled}
+                className={action.destructive ? 'dropdown-item-danger' : 'dropdown-item'}
+              >
+                {action.icon && <action.icon size={15} className="flex-shrink-0" />}
+                <span className="truncate">{action.label}</span>
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>

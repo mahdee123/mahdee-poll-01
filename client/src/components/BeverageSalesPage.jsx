@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import {
+  LayoutDashboard, Receipt, Package, Warehouse, Wallet, Trash2, Pencil, PackagePlus,
+} from 'lucide-react';
 import { API_BASE_URL, NetworkError } from '../api';
 import BeverageProductManager from './BeverageProductManager';
 import InventoryPurchaseForm from './InventoryPurchaseForm';
 import BeverageSalesForm from './BeverageSalesForm';
 import { useToast } from '../context/ToastContext';
 import useConfirm from '../hooks/useConfirm';
+import Button from './Button';
 
 export default function BeverageSalesPage({ token, setLastReceipt }) {
   const toast = useToast();
@@ -530,7 +534,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
 
   if (!token) {
     return (
-      <div className="p-6 text-center text-red-500">
+      <div className="p-6 text-center text-danger">
         <p>Authentication required. Please log in again.</p>
       </div>
     );
@@ -538,14 +542,9 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
 
   if (error && activeTab !== 'sales') {
     return (
-      <div className="p-6 text-center text-red-500">
+      <div className="p-6 text-center text-danger space-y-3">
         <p>Error: {error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-        >
-          Reload
-        </button>
+        <Button onClick={() => window.location.reload()}>Reload</Button>
       </div>
     );
   }
@@ -559,7 +558,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
   // ======================================================================
   const renderDashboardTab = () => {
     if (loading && !periodStats) {
-      return <div className="text-center py-8 text-gray-500">Loading dashboard...</div>;
+      return <div className="text-center py-8 text-ink-soft">Loading dashboard...</div>;
     }
 
     const displayStats = periodStats || stats;
@@ -568,11 +567,11 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
       <div className="space-y-6">
         {/* Low Stock Alerts */}
         {lowStockAlerts.length > 0 && (
-          <div className="bg-red-50 border border-red-300 rounded-lg p-4">
-            <h3 className="font-semibold text-red-800 mb-2">⚠️ Low Stock Alerts ({lowStockAlerts.length})</h3>
+          <div className="bg-danger-soft border border-danger/30 rounded-card p-4">
+            <h3 className="font-semibold text-danger-ink mb-2">Low Stock Alerts ({lowStockAlerts.length})</h3>
             <div className="space-y-2">
               {lowStockAlerts.map((product) => (
-                <div key={product.productId} className="flex justify-between items-center text-sm text-red-700">
+                <div key={product.productId} className="flex justify-between items-center text-sm text-danger-ink">
                   <span>{product.productName}</span>
                   <span className="font-semibold">
                     {product.currentStock === 0 ? 'OUT OF STOCK' : `${product.currentStock} units`}
@@ -582,17 +581,17 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
             </div>
             <button
               onClick={() => setActiveModal('purchase')}
-              className="mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-medium"
+              className="mt-3 bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger-ink text-sm font-medium"
             >
-              📦 Record Purchase
+              Record Purchase
             </button>
           </div>
         )}
 
         {/* Time Period Selector */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="card p-4">
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-sm font-semibold text-gray-700">Period:</span>
+            <span className="text-sm font-semibold text-ink">Period:</span>
             {['today', 'yesterday', 'this-week', 'last-week', 'this-month', 'last-month', 'custom'].map((period) => (
               <button
                 key={period}
@@ -605,7 +604,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                   timePeriod === period
                     ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-canvas text-ink hover:bg-line/60'
                 }`}
               >
                 {period === 'today' ? 'Today' : period === 'yesterday' ? 'Yesterday' : period === 'this-week' ? 'This Week' : period === 'last-week' ? 'Last Week' : period === 'this-month' ? 'This Month' : period === 'last-month' ? 'Last Month' : 'Custom'}
@@ -620,14 +619,14 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                 type="date"
                 value={customDateRange.startDate}
                 onChange={(e) => setCustomDateRange({ ...customDateRange, startDate: e.target.value })}
-                className="border rounded-lg px-3 py-2 text-sm"
+                className="input"
                 placeholder="Start Date"
               />
               <input
                 type="date"
                 value={customDateRange.endDate}
                 onChange={(e) => setCustomDateRange({ ...customDateRange, endDate: e.target.value })}
-                className="border rounded-lg px-3 py-2 text-sm"
+                className="input"
                 placeholder="End Date"
               />
             </div>
@@ -636,28 +635,28 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Revenue</p>
+          <div className="bg-primary/5 border border-primary/20 rounded-card p-4">
+            <p className="text-sm text-ink-soft">Revenue</p>
             <p className="text-2xl font-bold text-primary">{(displayStats.totalRevenue || displayStats.revenue || 0).toFixed(0)} ৳</p>
-            <p className="text-xs text-gray-500 mt-1">{displayStats.transactionCount || 0} transactions</p>
+            <p className="text-xs text-ink-soft mt-1">{displayStats.transactionCount || 0} transactions</p>
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Profit</p>
-            <p className="text-2xl font-bold text-green-600">{(displayStats.totalProfit || displayStats.profit || 0).toFixed(0)} ৳</p>
-            <p className="text-xs text-gray-500 mt-1">{(displayStats.profitMargin || 0).toFixed(1)}% margin</p>
+          <div className="bg-success-soft border border-success/20 rounded-card p-4">
+            <p className="text-sm text-ink-soft">Profit</p>
+            <p className="text-2xl font-bold text-success">{(displayStats.totalProfit || displayStats.profit || 0).toFixed(0)} ৳</p>
+            <p className="text-xs text-ink-soft mt-1">{(displayStats.profitMargin || 0).toFixed(1)}% margin</p>
           </div>
 
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Units Sold</p>
-            <p className="text-2xl font-bold text-purple-600">{displayStats.totalQuantity || displayStats.quantitySold || 0}</p>
-            <p className="text-xs text-gray-500 mt-1">Beverages</p>
+          <div className="bg-canvas border border-line rounded-card p-4">
+            <p className="text-sm text-ink-soft">Units Sold</p>
+            <p className="text-2xl font-bold text-ink">{displayStats.totalQuantity || displayStats.quantitySold || 0}</p>
+            <p className="text-xs text-ink-soft mt-1">Beverages</p>
           </div>
 
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Total Inventory</p>
-            <p className="text-2xl font-bold text-orange-600">{stats.inventory?.totalInventoryValue?.toFixed(0) || 0} ৳</p>
-            <p className="text-xs text-gray-500 mt-1">{stats.inventory?.totalProducts || 0} products</p>
+          <div className="bg-warning-soft border border-warning/20 rounded-card p-4">
+            <p className="text-sm text-ink-soft">Total Inventory</p>
+            <p className="text-2xl font-bold text-warning">{stats.inventory?.totalInventoryValue?.toFixed(0) || 0} ৳</p>
+            <p className="text-xs text-ink-soft mt-1">{stats.inventory?.totalProducts || 0} products</p>
           </div>
         </div>
 
@@ -665,30 +664,30 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setActiveModal('sale')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium"
+            className="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 font-medium"
           >
-            💰 Record Sale
+            Record Sale
           </button>
           <button
             onClick={() => setActiveModal('purchase')}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-medium"
+            className="bg-ink text-white px-4 py-2 rounded-control hover:bg-ink/90 font-medium"
           >
-            📦 Record Purchase
+            Record Purchase
           </button>
           <button
             onClick={() => setActiveModal('products')}
             className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
           >
-            🛠️ Manage Products
+            Manage Products
           </button>
         </div>
 
         {/* Inventory Status */}
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">📊 Inventory Status</h2>
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold mb-4">Inventory Status</h2>
 
           {products.length === 0 ? (
-            <div className="text-center p-8 text-gray-500">
+            <div className="text-center p-8 text-ink-soft">
               <p>No products yet. Create your first beverage product!</p>
             </div>
           ) : (
@@ -698,29 +697,29 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                   key={product._id}
                   className={`p-4 border rounded-lg ${
                     product.currentStock === 0
-                      ? 'bg-red-50 border-red-300'
+                      ? 'bg-danger-soft border-danger/30'
                       : product.currentStock < 10
-                      ? 'bg-yellow-50 border-yellow-300'
-                      : 'bg-green-50 border-green-300'
+                      ? 'bg-warning-soft border-warning/30'
+                      : 'bg-success-soft border-success/30'
                   }`}
                 >
-                  <h4 className="font-semibold text-gray-800">{product.name}</h4>
+                  <h4 className="font-semibold text-ink">{product.name}</h4>
                   <div className="mt-2 space-y-1 text-sm">
                     <p>
-                      📦 Stock: <span className="font-bold text-lg">{product.currentStock}</span> {product.unit}s
+                      Stock: <span className="font-bold text-lg">{product.currentStock}</span> {product.unit}s
                     </p>
-                    <p className="text-gray-600">
-                      💰 Cost: {product.costPrice} ৳ | Sell: {product.sellingPrice} ৳
+                    <p className="text-ink-soft">
+                      Cost: {product.costPrice} ৳ | Sell: {product.sellingPrice} ৳
                     </p>
-                    <p className="text-gray-600">
-                      💵 Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳
+                    <p className="text-ink-soft">
+                      Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳
                     </p>
                   </div>
                   {product.currentStock === 0 && (
-                    <p className="mt-2 text-xs text-red-600 font-semibold">⚠️ Out of stock!</p>
+                    <p className="mt-2 text-xs text-danger font-semibold">Out of stock!</p>
                   )}
                   {product.currentStock < 10 && product.currentStock > 0 && (
-                    <p className="mt-2 text-xs text-yellow-700 font-semibold">⚠️ Low stock warning</p>
+                    <p className="mt-2 text-xs text-warning-ink font-semibold">Low stock warning</p>
                   )}
                 </div>
               ))}
@@ -730,12 +729,12 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
 
         {/* Top Products */}
         {displayStats.productBreakdown && displayStats.productBreakdown.length > 0 && (
-          <div className="bg-white border rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">📈 Top Products</h2>
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold mb-4">Top Products</h2>
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-100 border-b">
+                <thead className="bg-canvas border-b">
                   <tr>
                     <th className="px-4 py-2 text-left">Product</th>
                     <th className="px-4 py-2 text-right">Sold</th>
@@ -746,16 +745,16 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                 </thead>
                 <tbody>
                   {displayStats.productBreakdown.slice(0, 5).map((item) => (
-                    <tr key={item.productId} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
-                      <td className="px-4 py-2 text-right text-gray-600">{item.quantitySold}</td>
+                    <tr key={item.productId} className="border-b hover:bg-canvas">
+                      <td className="px-4 py-2 font-semibold text-ink">{item.productName}</td>
+                      <td className="px-4 py-2 text-right text-ink-soft">{item.quantitySold}</td>
                       <td className="px-4 py-2 text-right font-semibold text-primary">
                         {(item.revenue || item.revenueToday || 0).toFixed(0)} ৳
                       </td>
-                      <td className="px-4 py-2 text-right font-bold text-green-600">
+                      <td className="px-4 py-2 text-right font-bold text-success">
                         {(item.profit || item.profitToday || 0).toFixed(0)} ৳
                       </td>
-                      <td className="px-4 py-2 text-right text-gray-600">
+                      <td className="px-4 py-2 text-right text-ink-soft">
                         {(item.profitMargin || item.profitMarginToday || 0)}%
                       </td>
                      </tr>
@@ -774,7 +773,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
   // ======================================================================
   const renderSalesTab = () => {
     if (loading && sales.length === 0) {
-      return <div className="text-center py-8 text-gray-500">Loading sales data...</div>;
+      return <div className="text-center py-8 text-ink-soft">Loading sales data...</div>;
     }
 
     // Calculate sales summary
@@ -791,56 +790,56 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
           <h2 className="text-lg font-semibold">Sales History</h2>
           <button
             onClick={() => setActiveModal('sale')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+            className="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 font-medium flex items-center gap-2"
           >
-            💰 New Sale
+            New Sale
           </button>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Total Revenue</p>
+          <div className="bg-primary/5 border border-primary/20 rounded-card p-4">
+            <p className="text-sm text-ink-soft">Total Revenue</p>
             <p className="text-2xl font-bold text-primary">{totalRevenue.toFixed(0)} ৳</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Total Profit</p>
-            <p className="text-2xl font-bold text-green-600">{totalProfit.toFixed(0)} ৳</p>
-            <p className="text-xs text-gray-500 mt-1">
+          <div className="bg-success-soft border border-success/20 rounded-card p-4">
+            <p className="text-sm text-ink-soft">Total Profit</p>
+            <p className="text-2xl font-bold text-success">{totalProfit.toFixed(0)} ৳</p>
+            <p className="text-xs text-ink-soft mt-1">
               {totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}% margin
             </p>
           </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Units Sold</p>
-            <p className="text-2xl font-bold text-purple-600">{totalQuantity}</p>
+          <div className="bg-canvas border border-line rounded-card p-4">
+            <p className="text-sm text-ink-soft">Units Sold</p>
+            <p className="text-2xl font-bold text-ink">{totalQuantity}</p>
           </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Transactions</p>
-            <p className="text-2xl font-bold text-orange-600">{sales.length}</p>
+          <div className="bg-warning-soft border border-warning/20 rounded-card p-4">
+            <p className="text-sm text-ink-soft">Transactions</p>
+            <p className="text-2xl font-bold text-warning">{sales.length}</p>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="card p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <input
               type="date"
               value={salesFilters.startDate}
               onChange={(e) => setSalesFilters({ ...salesFilters, startDate: e.target.value })}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="input"
               placeholder="Start Date"
             />
             <input
               type="date"
               value={salesFilters.endDate}
               onChange={(e) => setSalesFilters({ ...salesFilters, endDate: e.target.value })}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="input"
               placeholder="End Date"
             />
             <select
               value={salesFilters.productId}
               onChange={(e) => setSalesFilters({ ...salesFilters, productId: e.target.value })}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="input"
             >
               <option value="">All Products</option>
               {products.map((p) => (
@@ -852,7 +851,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
             <select
               value={salesFilters.paymentMethod}
               onChange={(e) => setSalesFilters({ ...salesFilters, paymentMethod: e.target.value })}
-              className="border rounded-lg px-3 py-2 text-sm"
+              className="input"
             >
               <option value="">All Payment Methods</option>
               <option value="Cash">Cash</option>
@@ -864,7 +863,7 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
 
         {/* Sales Table */}
         {sales.length === 0 ? (
-          <div className="text-center p-8 text-gray-500 bg-white border rounded-lg">
+          <div className="text-center p-8 text-ink-soft card">
             <p>No sales recorded yet.</p>
           </div>
         ) : (
@@ -874,13 +873,13 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
               {sales.map((sale) => {
                 if (!sale.items || sale.items.length === 0) return null;
                 return (
-                  <div key={sale._id} className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div key={sale._id} className="card p-4 border-line space-y-2">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="text-xs text-gray-500">{formatDate(sale.date)} {formatTime(sale.date)}</div>
-                        <div className="text-xs text-gray-400 font-mono">{sale.receiptId}</div>
+                        <div className="text-xs text-ink-soft">{formatDate(sale.date)} {formatTime(sale.date)}</div>
+                        <div className="text-xs text-ink-faint font-mono">{sale.receiptId}</div>
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${sale.paymentMethod === 'Cash' ? 'bg-green-100 text-green-800' : sale.paymentMethod === 'Bank' ? 'bg-primary/10 text-primary' : 'bg-purple-100 text-purple-800'}`}>{sale.paymentMethod}</span>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${sale.paymentMethod === 'Cash' ? 'bg-success-soft text-success-ink' : sale.paymentMethod === 'Bank' ? 'bg-primary/10 text-primary' : 'bg-warning-soft text-warning-ink'}`}>{sale.paymentMethod}</span>
                     </div>
                     {sale.items.map((item, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
@@ -889,17 +888,17 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                       </div>
                     ))}
                     <div className="flex items-center justify-between pt-1 border-t text-xs">
-                      <span className="text-green-600 font-semibold">Profit: {sale.items.reduce((s, i) => s + i.lineProfit, 0).toFixed(0)} ৳</span>
-                      <button onClick={() => handleDeleteSale(sale._id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 min-h-[36px]">🗑️</button>
+                      <span className="text-success font-semibold">Profit: {sale.items.reduce((s, i) => s + i.lineProfit, 0).toFixed(0)} ৳</span>
+                      <button onClick={() => handleDeleteSale(sale._id)} className="w-8 h-8 flex items-center justify-center rounded-control text-danger hover:bg-danger-soft" aria-label="Delete sale"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 );
               })}
             </div>
             {/* Desktop table view */}
-            <div className="hidden md:block bg-white border rounded-lg overflow-x-auto">
+            <div className="hidden md:block table-shell">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b">
+              <thead className="bg-canvas border-b">
                 <tr>
                   <th className="px-4 py-2 text-left">Date & Time</th>
                   <th className="px-4 py-2 text-left">Receipt</th>
@@ -918,26 +917,26 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                     return null;
                   }
                   return sale.items.map((item, itemIndex) => (
-                    <tr key={`${sale._id}-${itemIndex}`} className="border-b hover:bg-gray-50">
+                    <tr key={`${sale._id}-${itemIndex}`} className="border-b hover:bg-canvas">
                       {itemIndex === 0 && (
                         <>
-                          <td rowSpan={sale.items.length} className="px-4 py-2 text-gray-600">
+                          <td rowSpan={sale.items.length} className="px-4 py-2 text-ink-soft">
                             <div className="text-sm">{formatDate(sale.date)}</div>
-                            <div className="text-xs text-gray-500">{formatTime(sale.date)}</div>
+                            <div className="text-xs text-ink-soft">{formatTime(sale.date)}</div>
                           </td>
-                          <td rowSpan={sale.items.length} className="px-4 py-2 font-mono text-xs text-gray-600">
+                          <td rowSpan={sale.items.length} className="px-4 py-2 font-mono text-xs text-ink-soft">
                             {sale.receiptId}
                           </td>
                         </>
                       )}
-                      <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
+                      <td className="px-4 py-2 font-semibold text-ink">{item.productName}</td>
                       <td className="px-4 py-2 text-center font-semibold">{item.quantity}</td>
-                      <td className="px-4 py-2 text-right text-gray-600">{item.sellingPricePerUnit} ৳</td>
+                      <td className="px-4 py-2 text-right text-ink-soft">{item.sellingPricePerUnit} ৳</td>
                       <td className="px-4 py-2 text-right font-semibold text-primary">
                         {item.lineTotal.toFixed(0)} ৳
                       </td>
                       <td className="px-4 py-2 text-right font-bold">
-                        <span className="text-green-600">{item.lineProfit.toFixed(0)} ৳</span>
+                        <span className="text-success">{item.lineProfit.toFixed(0)} ৳</span>
                       </td>
                       {itemIndex === 0 && (
                         <>
@@ -945,10 +944,10 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                             <span
                               className={`px-2 py-1 rounded text-xs font-medium ${
                                 sale.paymentMethod === 'Cash'
-                                  ? 'bg-green-100 text-green-800'
+                                  ? 'bg-success-soft text-success-ink'
                                   : sale.paymentMethod === 'Bank'
                                   ? 'bg-primary/10 text-primary'
-                                  : 'bg-purple-100 text-purple-800'
+                                  : 'bg-warning-soft text-warning-ink'
                               }`}
                             >
                               {sale.paymentMethod}
@@ -959,16 +958,17 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                               {sale.hourlySessionId && activeSessionIdSet.has(String(sale.hourlySessionId)) && (
                                 <button
                                   onClick={() => handleCollectDueSale(sale)}
-                                  className="bg-emerald-500 text-white px-2 py-1 rounded text-xs hover:bg-emerald-600"
+                                  className="bg-success text-white px-2 py-1 rounded text-xs hover:bg-success/90"
                                 >
-                                  💵 Collect
+                                  Collect
                                 </button>
                               )}
                               <button
                                 onClick={() => handleDeleteSale(sale._id)}
-                                className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                                className="w-8 h-8 flex items-center justify-center rounded-control text-danger hover:bg-danger-soft"
+                                aria-label="Delete sale"
                               >
-                                🗑️
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
@@ -998,12 +998,12 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
             onClick={() => setActiveModal('products')}
             className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
           >
-            ➕ Add Product
+            Add Product
           </button>
         </div>
 
         {products.length === 0 ? (
-          <div className="text-center p-8 text-gray-500 bg-white border rounded-lg">
+          <div className="text-center p-8 text-ink-soft card">
             <p className="mb-4">No products yet.</p>
             <button
               onClick={() => setActiveModal('products')}
@@ -1017,32 +1017,32 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
             {/* Mobile card view */}
             <div className="md:hidden space-y-3">
               {products.map((product) => (
-                <div key={product._id} className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                <div key={product._id} className="card p-4 border-line space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="font-semibold text-gray-800">{product.name}</div>
-                      <div className="text-xs text-gray-500">Stock: {product.currentStock} units</div>
+                      <div className="font-semibold text-ink">{product.name}</div>
+                      <div className="text-xs text-ink-soft">Stock: {product.currentStock} units</div>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${product.currentStock === 0 ? 'bg-red-100 text-red-800' : product.currentStock < 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${product.currentStock === 0 ? 'bg-danger-soft text-danger-ink' : product.currentStock < 10 ? 'bg-warning-soft text-warning-ink' : 'bg-success-soft text-success-ink'}`}>
                       {product.currentStock === 0 ? 'Out' : product.currentStock < 10 ? 'Low' : 'OK'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-gray-500">Cost</span><p className="font-medium">{product.costPrice} ৳</p></div>
-                    <div><span className="text-gray-500">Selling</span><p className="font-medium">{product.sellingPrice} ৳</p></div>
-                    <div><span className="text-gray-500">Stock Value</span><p className="font-semibold">{(product.currentStock * product.costPrice).toFixed(0)} ৳</p></div>
+                    <div><span className="text-ink-soft">Cost</span><p className="font-medium">{product.costPrice} ৳</p></div>
+                    <div><span className="text-ink-soft">Selling</span><p className="font-medium">{product.sellingPrice} ৳</p></div>
+                    <div><span className="text-ink-soft">Stock Value</span><p className="font-semibold">{(product.currentStock * product.costPrice).toFixed(0)} ৳</p></div>
                   </div>
                   <div className="flex gap-2 pt-1 border-t">
-                    <button onClick={() => setActiveModal('products')} className="bg-primary text-white px-3 py-1.5 rounded text-xs hover:bg-primary min-h-[36px]">✏️ Edit</button>
-                    <button onClick={() => setActiveModal('purchase')} className="bg-purple-500 text-white px-3 py-1.5 rounded text-xs hover:bg-purple-600 min-h-[36px]">📦 Purchase</button>
+                    <button onClick={() => setActiveModal('products')} className="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-control text-xs hover:bg-primary-600 min-h-[36px]"><Pencil size={12} /> Edit</button>
+                    <button onClick={() => setActiveModal('purchase')} className="flex items-center gap-1.5 bg-ink text-white px-3 py-1.5 rounded-control text-xs hover:bg-ink/90 min-h-[36px]"><PackagePlus size={12} /> Purchase</button>
                   </div>
                 </div>
               ))}
             </div>
             {/* Desktop table view */}
-            <div className="hidden md:block bg-white border rounded-lg overflow-x-auto">
+            <div className="hidden md:block table-shell">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b">
+              <thead className="bg-canvas border-b">
                 <tr>
                   <th className="px-4 py-2 text-left">Product Name</th>
                   <th className="px-4 py-2 text-center">Current Stock</th>
@@ -1055,11 +1055,11 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
               </thead>
               <tbody>
                 {products.map((product) => (
-                  <tr key={product._id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2 font-semibold text-gray-800">{product.name}</td>
+                  <tr key={product._id} className="border-b hover:bg-canvas">
+                    <td className="px-4 py-2 font-semibold text-ink">{product.name}</td>
                     <td className="px-4 py-2 text-center font-semibold">{product.currentStock}</td>
-                    <td className="px-4 py-2 text-right text-gray-600">{product.costPrice} ৳</td>
-                    <td className="px-4 py-2 text-right text-gray-600">{product.sellingPrice} ৳</td>
+                    <td className="px-4 py-2 text-right text-ink-soft">{product.costPrice} ৳</td>
+                    <td className="px-4 py-2 text-right text-ink-soft">{product.sellingPrice} ৳</td>
                     <td className="px-4 py-2 text-right font-semibold">
                       {(product.currentStock * product.costPrice).toFixed(0)} ৳
                     </td>
@@ -1067,10 +1067,10 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                       <span
                         className={`px-2 py-1 rounded text-xs font-medium ${
                           product.currentStock === 0
-                            ? 'bg-red-100 text-red-800'
+                            ? 'bg-danger-soft text-danger-ink'
                             : product.currentStock < 10
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
+                            ? 'bg-warning-soft text-warning-ink'
+                            : 'bg-success-soft text-success-ink'
                         }`}
                       >
                         {product.currentStock === 0 ? 'Out' : product.currentStock < 10 ? 'Low' : 'OK'}
@@ -1079,15 +1079,17 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                     <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => setActiveModal('products')}
-                        className="bg-primary text-white px-2 py-1 rounded text-xs hover:bg-primary mr-2"
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-control text-primary hover:bg-primary-50 mr-1"
+                        aria-label="Edit product"
                       >
-                        ✏️
+                        <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => setActiveModal('purchase')}
-                        className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600"
+                        className="w-8 h-8 inline-flex items-center justify-center rounded-control text-ink-soft hover:bg-canvas"
+                        aria-label="Record purchase"
                       >
-                        📦
+                        <PackagePlus size={14} />
                       </button>
                     </td>
                   </tr>
@@ -1107,39 +1109,39 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
   const renderInventoryTab = () => {
     return (
       <div className="space-y-6">
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">📦 Inventory Overview</h2>
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold mb-4">Inventory Overview</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-              <p className="text-sm text-gray-600">Total Products</p>
+            <div className="bg-primary/5 border border-primary/20 rounded-card p-4">
+              <p className="text-sm text-ink-soft">Total Products</p>
               <p className="text-2xl font-bold text-primary">{stats.inventory?.totalProducts || 0}</p>
             </div>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600">Total Inventory Cost</p>
-              <p className="text-2xl font-bold text-purple-600">
+            <div className="bg-canvas border border-line rounded-card p-4">
+              <p className="text-sm text-ink-soft">Total Inventory Cost</p>
+              <p className="text-2xl font-bold text-ink">
                 {(stats.inventory?.totalInventoryValue || 0).toFixed(0)} ৳
               </p>
             </div>
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600">Low Stock Items</p>
-              <p className="text-2xl font-bold text-orange-600">{lowStockAlerts.length}</p>
+            <div className="bg-warning-soft border border-warning/20 rounded-card p-4">
+              <p className="text-sm text-ink-soft">Low Stock Items</p>
+              <p className="text-2xl font-bold text-warning">{lowStockAlerts.length}</p>
             </div>
           </div>
 
           <h3 className="font-semibold mb-3">Stock Levels</h3>
           <div className="space-y-2">
             {products.map((product) => (
-              <div key={product._id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+              <div key={product._id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-canvas">
                 <div>
-                  <p className="font-semibold text-gray-800">{product.name}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="font-semibold text-ink">{product.name}</p>
+                  <p className="text-sm text-ink-soft">
                     Cost: {product.costPrice} ৳ | Selling: {product.sellingPrice} ৳
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-gray-800">{product.currentStock}</p>
-                  <p className="text-sm text-gray-600">Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳</p>
+                  <p className="text-lg font-bold text-ink">{product.currentStock}</p>
+                  <p className="text-sm text-ink-soft">Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳</p>
                 </div>
               </div>
             ))}
@@ -1148,20 +1150,20 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
 
         {/* Low Stock Alert Details */}
         {lowStockAlerts.length > 0 && (
-          <div className="bg-red-50 border border-red-300 rounded-lg p-6">
-            <h3 className="font-semibold text-red-800 mb-3">⚠️ Products Requiring Attention</h3>
+          <div className="bg-danger-soft border border-danger/30 rounded-card p-6">
+            <h3 className="font-semibold text-danger-ink mb-3">Products Requiring Attention</h3>
             <div className="space-y-2">
               {lowStockAlerts.map((product) => (
-                <div key={product.productId} className="flex justify-between items-center p-3 bg-white rounded-lg border-l-4 border-red-500">
+                <div key={product.productId} className="flex justify-between items-center p-3 bg-white rounded-lg border-l-4 border-danger">
                   <div>
-                    <p className="font-semibold text-gray-800">{product.productName}</p>
-                    <p className="text-sm text-gray-600">Status: {product.status.toUpperCase()}</p>
+                    <p className="font-semibold text-ink">{product.productName}</p>
+                    <p className="text-sm text-ink-soft">Status: {product.status.toUpperCase()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-bold text-red-600">{product.currentStock}</p>
+                    <p className="text-lg font-bold text-danger">{product.currentStock}</p>
                     <button
                       onClick={() => setActiveModal('purchase')}
-                      className="mt-1 text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                      className="mt-1 text-xs bg-danger text-white px-2 py-1 rounded hover:bg-danger-ink"
                     >
                       Record Purchase
                     </button>
@@ -1188,8 +1190,8 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
     return (
       <div className="space-y-6 py-6">
         {/* Date Selector */}
-        <div className="bg-white p-4 rounded-lg border">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
+        <div className="card p-4">
+          <label className="block text-sm font-medium text-ink mb-2">Select Date</label>
           <input
             type="date"
             value={cashSelectedDate}
@@ -1197,48 +1199,48 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
               setCashSelectedDate(e.target.value);
               handleLoadCashData(e.target.value);
             }}
-            className="w-full md:w-48 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="input w-full md:w-48"
           />
         </div>
 
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border-l-4 border-green-600">
-            <p className="text-sm text-gray-600 mb-1">Opening Balance</p>
-            <p className="text-2xl font-bold text-green-700">৳{(cashFlowData.openingBalance || 0).toLocaleString()}</p>
+          <div className="bg-success-soft p-4 rounded-card border-l-4 border-success">
+            <p className="text-sm text-ink-soft mb-1">Opening Balance</p>
+            <p className="text-2xl font-bold text-success-ink">৳{(cashFlowData.openingBalance || 0).toLocaleString()}</p>
           </div>
-          <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-4 rounded-lg border-l-4 border-primary">
-            <p className="text-sm text-gray-600 mb-1">Sales Revenue</p>
+          <div className="bg-primary-50 p-4 rounded-card border-l-4 border-primary">
+            <p className="text-sm text-ink-soft mb-1">Sales Revenue</p>
             <p className="text-2xl font-bold text-primary">+৳{(cashFlowData.totalSalesRevenue || 0).toLocaleString()}</p>
           </div>
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border-l-4 border-orange-600">
-            <p className="text-sm text-gray-600 mb-1">Withdrawals</p>
-            <p className="text-2xl font-bold text-orange-700">-৳{(cashFlowData.totalWithdrawals || 0).toLocaleString()}</p>
+          <div className="bg-warning-soft p-4 rounded-card border-l-4 border-warning">
+            <p className="text-sm text-ink-soft mb-1">Withdrawals</p>
+            <p className="text-2xl font-bold text-warning-ink">-৳{(cashFlowData.totalWithdrawals || 0).toLocaleString()}</p>
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border-l-4 border-purple-600">
-            <p className="text-sm text-gray-600 mb-1">Closing Balance</p>
-            <p className="text-2xl font-bold text-purple-700">৳{calculatedClosing.toLocaleString()}</p>
+          <div className="bg-canvas p-4 rounded-card border-l-4 border-ink">
+            <p className="text-sm text-ink-soft mb-1">Closing Balance</p>
+            <p className="text-2xl font-bold text-ink">৳{calculatedClosing.toLocaleString()}</p>
           </div>
         </div>
 
         {/* Calculation Summary */}
-        <div className="bg-gray-50 p-4 rounded-lg border">
-          <p className="text-sm text-gray-700">
+        <div className="bg-canvas p-4 rounded-lg border">
+          <p className="text-sm text-ink">
             <span className="font-semibold">Calculation: </span>
-            ৳{(cashFlowData.openingBalance || 0).toLocaleString()} (opening) + ৳{(cashFlowData.totalSalesRevenue || 0).toLocaleString()} (sales) - ৳{(cashFlowData.totalWithdrawals || 0).toLocaleString()} (withdrawn) = <span className="font-bold text-purple-700">৳{calculatedClosing.toLocaleString()}</span>
+            ৳{(cashFlowData.openingBalance || 0).toLocaleString()} (opening) + ৳{(cashFlowData.totalSalesRevenue || 0).toLocaleString()} (sales) - ৳{(cashFlowData.totalWithdrawals || 0).toLocaleString()} (withdrawn) = <span className="font-bold text-ink">৳{calculatedClosing.toLocaleString()}</span>
           </p>
         </div>
 
         {/* Opening Balance Section */}
-        <div className="bg-white p-6 rounded-lg border">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Set Opening Balance</h3>
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-ink mb-4">Set Opening Balance</h3>
           <div className="flex flex-col md:flex-row gap-3">
             <input
               type="number"
               placeholder="Enter opening balance amount"
               value={openingBalanceForm}
               onChange={(e) => setOpeningBalanceForm(e.target.value)}
-              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input flex-1"
             />
             <button
               onClick={handleSetOpeningBalance}
@@ -1248,13 +1250,13 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
             </button>
           </div>
           {cashFlow && (
-            <p className="text-sm text-gray-600 mt-3">Current opening balance for {cashSelectedDate}: ৳{(cashFlow.openingBalance || 0).toLocaleString()}</p>
+            <p className="text-sm text-ink-soft mt-3">Current opening balance for {cashSelectedDate}: ৳{(cashFlow.openingBalance || 0).toLocaleString()}</p>
           )}
         </div>
 
         {/* Withdrawal Recording Section */}
-        <div className="bg-white p-6 rounded-lg border">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Record Withdrawal</h3>
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-ink mb-4">Record Withdrawal</h3>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input
@@ -1262,19 +1264,19 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
                 placeholder="Withdrawal amount"
                 value={withdrawalForm.amount}
                 onChange={(e) => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })}
-                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="input"
               />
               <input
                 type="text"
                 placeholder="Reason (e.g., Admin fee, Maintenance)"
                 value={withdrawalForm.reason}
                 onChange={(e) => setWithdrawalForm({ ...withdrawalForm, reason: e.target.value })}
-                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="input"
               />
             </div>
             <button
               onClick={handleRecordWithdrawal}
-              className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 font-medium"
+              className="w-full bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 font-medium"
             >
               Record Withdrawal
             </button>
@@ -1282,27 +1284,27 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
         </div>
 
         {/* Withdrawal History */}
-        <div className="bg-white p-6 rounded-lg border">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-ink mb-4">
             Withdrawal History ({withdrawals.length} withdrawals)
           </h3>
           {withdrawals.length === 0 ? (
-            <p className="text-gray-500 text-center py-6">No withdrawals recorded for this date</p>
+            <p className="text-ink-soft text-center py-6">No withdrawals recorded for this date</p>
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {withdrawals.map((withdrawal) => (
                 <div
                   key={withdrawal._id}
-                  className="flex justify-between items-center p-3 bg-gray-50 rounded border-l-4 border-orange-500"
+                  className="flex justify-between items-center p-3 bg-canvas rounded border-l-4 border-warning"
                 >
                   <div>
-                    <p className="font-medium text-gray-800">৳{withdrawal.amount.toLocaleString()}</p>
-                    <p className="text-sm text-gray-600">{withdrawal.reason}</p>
-                    <p className="text-xs text-gray-500">Recorded by: {withdrawal.recordedBy}</p>
+                    <p className="font-medium text-ink">৳{withdrawal.amount.toLocaleString()}</p>
+                    <p className="text-sm text-ink-soft">{withdrawal.reason}</p>
+                    <p className="text-xs text-ink-soft">Recorded by: {withdrawal.recordedBy}</p>
                   </div>
                   <button
                     onClick={() => handleDeleteWithdrawal(withdrawal._id)}
-                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                    className="bg-danger text-white px-3 py-1 rounded text-sm hover:bg-danger-ink"
                   >
                     Delete
                   </button>
@@ -1319,30 +1321,21 @@ export default function BeverageSalesPage({ token, setLastReceipt }) {
     <div className="space-y-6">
       {confirmDialog}
 
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl sm:text-2xl font-semibold text-ink">Beverage Sales</h1>
-      </div>
-
       {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-2 border-b">
+      <div className="segmented flex-wrap">
         {[
-          { id: 'dashboard', label: '📊 Dashboard' },
-          { id: 'sales', label: '💰 Sales' },
-          { id: 'products', label: '📦 Products' },
-          { id: 'inventory', label: '🏭 Inventory' },
-          { id: 'cash', label: '💵 Cash Mgmt' },
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'sales', label: 'Sales', icon: Receipt },
+          { id: 'products', label: 'Products', icon: Package },
+          { id: 'inventory', label: 'Inventory', icon: Warehouse },
+          { id: 'cash', label: 'Cash Mgmt', icon: Wallet },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-600 hover:text-gray-800'
-            }`}
+            className={`flex items-center gap-1.5 ${activeTab === tab.id ? 'segmented-item-active' : 'segmented-item'}`}
           >
-            {tab.label}
+            <tab.icon size={14} /> {tab.label}
           </button>
         ))}
       </div>

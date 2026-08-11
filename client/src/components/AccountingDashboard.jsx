@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, BarChart3 } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
+import Button from './Button.jsx';
+import EmptyState from './EmptyState.jsx';
 
 const formatCurrency = (v) => v ? `৳${Number(v).toLocaleString('en-IN')}` : '৳0';
 const formatDate = (d) => { if (!d) return '—'; const dt = new Date(d); return isNaN(dt) ? '—' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); };
@@ -83,10 +86,10 @@ export default function AccountingDashboard({ token, onNavigate }) {
   }, [recentExpenses]);
 
   const summaryCards = [
-    { label: "Today's Income", value: formatCurrency(incomeToday), color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
-    { label: "This Month's Expenses", value: formatCurrency(expenseMonth), color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-    { label: 'Net Profit', value: formatCurrency(netProfit), color: netProfit >= 0 ? 'text-green-600' : 'text-red-600', bg: netProfit >= 0 ? 'bg-green-50' : 'bg-red-50', border: netProfit >= 0 ? 'border-green-200' : 'border-red-200' },
-    { label: 'Cash in Hand', value: formatCurrency(cashBalance), color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
+    { label: "Today's Income", value: formatCurrency(incomeToday), color: 'text-primary' },
+    { label: "This Month's Expenses", value: formatCurrency(expenseMonth), color: 'text-danger' },
+    { label: 'Net Profit', value: formatCurrency(netProfit), color: netProfit >= 0 ? 'text-success' : 'text-danger' },
+    { label: 'Cash in Hand', value: formatCurrency(cashBalance), color: 'text-ink' },
   ];
 
   if (loading) return <LoadingSpinner />;
@@ -98,35 +101,35 @@ export default function AccountingDashboard({ token, onNavigate }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {summaryCards.map((card) => (
-          <div key={card.label} className={`rounded-lg shadow p-4 border ${card.bg} ${card.border}`}>
-            <div className="text-xs text-gray-500 mb-1">{card.label}</div>
-            <div className={`text-lg font-bold ${card.color}`}>{card.value}</div>
+          <div key={card.label} className="stat-card">
+            <span className="stat-label">{card.label}</span>
+            <span className={`stat-value ${card.color}`}>{card.value}</span>
           </div>
         ))}
       </div>
 
       {/* Quick Actions */}
       <div className="flex gap-2">
-        <button onClick={() => onNavigate?.('expenses')} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition">+ Record Expense</button>
-        <button onClick={() => onNavigate?.('reports')} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition">View Reports</button>
+        <Button size="sm" icon={Plus} onClick={() => onNavigate?.('expenses')}>Record expense</Button>
+        <Button size="sm" variant="secondary" icon={BarChart3} onClick={() => onNavigate?.('reports')}>View reports</Button>
       </div>
 
       {/* Income & Expense Breakdowns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Income Breakdown */}
-        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Income Breakdown</h3>
-            <span className="text-xs font-bold text-green-600">{formatCurrency(incomeMonth)}</span>
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-ink">Income breakdown</h3>
+            <span className="text-xs font-bold text-success">{formatCurrency(incomeMonth)}</span>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-line">
             {Object.entries(incomeByCategory).filter(([, v]) => v > 0).length === 0 ? (
-              <div className="p-6 text-center text-gray-500 text-xs">No income this month</div>
+              <div className="p-6 text-center text-ink-soft text-xs">No income this month</div>
             ) : (
               Object.entries(incomeByCategory).filter(([, v]) => v > 0).map(([cat, amt]) => (
                 <div key={cat} className="px-4 py-2 flex items-center justify-between">
-                  <span className="text-sm text-gray-700">{cat}</span>
-                  <span className="text-sm font-medium text-gray-900">{formatCurrency(amt)}</span>
+                  <span className="text-sm text-ink">{cat}</span>
+                  <span className="text-sm font-medium text-ink tabular">{formatCurrency(amt)}</span>
                 </div>
               ))
             )}
@@ -134,19 +137,19 @@ export default function AccountingDashboard({ token, onNavigate }) {
         </div>
 
         {/* Expense Breakdown */}
-        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Expense Breakdown</h3>
-            <span className="text-xs font-bold text-red-600">{formatCurrency(expenseMonth)}</span>
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-ink">Expense breakdown</h3>
+            <span className="text-xs font-bold text-danger">{formatCurrency(expenseMonth)}</span>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-line">
             {expenseByCategory.length === 0 ? (
-              <div className="p-6 text-center text-gray-500 text-xs">No expenses this month</div>
+              <div className="p-6 text-center text-ink-soft text-xs">No expenses this month</div>
             ) : (
               expenseByCategory.map((c) => (
                 <div key={c.name} className="px-4 py-2 flex items-center justify-between">
-                  <span className="text-sm text-gray-700">{c.name}</span>
-                  <span className="text-sm font-medium text-gray-900">{formatCurrency(c.total)}</span>
+                  <span className="text-sm text-ink">{c.name}</span>
+                  <span className="text-sm font-medium text-ink tabular">{formatCurrency(c.total)}</span>
                 </div>
               ))
             )}
@@ -155,36 +158,38 @@ export default function AccountingDashboard({ token, onNavigate }) {
       </div>
 
       {/* Recent Expenses */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Recent Expenses</h3>
+      <div className="card overflow-hidden">
+        <div className="px-4 py-3 border-b border-line">
+          <h3 className="text-sm font-semibold text-ink">Recent expenses</h3>
         </div>
         {groupedRecent.length === 0 ? (
-          <div className="p-6 text-center">
-            <p className="text-gray-500 text-sm">No expenses yet</p>
-            <button onClick={() => onNavigate?.('expenses')} className="mt-2 text-primary text-sm font-medium hover:underline">Record your first expense</button>
-          </div>
+          <EmptyState
+            title="No expenses yet"
+            message="Expenses you record will show up here."
+            actionLabel="Record your first expense"
+            onAction={() => onNavigate?.('expenses')}
+          />
         ) : (
           <div>
             {groupedRecent.map((group) => (
               <div key={toDateKey(group.date)}>
-                <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-500">{formatDate(group.date)}</span>
-                  <span className="text-xs font-bold text-gray-700">{formatCurrency(group.total)}</span>
+                <div className="px-4 py-1.5 bg-canvas border-b border-line flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink-soft">{formatDate(group.date)}</span>
+                  <span className="text-xs font-bold text-ink">{formatCurrency(group.total)}</span>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-line">
                   {group.items.map((exp) => (
-                    <div key={exp._id} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50">
+                    <div key={exp._id} className="flex items-center gap-3 px-4 py-2 hover:bg-canvas">
                       <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <span className="text-[10px] font-bold text-primary">{(exp.categories?.[0]?.name || '?')[0]}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <span className="text-sm font-medium text-ink truncate">
                           {exp.categories?.[0]?.subcategory || exp.categories?.[0]?.name || '—'}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-500 mr-2">{exp.paymentMethod || 'Cash'}</span>
-                      <span className="text-sm font-bold text-red-600">{formatCurrency(exp.totalAmount)}</span>
+                      <span className="text-xs text-ink-soft mr-2">{exp.paymentMethod || 'Cash'}</span>
+                      <span className="text-sm font-bold text-danger">{formatCurrency(exp.totalAmount)}</span>
                     </div>
                   ))}
                 </div>

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Waves, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { apiRequest } from '../api';
+import Button from './Button';
 
 export default function LoginForm() {
   useDocumentTitle('Sign In');
@@ -57,60 +59,64 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-        <p className="text-gray-600 text-sm mb-6">Sign in to your pool management account</p>
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <span className="w-11 h-11 rounded-control bg-primary flex items-center justify-center">
+            <Waves size={22} className="text-white" />
+          </span>
+          <span className="text-sm font-medium text-ink-faint">Raya Pool</span>
+        </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
+        <div className="card p-6 sm:p-8">
+          <h1 className="text-xl font-semibold text-ink mb-1">Welcome back</h1>
+          <p className="text-sm text-ink-soft mb-6">Sign in to your pool management account</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="admin@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-              autoFocus
-            />
-          </div>
+          {error && (
+            <div className="flex items-start gap-2 bg-danger-soft border border-danger/20 text-danger-ink px-3.5 py-3 rounded-control mb-4 text-sm">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="label" htmlFor="login-email">Email address</label>
+              <input
+                id="login-email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="admin@example.com"
+                className="input"
+                disabled={loading}
+                autoFocus
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary hover:bg-primary/90 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+            <div>
+              <label className="label" htmlFor="login-password">Password</label>
+              <input
+                id="login-password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="input"
+                disabled={loading}
+              />
+            </div>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
+            <Button type="submit" className="w-full" size="lg" loading={loading}>
+              {loading ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </div>
+
+        <p className="text-center text-sm text-ink-soft mt-6">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-primary hover:text-primary font-medium">
+          <Link to="/signup" className="text-primary hover:text-primary-700 font-medium">
             Create one
           </Link>
         </p>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import Modal from './Modal';
 import Button from './Button';
 
 /**
@@ -22,7 +22,7 @@ export default function EditCompanyModal({ isOpen, onClose, company, onSave, loa
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       setError('Company name is required');
       return;
@@ -38,107 +38,78 @@ export default function EditCompanyModal({ isOpen, onClose, company, onSave, loa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800">Edit Company Information</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <X size={24} />
-          </button>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Edit company information"
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose} variant="secondary" disabled={loading}>Cancel</Button>
+          <Button type="submit" form="edit-company-form" variant="primary" loading={loading}>Save changes</Button>
+        </>
+      }
+    >
+      <form id="edit-company-form" onSubmit={handleSubmit}>
+        {error && (
+          <div className="bg-danger-soft border border-danger/20 text-danger-ink px-4 py-3 rounded-control mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="label">Company name</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter company name"
+            className="input"
+            disabled={loading}
+          />
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-              {error}
-            </div>
-          )}
+        <div className="mb-4">
+          <label className="label">Address</label>
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            placeholder="Enter company address"
+            className="input"
+            disabled={loading}
+          />
+        </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Company Name
-            </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Phone</label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="phone"
+              value={formData.phone}
               onChange={handleChange}
-              placeholder="Enter company name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="Enter phone number"
+              className="input"
               disabled={loading}
             />
           </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Address
-            </label>
+          <div>
+            <label className="label">Email</label>
             <input
-              type="text"
-              name="address"
-              value={formData.address}
+              type="email"
+              name="email"
+              value={formData.email}
               onChange={handleChange}
-              placeholder="Enter company address"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="Enter email address"
+              className="input"
               disabled={loading}
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Phone
-              </label>
-              <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Enter phone number"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Enter email address"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex gap-3 justify-end">
-            <Button
-              onClick={onClose}
-              variant="secondary"
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              loading={loading}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Modal>
   );
 }

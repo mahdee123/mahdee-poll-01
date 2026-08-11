@@ -12,6 +12,7 @@ import EditCompanyModal from './EditCompanyModal';
 import EditUserRoleModal from './EditUserRoleModal';
 import ConfirmDeleteUserModal from './ConfirmDeleteUserModal';
 import Sidebar from './Sidebar';
+import Topbar from './Topbar';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
 export default function CompanySettings({ token }) {
@@ -235,7 +236,7 @@ export default function CompanySettings({ token }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="min-h-screen bg-canvas py-8 px-4">
         <div className="max-w-6xl mx-auto">
           <LoadingSpinner message="Loading company settings..." />
         </div>
@@ -247,27 +248,14 @@ export default function CompanySettings({ token }) {
   const staff = users.slice(1);
 
   return (
-    <div className="flex flex-1">
-      {/* Mobile Header */}
-      <header className="sm:hidden fixed top-0 left-0 right-0 z-30 bg-secondary text-white px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="text-white text-2xl p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Open menu"
-        >
-          ☰
-        </button>
-        <span className="text-lg font-bold">Raya Pool</span>
-      </header>
-
+    <div className="min-h-screen bg-canvas flex">
       <Sidebar view="settings" setView={(v) => navigate('/dashboard')} user={currentUser} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 min-h-screen bg-gray-50 pt-14 sm:pt-0 py-4 sm:py-8 px-4 overflow-y-auto">
+
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <Topbar title="Company Settings" subtitle="Manage your company information and team members" onOpenSidebar={() => setSidebarOpen(true)} />
+
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8">
         <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Company Settings</h1>
-            <p className="text-gray-600 mt-2">Manage your company information and team members</p>
-          </div>
 
         {/* Notifications */}
         {toast && (
@@ -282,38 +270,38 @@ export default function CompanySettings({ token }) {
         <Card title="Company Information" icon={Building} className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Company Name</p>
-              <p className="text-lg font-semibold text-gray-800">{company?.name}</p>
+              <p className="text-sm text-ink-soft mb-1">Company Name</p>
+              <p className="text-lg font-semibold text-ink">{company?.name}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Company ID</p>
-              <p className="font-mono text-sm text-gray-800 break-all">{company?.id}</p>
+              <p className="text-sm text-ink-soft mb-1">Company ID</p>
+              <p className="font-mono text-sm text-ink break-all">{company?.id}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Address</p>
-              <p className="text-lg font-semibold text-gray-800">{company?.address || '—'}</p>
+              <p className="text-sm text-ink-soft mb-1">Address</p>
+              <p className="text-lg font-semibold text-ink">{company?.address || '—'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Phone</p>
-              <p className="text-lg font-semibold text-gray-800">{company?.phone || '—'}</p>
+              <p className="text-sm text-ink-soft mb-1">Phone</p>
+              <p className="text-lg font-semibold text-ink">{company?.phone || '—'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Email</p>
-              <p className="text-lg font-semibold text-gray-800">{company?.email || '—'}</p>
+              <p className="text-sm text-ink-soft mb-1">Email</p>
+              <p className="text-lg font-semibold text-ink">{company?.email || '—'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Status</p>
+              <p className="text-sm text-ink-soft mb-1">Status</p>
               <Badge type="status" value={company?.status} />
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Created</p>
-              <p className="text-lg font-semibold text-gray-800">
+              <p className="text-sm text-ink-soft mb-1">Created</p>
+              <p className="text-lg font-semibold text-ink">
                 {new Date(company?.createdAt).toLocaleDateString()}
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+          <div className="flex gap-3 justify-end pt-4 border-t border-line">
             <Button
               onClick={() => setShowEditCompanyModal(true)}
               variant="primary"
@@ -330,8 +318,8 @@ export default function CompanySettings({ token }) {
             <div className="flex items-center gap-3">
               <Users className="w-6 h-6 text-primary" />
               <div>
-                <h2 className="text-xl font-bold text-gray-800">Team Members</h2>
-                <p className="text-sm text-gray-600">{users.length} member{users.length !== 1 ? 's' : ''}</p>
+                <h2 className="text-xl font-bold text-ink">Team Members</h2>
+                <p className="text-sm text-ink-soft">{users.length} member{users.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
             <Button
@@ -347,27 +335,27 @@ export default function CompanySettings({ token }) {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Role</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Joined</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Actions</th>
+                <tr className="border-b border-line bg-canvas">
+                  <th className="text-left py-3 px-4 font-semibold text-ink text-sm">Name</th>
+                  <th className="text-left py-3 px-4 font-semibold text-ink text-sm">Email</th>
+                  <th className="text-left py-3 px-4 font-semibold text-ink text-sm">Role</th>
+                  <th className="text-left py-3 px-4 font-semibold text-ink text-sm">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-ink text-sm">Joined</th>
+                  <th className="text-left py-3 px-4 font-semibold text-ink text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user, idx) => (
-                  <tr key={user.id || idx} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 text-gray-800 font-medium text-sm">{user.name}</td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">{user.email}</td>
+                  <tr key={user.id || idx} className="border-b border-line hover:bg-canvas transition-colors">
+                    <td className="py-3 px-4 text-ink font-medium text-sm">{user.name}</td>
+                    <td className="py-3 px-4 text-ink-soft text-sm">{user.email}</td>
                     <td className="py-3 px-4">
                       <Badge type="role" value={user.role} />
                     </td>
                     <td className="py-3 px-4">
                       <Badge type="status" value={user.status} />
                     </td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">
+                    <td className="py-3 px-4 text-ink-soft text-sm">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-4">
@@ -388,7 +376,7 @@ export default function CompanySettings({ token }) {
                               setSelectedUser(user);
                               setShowDeleteModal(true);
                             }}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-danger hover:bg-danger-soft rounded-lg transition-colors"
                             title="Remove user"
                           >
                             <Trash2 size={16} />
@@ -405,11 +393,11 @@ export default function CompanySettings({ token }) {
           {/* Mobile Card View */}
           <div className="md:hidden space-y-3">
             {users.map((user, idx) => (
-              <div key={user.id || idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <div key={user.id || idx} className="p-4 border border-line rounded-lg bg-canvas">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="font-semibold text-gray-800">{user.name}</p>
-                    <p className="text-sm text-gray-600">{user.email}</p>
+                    <p className="font-semibold text-ink">{user.name}</p>
+                    <p className="text-sm text-ink-soft">{user.email}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -427,7 +415,7 @@ export default function CompanySettings({ token }) {
                           setSelectedUser(user);
                           setShowDeleteModal(true);
                         }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                        className="p-1.5 text-danger hover:bg-danger-soft rounded-lg"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -438,7 +426,7 @@ export default function CompanySettings({ token }) {
                   <Badge type="role" value={user.role} />
                   <Badge type="status" value={user.status} />
                 </div>
-                <p className="text-xs text-gray-600 mt-3">
+                <p className="text-xs text-ink-soft mt-3">
                   Joined {new Date(user.createdAt).toLocaleDateString()}
                 </p>
               </div>
@@ -454,7 +442,8 @@ export default function CompanySettings({ token }) {
             />
           )}
         </Card>
-      </div>
+        </div>
+        </main>
 
       {/* Modals */}
       <InviteUserModal
@@ -497,7 +486,7 @@ export default function CompanySettings({ token }) {
           loading={actionLoading}
         />
       )}
-    </div>
+      </div>
     </div>
   );
 }

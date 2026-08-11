@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Plus, X, Pencil, Trash2, ClipboardList, Search } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
+import Button from './Button.jsx';
+import EmptyState from './EmptyState.jsx';
 import useConfirm from '../hooks/useConfirm';
 
 const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
@@ -125,23 +128,23 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
   }, [filtered]);
 
   const renderExpenseRow = (exp) => (
-    <div key={exp._id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition group">
-      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+    <div key={exp._id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-canvas transition group">
+      <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center flex-shrink-0">
         <span className="text-xs font-bold text-primary">{(exp.categories?.[0]?.name || '?')[0]}</span>
       </div>
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-gray-900 truncate">
+        <span className="text-sm font-medium text-ink truncate">
           {exp.categories?.[0]?.subcategory || exp.categories?.[0]?.name || '—'}
         </span>
-        <span className="text-xs text-gray-500 ml-2">{exp.paymentMethod || 'Cash'}</span>
+        <span className="text-xs text-ink-soft ml-2">{exp.paymentMethod || 'Cash'}</span>
       </div>
-      <div className="text-sm font-bold text-red-600 flex-shrink-0">{formatCurrency(exp.totalAmount)}</div>
+      <div className="text-sm font-bold text-danger flex-shrink-0 tabular">{formatCurrency(exp.totalAmount)}</div>
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
-        <button onClick={() => handleEdit(exp)} className="p-1 text-gray-400 hover:text-primary rounded transition">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        <button onClick={() => handleEdit(exp)} className="w-7 h-7 flex items-center justify-center text-ink-faint hover:text-primary hover:bg-primary-50 rounded-control transition" aria-label="Edit expense">
+          <Pencil size={13} />
         </button>
-        <button onClick={() => handleDelete(exp._id)} className="p-1 text-gray-400 hover:text-red-500 rounded transition">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        <button onClick={() => handleDelete(exp._id)} className="w-7 h-7 flex items-center justify-center text-ink-faint hover:text-danger hover:bg-danger-soft rounded-control transition" aria-label="Delete expense">
+          <Trash2 size={13} />
         </button>
       </div>
     </div>
@@ -155,67 +158,76 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
 
       {/* ADD EXPENSE BUTTON / FORM */}
       {!showForm ? (
-        <button onClick={() => setShowForm(true)} className="w-full bg-white rounded-xl shadow-md border-2 border-dashed border-gray-200 p-6 text-center hover:border-primary hover:bg-primary/5 transition group cursor-pointer">
+        <button onClick={() => setShowForm(true)} className="w-full card border-2 border-dashed border-line-strong p-6 text-center hover:border-primary hover:bg-primary-50 transition group cursor-pointer">
           <div className="flex items-center justify-center gap-3">
-            <span className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold group-hover:bg-primary/20 transition">+</span>
-            <span className="text-lg font-semibold text-gray-700 group-hover:text-primary transition">Add Daily Expense</span>
+            <span className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary group-hover:bg-primary-100 transition">
+              <Plus size={20} />
+            </span>
+            <span className="text-lg font-semibold text-ink group-hover:text-primary transition">Add daily expense</span>
           </div>
         </button>
       ) : (
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-4">
+        <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-gray-900">Add Daily Expense</h2>
-            <div className="flex gap-2">
-              <button onClick={onManageCategories} className="px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Add New Category</button>
-              <button onClick={resetForm} className="px-2.5 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition">✕</button>
+            <h2 className="text-base font-semibold text-ink">Add daily expense</h2>
+            <div className="flex items-center gap-2">
+              <button onClick={onManageCategories} className="px-2.5 py-1 text-xs font-medium text-ink bg-canvas rounded-control hover:bg-line/60 transition">Add new category</button>
+              <button onClick={resetForm} className="w-7 h-7 flex items-center justify-center text-ink-faint hover:text-ink rounded-control hover:bg-canvas transition" aria-label="Close">
+                <X size={15} />
+              </button>
             </div>
           </div>
-          <div className="mb-2 relative" ref={dropdownRef}>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Search Subcategory</label>
+          <div className="mb-3 relative" ref={dropdownRef}>
+            <label className="label">Search subcategory</label>
             <div className="relative">
-              <input ref={searchRef} type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); setSelCat(''); setSelSub(''); }} onFocus={() => setShowDropdown(true)} placeholder="Type subcategory name" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" />
-              {searchTerm && <button onClick={() => { setSearchTerm(''); setSelCat(''); setSelSub(''); setShowDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">&times;</button>}
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
+              <input ref={searchRef} type="text" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); setSelCat(''); setSelSub(''); }} onFocus={() => setShowDropdown(true)} placeholder="Type subcategory name" className="input pl-8" />
+              {searchTerm && <button onClick={() => { setSearchTerm(''); setSelCat(''); setSelSub(''); setShowDropdown(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink"><X size={14} /></button>}
             </div>
             {showDropdown && filteredSearch.length > 0 && (
-              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              <div className="dropdown-panel left-0 right-0 w-auto max-h-48 overflow-y-auto">
                 {filteredSearch.map((s, i) => (
-                  <button key={i} onClick={() => selectSub(s)} className={`w-full flex items-center justify-between px-4 py-2 text-left hover:bg-primary/5 transition ${selSub === s.name ? 'bg-primary/10' : ''}`}>
-                    <span className="text-sm font-medium text-gray-900">{s.name}</span>
-                    <span className="text-xs text-gray-500">{s.category}</span>
+                  <button key={i} onClick={() => selectSub(s)} className={`dropdown-item justify-between ${selSub === s.name ? 'bg-primary-50 text-ink' : ''}`}>
+                    <span className="font-medium text-ink">{s.name}</span>
+                    <span className="text-xs text-ink-soft">{s.category}</span>
                   </button>
                 ))}
               </div>
             )}
-            {showDropdown && searchTerm && filteredSearch.length === 0 && <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-center"><p className="text-xs text-gray-500">No subcategories found</p></div>}
+            {showDropdown && searchTerm && filteredSearch.length === 0 && (
+              <div className="dropdown-panel left-0 right-0 w-auto p-3 text-center">
+                <p className="text-xs text-ink-soft">No subcategories found</p>
+              </div>
+            )}
           </div>
-          <div className="mb-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Type about your expense..." rows={2} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary outline-none transition resize-none" />
+          <div className="mb-3">
+            <label className="label">Description</label>
+            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Type about your expense…" rows={2} className="textarea" />
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Amount</label>
-              <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ex: 550" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" />
+              <label className="label">Amount</label>
+              <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ex: 550" className="input" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method</label>
-              <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
-                <option value="">Select Payment Method</option>
+              <label className="label">Payment method</label>
+              <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="select">
+                <option value="">Select payment method</option>
                 {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={resetForm} className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-            <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 text-xs font-semibold text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save Expense'}</button>
+            <Button variant="secondary" size="sm" onClick={resetForm}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} loading={saving}>Save expense</Button>
           </div>
         </div>
       )}
 
       {/* FILTERS */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-100 p-4">
+      <div className="card p-4">
         {/* Date Range Buttons */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="segmented flex-wrap mb-3">
           {[
             { label: 'Today', value: 'today' },
             { label: 'Weekly', value: 'week' },
@@ -223,8 +235,7 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
             { label: 'Yearly', value: 'year' },
             { label: 'Custom', value: 'custom' },
           ].map(p => (
-            <button key={p.value} onClick={() => setFRange(p.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${fRange === p.value ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            <button key={p.value} onClick={() => setFRange(p.value)} className={fRange === p.value ? 'segmented-item-active' : 'segmented-item'}>
               {p.label}
             </button>
           ))}
@@ -234,14 +245,12 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
         {fRange === 'custom' && (
           <div className="flex gap-2 mb-3">
             <div className="flex-1">
-              <label className="block text-xs text-gray-500 mb-1">Start Date</label>
-              <input type="date" value={fCustomStart} onChange={e => setFCustomStart(e.target.value)}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary outline-none" />
+              <label className="label">Start date</label>
+              <input type="date" value={fCustomStart} onChange={e => setFCustomStart(e.target.value)} className="input" />
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-gray-500 mb-1">End Date</label>
-              <input type="date" value={fCustomEnd} onChange={e => setFCustomEnd(e.target.value)}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary outline-none" />
+              <label className="label">End date</label>
+              <input type="date" value={fCustomEnd} onChange={e => setFCustomEnd(e.target.value)} className="input" />
             </div>
           </div>
         )}
@@ -249,18 +258,16 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
         {/* Payment + Category Dropdowns */}
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="block text-xs text-gray-500 mb-1">Payment Method</label>
-            <select value={fPay} onChange={e => setFPay(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary outline-none">
-              <option value="">All Methods</option>
+            <label className="label">Payment method</label>
+            <select value={fPay} onChange={e => setFPay(e.target.value)} className="select">
+              <option value="">All methods</option>
               {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
           <div className="flex-1">
-            <label className="block text-xs text-gray-500 mb-1">Category</label>
-            <select value={fCat} onChange={e => setFCat(e.target.value)}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary outline-none">
-              <option value="">All Categories</option>
+            <label className="label">Category</label>
+            <select value={fCat} onChange={e => setFCat(e.target.value)} className="select">
+              <option value="">All categories</option>
               {uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -268,30 +275,30 @@ export default function DailyExpenseForm({ token, onManageCategories }) {
       </div>
 
       {/* EXPENSES BY DATE */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100"><h2 className="text-sm font-semibold text-gray-900">Expenses</h2></div>
+      <div className="card overflow-hidden">
+        <div className="px-5 py-3 border-b border-line"><h2 className="text-sm font-semibold text-ink">Expenses</h2></div>
         {expLoading ? <LoadingSpinner /> : grouped.length === 0 ? (
-          <div className="p-8 text-center"><div className="text-4xl mb-2">📋</div><p className="text-gray-500 text-sm">{expenses.length === 0 ? 'No expenses yet' : 'No expenses match filters'}</p></div>
+          <EmptyState icon={ClipboardList} title={expenses.length === 0 ? 'No expenses yet' : 'No expenses match filters'} message={expenses.length === 0 ? 'Add your first daily expense to start tracking.' : 'Try adjusting your filters above.'} />
         ) : (
           <div>
             {grouped.map((g) => (
               <div key={toDateKey(g.date)}>
-                <div className="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-600">{formatDate(g.date)}</span>
-                  <span className="text-xs font-bold text-gray-800">{formatCurrency(g.total)}</span>
+                <div className="px-5 py-2 bg-canvas border-b border-line flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink-soft">{formatDate(g.date)}</span>
+                  <span className="text-xs font-bold text-ink tabular">{formatCurrency(g.total)}</span>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-line">
                   {g.items.map(exp => editId === exp._id ? (
-                    <div key={exp._id} className="p-3 bg-primary/5">
+                    <div key={exp._id} className="p-3 bg-primary-50">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                        <div><label className="block text-xs text-gray-500 mb-1">Date</label><input type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary outline-none" /></div>
-                        <div><label className="block text-xs text-gray-500 mb-1">Amount</label><input type="number" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary outline-none" /></div>
-                        <div><label className="block text-xs text-gray-500 mb-1">Category</label><select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value, subcategory: '' })} className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary outline-none">{categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}</select></div>
-                        <div><label className="block text-xs text-gray-500 mb-1">Payment</label><select value={editForm.paymentMethod} onChange={e => setEditForm({ ...editForm, paymentMethod: e.target.value })} className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary outline-none">{PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                        <div><label className="label">Date</label><input type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} className="input py-1" /></div>
+                        <div><label className="label">Amount</label><input type="number" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} className="input py-1" /></div>
+                        <div><label className="label">Category</label><select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value, subcategory: '' })} className="select py-1">{categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}</select></div>
+                        <div><label className="label">Payment</label><select value={editForm.paymentMethod} onChange={e => setEditForm({ ...editForm, paymentMethod: e.target.value })} className="select py-1">{PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <button onClick={() => { setEditId(null); setEditForm(null); }} className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition">Cancel</button>
-                        <button onClick={handleSaveEdit} disabled={saving} className="px-3 py-1 text-xs font-medium text-white bg-primary rounded hover:bg-primary/90 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save'}</button>
+                        <Button variant="secondary" size="sm" onClick={() => { setEditId(null); setEditForm(null); }}>Cancel</Button>
+                        <Button size="sm" onClick={handleSaveEdit} loading={saving}>Save</Button>
                       </div>
                     </div>
                   ) : renderExpenseRow(exp))}

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Plus, Pencil, Trash2, FolderOpen, ArrowLeft, Check, X } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
+import Button from './Button.jsx';
+import ActionDropdown from './ActionDropdown.jsx';
+import EmptyState from './EmptyState.jsx';
 import useConfirm from '../hooks/useConfirm';
 
 export default function ExpenseCategoriesPage({ token }) {
@@ -26,9 +30,6 @@ export default function ExpenseCategoriesPage({ token }) {
   const [editCatName, setEditCatName] = useState('');
   const [editingSubId, setEditingSubId] = useState(null);
   const [editSubName, setEditSubName] = useState('');
-
-  // Three-dot menu
-  const [openMenu, setOpenMenu] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ message: msg, type });
@@ -132,39 +133,34 @@ export default function ExpenseCategoriesPage({ token }) {
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="flex gap-4">
+      <div className="grid md:grid-cols-[20rem,1fr] gap-4">
         {/* ============ LEFT PANEL: Categories ============ */}
-        <div className="w-80 flex-shrink-0 bg-white rounded-lg shadow overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">All Categories</h2>
+        <div className="card overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">All categories</h2>
             <button
               onClick={() => setShowAddCat(!showAddCat)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition text-lg font-bold"
+              className="w-7 h-7 flex items-center justify-center rounded-control bg-primary-50 text-primary hover:bg-primary-100 transition"
+              aria-label="Add category"
             >
-              +
+              <Plus size={15} />
             </button>
           </div>
 
           {/* Add Category Form */}
           {showAddCat && (
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+            <div className="px-4 py-3 border-b border-line bg-canvas">
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-                  placeholder="Category name..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
+                  placeholder="Category name…"
+                  className="input flex-1"
                   autoFocus
                 />
-                <button
-                  onClick={handleAddCategory}
-                  disabled={!newCatName.trim()}
-                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition"
-                >
-                  Add
-                </button>
+                <Button onClick={handleAddCategory} disabled={!newCatName.trim()}>Add</Button>
               </div>
             </div>
           )}
@@ -174,19 +170,17 @@ export default function ExpenseCategoriesPage({ token }) {
             {loading ? (
               <LoadingSpinner />
             ) : categories.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-gray-500 text-sm">No categories yet</p>
-              </div>
+              <EmptyState title="No categories yet" message="Add your first expense category to get started." />
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-line">
                 {categories.map((cat) => (
                   <div
                     key={cat._id}
-                    onClick={() => { setSelectedCat(cat._id); setEditingCatId(null); setOpenMenu(null); }}
+                    onClick={() => { setSelectedCat(cat._id); setEditingCatId(null); }}
                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition ${
                       selectedCat === cat._id
-                        ? 'bg-primary/5 border-l-4 border-primary'
-                        : 'hover:bg-gray-50 border-l-4 border-transparent'
+                        ? 'bg-primary-50 border-l-4 border-primary'
+                        : 'hover:bg-canvas border-l-4 border-transparent'
                     }`}
                   >
                     {editingCatId === cat._id ? (
@@ -196,37 +190,21 @@ export default function ExpenseCategoriesPage({ token }) {
                         onChange={(e) => setEditCatName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleRenameCategory(cat._id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary outline-none"
+                        className="input flex-1 py-1"
                         autoFocus
                       />
                     ) : (
                       <>
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                        <span className="flex-1 text-sm font-medium text-gray-800">{cat.name}</span>
-                        <span className="text-xs text-gray-400">{cat.subcategories?.length || 0}</span>
-                        <div className="relative">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === `cat-${cat._id}` ? null : `cat-${cat._id}`); }}
-                            className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
-                          >
-                            ⋮
-                          </button>
-                          {openMenu === `cat-${cat._id}` && (
-                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 w-24">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setEditingCatId(cat._id); setEditCatName(cat.name); setOpenMenu(null); }}
-                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                              >
-                                ✏️ Edit
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat._id, cat.name); setOpenMenu(null); }}
-                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                              >
-                                🗑️ Delete
-                              </button>
-                            </div>
-                          )}
+                        <span className="flex-1 text-sm font-medium text-ink">{cat.name}</span>
+                        <span className="text-xs text-ink-faint">{cat.subcategories?.length || 0}</span>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ActionDropdown
+                            actions={[
+                              { label: 'Edit', icon: Pencil, onClick: () => { setEditingCatId(cat._id); setEditCatName(cat.name); } },
+                              { label: 'Delete', icon: Trash2, destructive: true, onClick: () => handleDeleteCategory(cat._id, cat.name) },
+                            ]}
+                          />
                         </div>
                       </>
                     )}
@@ -238,56 +216,42 @@ export default function ExpenseCategoriesPage({ token }) {
 
           {/* Add Category Button */}
           {!showAddCat && (
-            <div className="p-3 border-t border-gray-200">
-              <button
-                onClick={() => setShowAddCat(true)}
-                className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:text-primary hover:border-primary transition font-medium"
-              >
-                + Add New Category
-              </button>
+            <div className="p-3 border-t border-line">
+              <Button variant="secondary" icon={Plus} onClick={() => setShowAddCat(true)} className="w-full">
+                Add new category
+              </Button>
             </div>
           )}
         </div>
 
         {/* ============ RIGHT PANEL: Subcategories ============ */}
-        <div className="flex-1 bg-white rounded-lg shadow overflow-hidden flex flex-col">
+        <div className="card overflow-hidden flex flex-col">
           {selectedCategory ? (
             <>
-              <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-line flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    {selectedCategory.name} — Subcategories
+                  <h2 className="text-sm font-semibold text-ink">
+                    {selectedCategory.name} — subcategories
                   </h2>
-                  <p className="text-xs text-gray-500">{selectedCategory.subcategories?.length || 0} items</p>
+                  <p className="text-xs text-ink-soft">{selectedCategory.subcategories?.length || 0} items</p>
                 </div>
-                <button
-                  onClick={() => setShowAddSub(!showAddSub)}
-                  className="px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition"
-                >
-                  + Add
-                </button>
+                <Button size="sm" icon={Plus} onClick={() => setShowAddSub(!showAddSub)}>Add</Button>
               </div>
 
               {/* Add Subcategory Form */}
               {showAddSub && (
-                <div className="px-5 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="px-5 py-3 border-b border-line bg-canvas">
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newSubName}
                       onChange={(e) => setNewSubName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddSubcategory()}
-                      placeholder="Subcategory name..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="Subcategory name…"
+                      className="input flex-1"
                       autoFocus
                     />
-                    <button
-                      onClick={handleAddSubcategory}
-                      disabled={!newSubName.trim()}
-                      className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition"
-                    >
-                      Add
-                    </button>
+                    <Button onClick={handleAddSubcategory} disabled={!newSubName.trim()}>Add</Button>
                   </div>
                 </div>
               )}
@@ -295,15 +259,11 @@ export default function ExpenseCategoriesPage({ token }) {
               {/* Subcategory List */}
               <div className="flex-1 overflow-y-auto">
                 {!selectedCategory.subcategories || selectedCategory.subcategories.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <div className="text-4xl mb-3">📂</div>
-                    <p className="text-gray-500 text-sm">No subcategories yet</p>
-                    <p className="text-gray-400 text-xs mt-1">Add one using the button above</p>
-                  </div>
+                  <EmptyState icon={FolderOpen} title="No subcategories yet" message="Add one using the button above." />
                 ) : (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-line">
                     {selectedCategory.subcategories.map((sub) => (
-                      <div key={sub._id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition group">
+                      <div key={sub._id} className="flex items-center gap-3 px-5 py-3 hover:bg-canvas transition">
                         {editingSubId === sub._id ? (
                           <>
                             <input
@@ -311,49 +271,25 @@ export default function ExpenseCategoriesPage({ token }) {
                               value={editSubName}
                               onChange={(e) => setEditSubName(e.target.value)}
                               onKeyDown={(e) => e.key === 'Enter' && handleRenameSub(sub._id)}
-                              className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none"
+                              className="input flex-1 py-1.5"
                               autoFocus
                             />
-                            <button
-                              onClick={() => handleRenameSub(sub._id)}
-                              className="px-3 py-1.5 bg-primary text-white text-sm rounded-lg font-medium hover:bg-primary/90 transition"
-                            >
-                              Save
+                            <button onClick={() => handleRenameSub(sub._id)} className="w-9 h-9 flex items-center justify-center rounded-control text-success hover:bg-success-soft" aria-label="Save">
+                              <Check size={15} />
                             </button>
-                            <button
-                              onClick={() => setEditingSubId(null)}
-                              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg font-medium hover:bg-gray-200 transition"
-                            >
-                              Cancel
+                            <button onClick={() => setEditingSubId(null)} className="w-9 h-9 flex items-center justify-center rounded-control text-ink-soft hover:bg-canvas" aria-label="Cancel">
+                              <X size={15} />
                             </button>
                           </>
                         ) : (
                           <>
-                            <span className="flex-1 text-sm text-gray-800">{sub.name}</span>
-                            <div className="relative">
-                              <button
-                                onClick={() => setOpenMenu(openMenu === `sub-${sub._id}` ? null : `sub-${sub._id}`)}
-                                className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
-                              >
-                                ⋮
-                              </button>
-                              {openMenu === `sub-${sub._id}` && (
-                                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 w-28">
-                                  <button
-                                    onClick={() => { setEditingSubId(sub._id); setEditSubName(sub.name); setOpenMenu(null); }}
-                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                  >
-                                    ✏️ Edit
-                                  </button>
-                                  <button
-                                    onClick={() => { handleDeleteSub(sub._id); setOpenMenu(null); }}
-                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                  >
-                                    🗑️ Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <span className="flex-1 text-sm text-ink">{sub.name}</span>
+                            <ActionDropdown
+                              actions={[
+                                { label: 'Edit', icon: Pencil, onClick: () => { setEditingSubId(sub._id); setEditSubName(sub.name); } },
+                                { label: 'Delete', icon: Trash2, destructive: true, onClick: () => handleDeleteSub(sub._id) },
+                              ]}
+                            />
                           </>
                         )}
                       </div>
@@ -364,10 +300,7 @@ export default function ExpenseCategoriesPage({ token }) {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-5xl mb-3">👈</div>
-                <p className="text-gray-500 text-sm">Select a category to manage subcategories</p>
-              </div>
+              <EmptyState icon={ArrowLeft} title="No category selected" message="Select a category on the left to manage its subcategories." />
             </div>
           )}
         </div>

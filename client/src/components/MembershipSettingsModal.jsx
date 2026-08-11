@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Plus, Pencil, Trash2, ClipboardList, Loader2 } from 'lucide-react';
 import { apiRequest } from '../api.js';
+import Modal from './Modal';
+import Button from './Button';
+import EmptyState from './EmptyState';
+import ActionDropdown from './ActionDropdown';
 
 const COLORS = [
   '#EF4444','#F97316','#F59E0B','#EAB308','#84CC16','#22C55E','#10B981','#14B8A6',
@@ -9,20 +14,7 @@ const COLORS = [
   '#A78BFA','#93C5FD','#7DD3FC','#67E8F9','#5EEAD4','#86EFAC','#BEF264','#FDE047',
 ];
 
-const DURATION_OPTIONS = [
-  { value: 1, label: '1 Month' },
-  { value: 2, label: '2 Months' },
-  { value: 3, label: '3 Months' },
-  { value: 4, label: '4 Months' },
-  { value: 5, label: '5 Months' },
-  { value: 6, label: '6 Months' },
-  { value: 7, label: '7 Months' },
-  { value: 8, label: '8 Months' },
-  { value: 9, label: '9 Months' },
-  { value: 10, label: '10 Months' },
-  { value: 11, label: '11 Months' },
-  { value: 12, label: '12 Months' },
-];
+const DURATION_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1} Month${i > 0 ? 's' : ''}` }));
 
 const DEFAULT_PACKAGES = [
   { title: 'Monthly', duration: 1, amount: 6500, monthlyFee: 2000, color: '#3B82F6', admissionFee: true },
@@ -30,6 +22,16 @@ const DEFAULT_PACKAGES = [
   { title: 'Half Yearly', duration: 6, amount: 17000, monthlyFee: 2000, color: '#F59E0B', admissionFee: true },
   { title: 'Yearly', duration: 12, amount: 30000, monthlyFee: 2000, color: '#22C55E', admissionFee: true },
 ];
+
+/** Small on/off switch shared by the base-fee cards and the package editor. */
+function Toggle({ checked, onChange }) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
+      <div className="w-11 h-6 bg-line/60 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-strong after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+    </label>
+  );
+}
 
 export default function MembershipSettingsModal({ isOpen, token, onClose, onSuccess, showToast }) {
   const [loading, setLoading] = useState(false);
@@ -51,9 +53,6 @@ export default function MembershipSettingsModal({ isOpen, token, onClose, onSucc
   const [pkgModalOpen, setPkgModalOpen] = useState(false);
   const [editingPkg, setEditingPkg] = useState(null);
   const [pkgForm, setPkgForm] = useState({ title: '', duration: 1, amount: 0, monthlyFee: 2000, color: '#6366F1', admissionFee: true });
-
-  // Color picker state
-  const [showColorPicker, setShowColorPicker] = useState(null);
 
   useEffect(() => {
     if (isOpen) fetchSettings();
@@ -115,7 +114,6 @@ export default function MembershipSettingsModal({ isOpen, token, onClose, onSucc
     setPackages(packages.filter((_, i) => i !== idx));
   };
 
-  // --- Expense handlers ---
   // --- Save all ---
   const handleSaveAll = async () => {
     try {
@@ -145,247 +143,211 @@ export default function MembershipSettingsModal({ isOpen, token, onClose, onSucc
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-5xl w-full shadow-xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div>
-            <h2 className="text-2xl font-bold">⚙️ Membership Settings</h2>
-            <p className="text-sm text-gray-500 mt-1">Easily manage your pool's admission and monthly fees in one place.</p>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Membership settings"
+        description="Manage your pool's admission and monthly fees in one place."
+        size="xl"
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSaveAll} loading={saving} disabled={loading}>Save settings</Button>
+          </>
+        }
+      >
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-ink-soft">
+            <Loader2 size={18} className="animate-spin text-primary" /> Loading…
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-        </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Base Fees Setup */}
+            <div className="border border-line rounded-card p-5">
+              <h3 className="section-title mb-1">Base fees setup</h3>
+              <p className="muted mb-4">Easily manage your pool's admission and monthly fees in one place.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Admission Fee Card */}
+                <div className="border border-line rounded-card p-4 bg-canvas">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-medium text-ink">Admission fee</p>
+                      <p className="text-xs text-ink-soft">One-time fee new members must pay</p>
+                    </div>
+                    <Toggle checked={admissionFeeEnabled} onChange={(e) => setAdmissionFeeEnabled(e.target.checked)} />
+                  </div>
+                  <div>
+                    <label className="label">Amount</label>
+                    <input
+                      type="number"
+                      value={admissionFeeAmount}
+                      onChange={(e) => setAdmissionFeeAmount(e.target.value)}
+                      disabled={!admissionFeeEnabled}
+                      className="input"
+                    />
+                  </div>
+                </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3 text-gray-500">Loading...</span>
+                {/* Monthly Fee Card */}
+                <div className="border border-line rounded-card p-4 bg-canvas">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-medium text-ink">Monthly fee</p>
+                      <p className="text-xs text-ink-soft">Applies every month unless a package is selected</p>
+                    </div>
+                    <Toggle checked={monthlyFeeEnabled} onChange={(e) => setMonthlyFeeEnabled(e.target.checked)} />
+                  </div>
+                  <div>
+                    <label className="label">Amount</label>
+                    <input
+                      type="number"
+                      value={monthlyFeeAmount}
+                      onChange={(e) => setMonthlyFeeAmount(e.target.value)}
+                      disabled={!monthlyFeeEnabled}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-          ) : (
-            <>
-              {/* Base Fees Setup */}
-              <div className="border rounded-xl p-5">
-                <h3 className="text-lg font-semibold mb-1">Base Fees Setup</h3>
-                <p className="text-sm text-gray-500 mb-4">Easily manage your pool's admission and monthly fees in one place.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Admission Fee Card */}
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="font-medium">Admission Fee</p>
-                        <p className="text-xs text-gray-500">This is a one-time fee for new member must pay</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" checked={admissionFeeEnabled} onChange={(e) => setAdmissionFeeEnabled(e.target.checked)} className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Amount</label>
-                      <input
-                        type="number"
-                        value={admissionFeeAmount}
-                        onChange={(e) => setAdmissionFeeAmount(e.target.value)}
-                        disabled={!admissionFeeEnabled}
-                        className="w-full border rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-gray-100"
-                      />
-                    </div>
-                  </div>
 
-                  {/* Monthly Fee Card */}
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="font-medium">Monthly Fee</p>
-                        <p className="text-xs text-gray-500">This fee will apply every month unless a package is selected</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" checked={monthlyFeeEnabled} onChange={(e) => setMonthlyFeeEnabled(e.target.checked)} className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Amount</label>
-                      <input
-                        type="number"
-                        value={monthlyFeeAmount}
-                        onChange={(e) => setMonthlyFeeAmount(e.target.value)}
-                        disabled={!monthlyFeeEnabled}
-                        className="w-full border rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:bg-gray-100"
-                      />
-                    </div>
-                  </div>
-                </div>
+            {/* Packages */}
+            <div className="border border-line rounded-card overflow-hidden">
+              <div className="bg-canvas px-4 py-3 border-b border-line">
+                <h4 className="font-semibold text-ink">Package titles</h4>
               </div>
-
-              {/* Packages */}
-              <div>
-                <div className="border rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-3 border-b">
-                    <h4 className="font-semibold">Package's Title</h4>
-                  </div>
-                  {packages.length === 0 ? (
-                    <div className="py-12 text-center text-gray-400">
-                      <p className="text-4xl mb-2">📋</p>
-                      <p className="font-medium">No data available yet</p>
-                      <p className="text-sm">Once you start adding packages, everything will appear here.</p>
-                    </div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-gray-50 text-left text-gray-600">
-                          <th className="px-4 py-3 font-medium">Title</th>
-                          <th className="px-4 py-3 font-medium">Duration</th>
-                          <th className="px-4 py-3 font-medium">Amount</th>
-                          <th className="px-4 py-3 font-medium">Colour</th>
-                          <th className="px-4 py-3 font-medium">Edit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {packages.map((pkg, idx) => (
-                          <tr key={idx} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium">{pkg.title}</td>
-                            <td className="px-4 py-3">{pkg.duration} Month{pkg.duration > 1 ? 's' : ''}</td>
-                            <td className="px-4 py-3">৳{pkg.amount?.toLocaleString()}</td>
-                            <td className="px-4 py-3">
-                              <span className="inline-block w-6 h-6 rounded-full border" style={{ backgroundColor: pkg.color }}></span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="relative">
-                                <button onClick={() => setShowColorPicker(showColorPicker === `pkg-${idx}` ? null : `pkg-${idx}`)} className="text-gray-400 hover:text-gray-600 text-lg">⋮</button>
-                                {showColorPicker === `pkg-${idx}` && (
-                                  <div className="absolute right-0 top-8 bg-white border rounded-lg shadow-lg z-10 py-1 w-28">
-                                    <button onClick={() => { openEditPkg(pkg, idx); setShowColorPicker(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">✏️ Edit</button>
-                                    <button onClick={() => { handleDeletePkg(idx); setShowColorPicker(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm text-red-600">🗑️ Delete</button>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  <div className="p-4 border-t">
-                    <button onClick={openAddPkg} className="w-full py-2 border-2 border-dashed rounded-lg text-gray-500 hover:text-primary hover:border-primary transition font-medium">
-                      + Add New
-                    </button>
-                  </div>
-                </div>
+              {packages.length === 0 ? (
+                <EmptyState icon={ClipboardList} title="No packages yet" message="Once you start adding packages, everything will appear here." />
+              ) : (
+                <table className="table-modern w-full">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Duration</th>
+                      <th>Amount</th>
+                      <th>Colour</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packages.map((pkg, idx) => (
+                      <tr key={idx}>
+                        <td className="font-medium text-ink">{pkg.title}</td>
+                        <td>{pkg.duration} Month{pkg.duration > 1 ? 's' : ''}</td>
+                        <td className="tabular">৳{pkg.amount?.toLocaleString()}</td>
+                        <td>
+                          <span className="inline-block w-6 h-6 rounded-full border border-line" style={{ backgroundColor: pkg.color }}></span>
+                        </td>
+                        <td className="text-right">
+                          <ActionDropdown
+                            actions={[
+                              { label: 'Edit', icon: Pencil, onClick: () => openEditPkg(pkg, idx) },
+                              { label: 'Delete', icon: Trash2, destructive: true, onClick: () => handleDeletePkg(idx) },
+                            ]}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="p-4 border-t border-line">
+                <Button variant="secondary" icon={Plus} onClick={openAddPkg} className="w-full">Add new package</Button>
               </div>
+            </div>
 
-              {/* Auto Inactive Setting */}
-              <div className="border rounded-xl p-5">
-                <h3 className="text-lg font-semibold mb-1">Auto Inactive</h3>
-                <p className="text-sm text-gray-500 mb-3">Automatically mark members as inactive after months of no payment.</p>
-                <div className="max-w-xs">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Months</label>
-                  <input
-                    type="number"
-                    value={autoInactiveMonths}
-                    onChange={(e) => setAutoInactiveMonths(Number(e.target.value) || 0)}
-                    className="w-full border rounded-lg px-3 py-2"
-                    min="0"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Set to 0 to disable auto-inactive.</p>
-                </div>
+            {/* Auto Inactive Setting */}
+            <div className="border border-line rounded-card p-5">
+              <h3 className="section-title mb-1">Auto inactive</h3>
+              <p className="muted mb-3">Automatically mark members as inactive after months of no payment.</p>
+              <div className="max-w-xs">
+                <label className="label">Months</label>
+                <input
+                  type="number"
+                  value={autoInactiveMonths}
+                  onChange={(e) => setAutoInactiveMonths(Number(e.target.value) || 0)}
+                  className="input"
+                  min="0"
+                />
+                <p className="field-hint">Set to 0 to disable auto-inactive.</p>
               </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t">
-          <button onClick={onClose} disabled={saving} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium disabled:opacity-50">Cancel</button>
-          <button onClick={handleSaveAll} disabled={saving || loading} className="px-6 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold disabled:opacity-50">
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
-      </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create/Edit Package Modal */}
-      {pkgModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-xl">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-bold">{editingPkg !== null ? 'Edit Package' : 'Create Package'}</h3>
-                  <p className="text-sm text-gray-500">Add and manage pool membership packages.</p>
-                </div>
-                <button onClick={() => setPkgModalOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-              </div>
+      <Modal
+        isOpen={pkgModalOpen}
+        onClose={() => setPkgModalOpen(false)}
+        title={editingPkg !== null ? 'Edit package' : 'Create package'}
+        description="Add and manage pool membership packages."
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPkgModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSavePkg}>{editingPkg !== null ? 'Save' : 'Create package'}</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="label">Title</label>
+            <input type="text" value={pkgForm.title} onChange={(e) => setPkgForm({...pkgForm, title: e.target.value})} className="input" placeholder="Type package name" />
+          </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                  <input type="text" value={pkgForm.title} onChange={(e) => setPkgForm({...pkgForm, title: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Type package name" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                    <select value={pkgForm.duration} onChange={(e) => setPkgForm({...pkgForm, duration: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2">
-                      {DURATION_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                    <input type="number" value={pkgForm.amount} onChange={(e) => setPkgForm({...pkgForm, amount: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee</label>
-                  <input type="number" value={pkgForm.monthlyFee} onChange={(e) => setPkgForm({...pkgForm, monthlyFee: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2" />
-                </div>
-
-                {/* Color Picker */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Colour</label>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-8 h-8 rounded-full border-2" style={{ backgroundColor: pkgForm.color }}></span>
-                    <span className="text-sm text-gray-500">{pkgForm.color}</span>
-                  </div>
-                  <div className="grid grid-cols-10 gap-1">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setPkgForm({...pkgForm, color: c})}
-                        className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${pkgForm.color === c ? 'border-gray-800 ring-2 ring-gray-300' : 'border-transparent'}`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Admission Fee Toggle */}
-                <div className="flex items-center justify-between border rounded-lg p-3">
-                  <div>
-                    <p className="text-sm font-medium">Admission Fee</p>
-                    <p className="text-xs text-gray-500">Choose whether this package will include the admission fee</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" checked={pkgForm.admissionFee} onChange={(e) => setPkgForm({...pkgForm, admissionFee: e.target.checked})} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Duration</label>
+              <select value={pkgForm.duration} onChange={(e) => setPkgForm({...pkgForm, duration: Number(e.target.value)})} className="select">
+                {DURATION_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
-
-            <div className="flex gap-3 p-6 border-t">
-              <button onClick={() => setPkgModalOpen(false)} className="flex-1 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium">Cancel</button>
-              <button onClick={handleSavePkg} className="flex-1 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold">
-                {editingPkg !== null ? 'Save' : 'Create Package'}
-              </button>
+            <div>
+              <label className="label">Amount</label>
+              <input type="number" value={pkgForm.amount} onChange={(e) => setPkgForm({...pkgForm, amount: Number(e.target.value)})} className="input" />
             </div>
           </div>
+
+          <div>
+            <label className="label">Monthly fee</label>
+            <input type="number" value={pkgForm.monthlyFee} onChange={(e) => setPkgForm({...pkgForm, monthlyFee: Number(e.target.value)})} className="input" />
+          </div>
+
+          {/* Color Picker */}
+          <div>
+            <label className="label">Select colour</label>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-8 h-8 rounded-full border border-line" style={{ backgroundColor: pkgForm.color }}></span>
+              <span className="text-sm text-ink-soft">{pkgForm.color}</span>
+            </div>
+            <div className="grid grid-cols-10 gap-1">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setPkgForm({...pkgForm, color: c})}
+                  className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${pkgForm.color === c ? 'border-ink ring-2 ring-line-strong' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                  aria-label={`Choose color ${c}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Admission Fee Toggle */}
+          <div className="flex items-center justify-between border border-line rounded-control p-3">
+            <div>
+              <p className="text-sm font-medium text-ink">Admission fee</p>
+              <p className="text-xs text-ink-soft">Include the admission fee with this package</p>
+            </div>
+            <Toggle checked={pkgForm.admissionFee} onChange={(e) => setPkgForm({...pkgForm, admissionFee: e.target.checked})} />
+          </div>
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }

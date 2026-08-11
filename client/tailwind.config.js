@@ -3,19 +3,25 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'Segoe UI', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'Arial', 'sans-serif'],
+      },
       colors: {
+        // AlignUI-style indigo-blue accent, kept under the same `primary`
+        // token name so everything already built on it (Button, Badge,
+        // focus rings, links) retints for free.
         primary: {
-          DEFAULT: '#008CFF',
-          50: '#EFF8FF',
-          100: '#DCEEFF',
-          200: '#B9DDFF',
-          300: '#85C6FF',
-          400: '#4AABFF',
-          500: '#008CFF',
-          600: '#0070CC',
-          700: '#005599',
-          800: '#003D6B',
-          900: '#002644',
+          DEFAULT: '#375DFB',
+          50: '#EEF2FF',
+          100: '#E0E7FF',
+          200: '#C7D2FE',
+          300: '#A3B3FD',
+          400: '#6B84FC',
+          500: '#375DFB',
+          600: '#2545E0',
+          700: '#1B34B8',
+          800: '#182C93',
+          900: '#172763',
         },
         secondary: '#15181D',
         surface: '#FFFFFF',

@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { Search, Plus, Waves } from 'lucide-react';
 import { apiRequest } from '../api';
-import Badge from './Badge';
 import LockerAssignmentModal from './LockerAssignmentModal';
 import LockerReturnModal from './LockerReturnModal';
 import Toast from './Toast';
+import Button from './Button';
+import LoadingSpinner from './LoadingSpinner';
+import EmptyState from './EmptyState';
+
+const STATUS_BADGE = {
+  Available: 'badge-success',
+  Occupied: 'badge-warning',
+  Maintenance: 'badge-danger',
+  Disabled: 'badge-neutral',
+};
 
 export default function LockerDashboard({ token, onSettingsUpdated }) {
   const [stats, setStats] = useState(null);
@@ -33,10 +43,7 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
       setLockers(lockersRes.lockers);
     } catch (error) {
       console.error('Error fetching locker data:', error);
-      setToast({
-        type: 'error',
-        message: 'Failed to load locker data',
-      });
+      setToast({ type: 'error', message: 'Failed to load locker data' });
     } finally {
       setLoading(false);
     }
@@ -54,10 +61,7 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
 
   const handleAssignmentSuccess = () => {
     setShowAssignModal(false);
-    setToast({
-      type: 'success',
-      message: 'Locker assigned successfully',
-    });
+    setToast({ type: 'success', message: 'Locker assigned successfully' });
     fetchData();
   };
 
@@ -83,22 +87,8 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
     return filtered;
   };
 
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      Available: 'success',
-      Occupied: 'warning',
-      Maintenance: 'danger',
-      Disabled: 'secondary',
-    };
-    return <Badge type={statusMap[status] || 'secondary'} label={status} />;
-  };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading locker data...</div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading locker data…" />;
   }
 
   const filteredLockers = getFilteredLockers();
@@ -107,51 +97,50 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
     <div className="space-y-6">
       {/* Analytics Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Total Lockers</div>
-            <div className="text-3xl font-bold text-gray-900">{stats.totalLockers}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="stat-card">
+            <span className="stat-label">Total lockers</span>
+            <span className="stat-value">{stats.totalLockers}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Available</div>
-            <div className="text-3xl font-bold text-green-600">{stats.availableLockers}</div>
+          <div className="stat-card">
+            <span className="stat-label">Available</span>
+            <span className="stat-value text-success">{stats.availableLockers}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Occupied</div>
-            <div className="text-3xl font-bold text-amber-600">{stats.occupiedLockers}</div>
+          <div className="stat-card">
+            <span className="stat-label">Occupied</span>
+            <span className="stat-value text-warning">{stats.occupiedLockers}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Active Sessions</div>
-            <div className="text-3xl font-bold text-primary">{stats.activeSessions}</div>
+          <div className="stat-card">
+            <span className="stat-label">Active sessions</span>
+            <span className="stat-value text-primary">{stats.activeSessions}</span>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-gray-600 text-sm font-medium mb-1">Revenue Today</div>
-            <div className="text-3xl font-bold text-purple-600">৳{stats.revenueToday}</div>
+          <div className="stat-card">
+            <span className="stat-label">Revenue today</span>
+            <span className="stat-value text-success tabular">৳{stats.revenueToday}</span>
           </div>
         </div>
       )}
 
       {/* Locker List */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="card overflow-hidden">
         {/* List Header */}
-        <div className="border-b border-gray-200 p-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-          <div className="flex gap-4 items-center flex-1">
-            <input
-              type="text"
-              placeholder="Search locker..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-            />
+        <div className="border-b border-line p-5 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+          <div className="flex gap-3 items-center flex-1 flex-wrap">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search locker…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input pl-9 w-auto"
+              />
+            </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="select w-auto"
             >
               <option value="All">All Status</option>
               <option value="Available">Available</option>
@@ -161,57 +150,34 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
             </select>
           </div>
 
-          <button
-            onClick={() => handleAssignClick(null)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            ➕ Assign Locker
-          </button>
+          <Button icon={Plus} onClick={() => handleAssignClick(null)}>Assign locker</Button>
         </div>
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+          <table className="table-modern w-full">
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Locker No
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Assigned To
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Assigned Time
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Charge
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
-                  Actions
-                </th>
+                <th>Locker No</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Phone</th>
+                <th>Assigned Time</th>
+                <th>Charge</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {filteredLockers.length > 0 ? (
                 filteredLockers.map((locker) => (
-                  <tr key={locker._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {locker.lockerNumber}
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(locker.status)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                  <tr key={locker._id}>
+                    <td className="font-medium text-ink">{locker.lockerNumber}</td>
+                    <td><span className={STATUS_BADGE[locker.status] || 'badge-neutral'}>{locker.status}</span></td>
+                    <td className="text-ink-soft">
                       {locker.assignment ? (
                         <div className="flex items-center gap-2">
                           {locker.assignment.isBillPayer && (
-                            <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded font-medium">
-                              🏊 Swimmer
-                            </span>
+                            <span className="badge-info"><Waves size={11} /> Swimmer</span>
                           )}
                           <span>{locker.assignment.memberName}</span>
                         </div>
@@ -219,53 +185,39 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
                         '—'
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="text-ink-soft">
                       {locker.assignment ? locker.assignment.memberPhone : '—'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="text-ink-soft">
                       {locker.assignment
                         ? new Date(locker.assignment.assignedTime).toLocaleString()
                         : '—'}
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <td className="font-medium text-ink tabular">
                       {locker.assignment ? `৳${locker.assignment.chargeAmount}` : '—'}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {locker.status === 'Available' && (
-                          <button
-                            onClick={() => handleAssignClick(locker)}
-                            className="px-4 py-1.5 text-sm font-medium text-white bg-green-500 rounded hover:bg-green-600 transition-colors"
-                          >
+                          <Button size="sm" variant="secondary" className="!bg-success-soft !text-success-ink !border-transparent hover:!bg-success-soft/80" onClick={() => handleAssignClick(locker)}>
                             Assign
-                          </button>
+                          </Button>
                         )}
                         {locker.status === 'Occupied' && locker.assignment && (
-                          <button
-                            onClick={() => handleReturnClick(locker)}
-                            className="px-4 py-1.5 text-sm font-medium text-white bg-amber-500 rounded hover:bg-amber-600 transition-colors"
-                          >
+                          <Button size="sm" variant="secondary" className="!bg-warning-soft !text-warning-ink !border-transparent hover:!bg-warning-soft/80" onClick={() => handleReturnClick(locker)}>
                             Return
-                          </button>
+                          </Button>
                         )}
-                        {locker.status === 'Maintenance' && (
-                          <span className="px-4 py-1.5 text-sm font-medium text-white bg-yellow-500 rounded">
-                            Maintenance
-                          </span>
-                        )}
-                        {locker.status === 'Disabled' && (
-                          <span className="px-4 py-1.5 text-sm font-medium text-white bg-gray-500 rounded">
-                            Disabled
-                          </span>
-                        )}
+                        {locker.status === 'Maintenance' && <span className="badge-warning">Maintenance</span>}
+                        {locker.status === 'Disabled' && <span className="badge-neutral">Disabled</span>}
                       </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                    No lockers found
+                  <td colSpan="7" className="p-0">
+                    <EmptyState title="No lockers found" message="Try a different search or status filter." />
                   </td>
                 </tr>
               )}
@@ -274,7 +226,7 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
         </div>
 
         {/* Show count */}
-        <div className="border-t border-gray-200 p-6 text-sm text-gray-600">
+        <div className="border-t border-line px-5 py-3 text-sm text-ink-soft">
           Showing {filteredLockers.length} of {lockers.length} lockers
         </div>
       </div>
@@ -299,13 +251,7 @@ export default function LockerDashboard({ token, onSettingsUpdated }) {
         />
       )}
 
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
     </div>
   );
 }

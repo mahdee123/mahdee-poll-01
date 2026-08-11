@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ChevronDown, Download, FileText } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import Toast from './Toast.jsx';
@@ -19,15 +20,13 @@ const toLocalDateStr = (d) => {
 const CollapsibleSection = ({ title, defaultOpen = true, children }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
+    <div className="card overflow-hidden mb-4">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition"
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-canvas transition"
       >
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        <span className={`text-gray-500 transition-transform text-xs ${open ? 'rotate-180' : ''}`}>
-          ▼
-        </span>
+        <h2 className="section-title">{title}</h2>
+        <ChevronDown size={16} className={`text-ink-faint transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && <div className="px-4 pb-4">{children}</div>}
     </div>
@@ -136,7 +135,7 @@ export default function AccountingReports({ token }) {
 
       {/* Period Selector + Export */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex gap-2">
+        <div className="segmented">
           {[
             { label: 'Today', value: 'today' },
             { label: 'This Week', value: 'week' },
@@ -146,11 +145,7 @@ export default function AccountingReports({ token }) {
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                period === p.value
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={period === p.value ? 'segmented-item-active' : 'segmented-item'}
             >
               {p.label}
             </button>
@@ -185,9 +180,9 @@ export default function AccountingReports({ token }) {
               a.href = url; a.download = 'expense-report.csv'; a.click();
               URL.revokeObjectURL(url);
             }}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition flex items-center gap-1"
+            className="btn-secondary btn-sm"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <Download size={13} />
             Download CSV
           </button>
           <button
@@ -198,7 +193,7 @@ export default function AccountingReports({ token }) {
               let y = 0;
 
               // ===== BLUE HEADER BAR =====
-              doc.setFillColor(0, 140, 255); // primary blue
+              doc.setFillColor(55, 93, 251); // primary blue
               doc.rect(0, 0, w, 38, 'F');
 
               // Company name
@@ -319,9 +314,9 @@ export default function AccountingReports({ token }) {
 
               doc.save('expense-report.pdf');
             }}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition flex items-center gap-1"
+            className="btn-secondary btn-sm"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+            <FileText size={13} />
             Download PDF
           </button>
         </div>
@@ -337,42 +332,42 @@ export default function AccountingReports({ token }) {
               {/* Income */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-green-700">Income</h3>
-                  <span className="text-sm font-bold text-green-700">{formatCurrency(totalIncome)}</span>
+                  <h3 className="text-sm font-semibold text-success-ink">Income</h3>
+                  <span className="text-sm font-bold text-success-ink">{formatCurrency(totalIncome)}</span>
                 </div>
                 {Object.entries(incomeByCategory).filter(([, v]) => v > 0).map(([cat, amount]) => (
-                  <div key={cat} className="flex items-center justify-between py-1 pl-4 border-b border-gray-100 last:border-0">
-                    <span className="text-sm text-gray-600">{cat}</span>
-                    <span className="text-sm text-gray-800">{formatCurrency(amount)}</span>
+                  <div key={cat} className="flex items-center justify-between py-1 pl-4 border-b border-line last:border-0">
+                    <span className="text-sm text-ink-soft">{cat}</span>
+                    <span className="text-sm text-ink">{formatCurrency(amount)}</span>
                   </div>
                 ))}
                 {Object.keys(incomeByCategory).length === 0 && (
-                  <p className="text-sm text-gray-400 pl-4">No income recorded</p>
+                  <p className="text-sm text-ink-faint pl-4">No income recorded</p>
                 )}
               </div>
 
               {/* Expenses */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-red-700">Expenses</h3>
-                  <span className="text-sm font-bold text-red-700">{formatCurrency(totalExpenses)}</span>
+                  <h3 className="text-sm font-semibold text-danger-ink">Expenses</h3>
+                  <span className="text-sm font-bold text-danger-ink">{formatCurrency(totalExpenses)}</span>
                 </div>
                 {expenseByCategory.map((cat) => (
-                  <div key={cat.name} className="flex items-center justify-between py-1 pl-4 border-b border-gray-100 last:border-0">
-                    <span className="text-sm text-gray-600">{cat.name}</span>
-                    <span className="text-sm text-gray-800">{formatCurrency(cat.total)}</span>
+                  <div key={cat.name} className="flex items-center justify-between py-1 pl-4 border-b border-line last:border-0">
+                    <span className="text-sm text-ink-soft">{cat.name}</span>
+                    <span className="text-sm text-ink">{formatCurrency(cat.total)}</span>
                   </div>
                 ))}
                 {expenseByCategory.length === 0 && (
-                  <p className="text-sm text-gray-400 pl-4">No expenses recorded</p>
+                  <p className="text-sm text-ink-faint pl-4">No expenses recorded</p>
                 )}
               </div>
 
               {/* Net Profit */}
-              <div className="border-t-2 border-gray-300 pt-3">
+              <div className="border-t-2 border-line-strong pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-900">Net Profit</span>
-                  <span className={`text-lg font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span className="text-sm font-bold text-ink">Net Profit</span>
+                  <span className={`text-lg font-bold ${netProfit >= 0 ? 'text-success' : 'text-danger'}`}>
                     {formatCurrency(netProfit)}
                   </span>
                 </div>
@@ -400,7 +395,7 @@ export default function AccountingReports({ token }) {
                   />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-gray-700">{expenseByCategory.length}</span>
+                      <span className="text-xs font-bold text-ink">{expenseByCategory.length}</span>
                     </div>
                   </div>
                 </div>
@@ -415,9 +410,9 @@ export default function AccountingReports({ token }) {
                           className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
                         />
-                        <span className="text-sm text-gray-700 flex-1">{cat.name}</span>
-                        <span className="text-sm text-gray-500">{pct}%</span>
-                        <span className="text-sm font-medium text-gray-800">{formatCurrency(cat.total)}</span>
+                        <span className="text-sm text-ink flex-1">{cat.name}</span>
+                        <span className="text-sm text-ink-soft">{pct}%</span>
+                        <span className="text-sm font-medium text-ink">{formatCurrency(cat.total)}</span>
                       </div>
                     );
                   })}

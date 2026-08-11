@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Waves, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { apiRequest } from '../api';
+import Button from './Button';
 
 export default function SignupForm() {
   useDocumentTitle('Create Account');
@@ -77,108 +79,109 @@ export default function SignupForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Create Your Pool Business</h1>
-        <p className="text-gray-600 text-sm mb-6">Start managing your pool membership service today</p>
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4 py-10">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <span className="w-11 h-11 rounded-control bg-primary flex items-center justify-center">
+            <Waves size={22} className="text-white" />
+          </span>
+          <span className="text-sm font-medium text-ink-faint">Raya Pool</span>
+        </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
+        <div className="card p-6 sm:p-8">
+          <h1 className="text-xl font-semibold text-ink mb-1">Create your pool business</h1>
+          <p className="text-sm text-ink-soft mb-6">Start managing your pool membership service today</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Company Name
-            </label>
-            <input
-              type="text"
-              name="companyName"
-              value={formData.companyName}
-              onChange={handleChange}
-              placeholder="e.g., Sunset Pool Club"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-          </div>
+          {error && (
+            <div className="flex items-start gap-2 bg-danger-soft border border-danger/20 text-danger-ink px-3.5 py-3 rounded-control mb-4 text-sm">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Owner Name
-            </label>
-            <input
-              type="text"
-              name="ownerName"
-              value={formData.ownerName}
-              onChange={handleChange}
-              placeholder="Your full name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="label" htmlFor="signup-company">Company name</label>
+              <input
+                id="signup-company"
+                type="text"
+                name="companyName"
+                value={formData.companyName}
+                onChange={handleChange}
+                placeholder="e.g., Sunset Pool Club"
+                className="input"
+                disabled={loading}
+                autoFocus
+              />
+            </div>
 
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="admin@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-          </div>
+            <div>
+              <label className="label" htmlFor="signup-owner">Owner name</label>
+              <input
+                id="signup-owner"
+                type="text"
+                name="ownerName"
+                value={formData.ownerName}
+                onChange={handleChange}
+                placeholder="Your full name"
+                className="input"
+                disabled={loading}
+              />
+            </div>
 
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="At least 6 characters"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-          </div>
+            <div>
+              <label className="label" htmlFor="signup-email">Email address</label>
+              <input
+                id="signup-email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="admin@example.com"
+                className="input"
+                disabled={loading}
+              />
+            </div>
 
-          <div>
-            <label className="block text-gray-700 font-medium text-sm mb-1">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={loading}
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label" htmlFor="signup-password">Password</label>
+                <input
+                  id="signup-password"
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="6+ characters"
+                  className="input"
+                  disabled={loading}
+                />
+              </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary hover:bg-primary/90 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-          >
-            {loading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
+              <div>
+                <label className="label" htmlFor="signup-confirm">Confirm password</label>
+                <input
+                  id="signup-confirm"
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="input"
+                  disabled={loading}
+                />
+              </div>
+            </div>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
+            <Button type="submit" className="w-full" size="lg" loading={loading}>
+              {loading ? 'Creating account…' : 'Create account'}
+            </Button>
+          </form>
+        </div>
+
+        <p className="text-center text-sm text-ink-soft mt-6">
           Already have an account?{' '}
-          <Link 
-            to="/login" 
-            className="text-primary hover:text-primary font-bold underline transition"
-          >
-            Sign In Here
+          <Link to="/login" className="text-primary hover:text-primary-700 font-medium">
+            Sign in
           </Link>
         </p>
       </div>

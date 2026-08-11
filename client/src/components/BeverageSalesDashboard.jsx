@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Settings2, PackagePlus, ShoppingCart, Boxes, TrendingUp, AlertTriangle,
+  Trash2, RefreshCw,
+} from 'lucide-react';
 import { API_BASE_URL, NetworkError } from '../api';
 import BeverageProductManager from './BeverageProductManager';
 import InventoryPurchaseForm from './InventoryPurchaseForm';
 import BeverageSalesForm from './BeverageSalesForm';
 import { useToast } from '../context/ToastContext';
 import useConfirm from '../hooks/useConfirm';
+import Button from './Button';
+import Card from './Card';
+import EmptyState from './EmptyState';
 
 export default function BeverageSalesDashboard({ token }) {
   const toast = useToast();
@@ -161,25 +168,21 @@ export default function BeverageSalesDashboard({ token }) {
 
   const handleRecordSale = async (formData) => {
     try {
-      console.log('[Debug] Submitting multi-product sale:', formData);
-      
       const response = await fetchWithToken(`${API_BASE_URL}/beverages/sales`, {
         method: 'POST',
         body: JSON.stringify(formData),
       });
-      
-      console.log('[Debug] Sale recorded successfully:', response.sale);
-      
+
       // Reload products since multiple products' stock may have changed
       const updatedProducts = await fetchWithToken(`${API_BASE_URL}/beverages/products`);
       setProducts(updatedProducts.products || []);
-      
+
       setSales([response.sale, ...sales]);
       setActiveModal(null);
       toast.success('Sale recorded.');
     } catch (err) {
       console.error('[Error] Failed to record sale:', err);
-      
+
       // Build detailed error message
       let errorMessage = err.message || 'Unknown error';
       if (err.responseData?.error) {
@@ -188,7 +191,7 @@ export default function BeverageSalesDashboard({ token }) {
       if (err.responseData?.details) {
         errorMessage += `\nDetails: ${err.responseData.details}`;
       }
-      
+
       toast.error(`Could not record sale. ${errorMessage}`);
     }
   };
@@ -215,7 +218,7 @@ export default function BeverageSalesDashboard({ token }) {
 
   if (!token) {
     return (
-      <div className="p-6 text-center text-red-500">
+      <div className="p-6 text-center text-danger text-sm">
         <p>Authentication required. Please log in again.</p>
       </div>
     );
@@ -223,194 +226,152 @@ export default function BeverageSalesDashboard({ token }) {
 
   if (error) {
     return (
-      <div className="p-6 text-center text-red-500">
+      <div className="p-6 text-center text-sm text-danger space-y-3">
         <p>Error: {error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-        >
-          Reload
-        </button>
+        <Button variant="secondary" icon={RefreshCw} onClick={() => window.location.reload()}>Reload</Button>
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        <p>Loading beverage data...</p>
-      </div>
-    );
+    return <div className="p-6 text-center text-sm text-ink-soft">Loading beverage data…</div>;
   }
 
   return (
     <div className="space-y-6">
       {confirmDialog}
 
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl sm:text-2xl font-semibold text-ink">Beverage Sales</h1>
-      </div>
-
       {/* Top Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Today Revenue</p>
-          <p className="text-2xl font-bold text-primary">{stats.today.revenue.toFixed(0)} ৳</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.today.transactionCount} transactions</p>
+        <div className="stat-card">
+          <span className="stat-label">Today's revenue</span>
+          <span className="stat-value">{stats.today.revenue.toFixed(0)} ৳</span>
+          <span className="stat-hint">{stats.today.transactionCount} transactions</span>
         </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">Today Profit</p>
-          <p className="text-2xl font-bold text-green-600">{stats.today.profit.toFixed(0)} ৳</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.today.quantitySold} units sold</p>
+        <div className="stat-card">
+          <span className="stat-label">Today's profit</span>
+          <span className="stat-value text-success">{stats.today.profit.toFixed(0)} ৳</span>
+          <span className="stat-hint">{stats.today.quantitySold} units sold</span>
         </div>
-
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">This Month Revenue</p>
-          <p className="text-2xl font-bold text-purple-600">{stats.month.revenue.toFixed(0)} ৳</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.month.transactionCount} transactions</p>
+        <div className="stat-card">
+          <span className="stat-label">This month revenue</span>
+          <span className="stat-value">{stats.month.revenue.toFixed(0)} ৳</span>
+          <span className="stat-hint">{stats.month.transactionCount} transactions</span>
         </div>
-
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <p className="text-sm text-gray-600">This Month Profit</p>
-          <p className="text-2xl font-bold text-orange-600">{stats.month.profit.toFixed(0)} ৳</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.month.quantitySold} units sold</p>
+        <div className="stat-card">
+          <span className="stat-label">This month profit</span>
+          <span className="stat-value text-success">{stats.month.profit.toFixed(0)} ৳</span>
+          <span className="stat-hint">{stats.month.quantitySold} units sold</span>
         </div>
       </div>
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
-        <button
-          onClick={() => setActiveModal('products')}
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
-        >
-          🛠️ Manage Products
-        </button>
-        <button
-          onClick={() => setActiveModal('purchase')}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-medium"
-        >
-          📦 Record Purchase
-        </button>
-        <button
-          onClick={() => setActiveModal('sale')}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium"
-        >
-          💰 Record Sale
-        </button>
+        <Button variant="secondary" icon={Settings2} onClick={() => setActiveModal('products')}>Manage products</Button>
+        <Button variant="secondary" icon={PackagePlus} onClick={() => setActiveModal('purchase')}>Record purchase</Button>
+        <Button icon={ShoppingCart} onClick={() => setActiveModal('sale')}>Record sale</Button>
       </div>
 
       {/* Inventory Status Section */}
-      <div className="bg-white border rounded-lg p-6">
-        <h2 className="text-lg font-semibold mb-4">📊 Inventory Status</h2>
-
+      <Card title="Inventory status" icon={Boxes}>
         {products.length === 0 ? (
-          <div className="text-center p-8 text-gray-500">
-            <p>No products yet. Create your first beverage product!</p>
-          </div>
+          <EmptyState icon={Boxes} title="No products yet" message="Create your first beverage product to start tracking inventory." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {products.map((product) => (
               <div
                 key={product._id}
-                className={`p-4 border rounded-lg ${product.currentStock === 0 ? 'bg-red-50 border-red-300' : product.currentStock < 10 ? 'bg-yellow-50 border-yellow-300' : 'bg-green-50 border-green-300'}`}
+                className={`p-4 border rounded-card ${product.currentStock === 0 ? 'bg-danger-soft border-danger/30' : product.currentStock < 10 ? 'bg-warning-soft border-warning/30' : 'bg-success-soft border-success/30'}`}
               >
-                <h4 className="font-semibold text-gray-800">{product.name}</h4>
-                <div className="mt-2 space-y-1 text-sm">
+                <h4 className="font-semibold text-ink">{product.name}</h4>
+                <div className="mt-2 space-y-1 text-sm text-ink-soft">
                   <p>
-                    📦 Stock: <span className="font-bold text-lg">{product.currentStock}</span> {product.unit}s
+                    Stock: <span className="font-bold text-lg text-ink tabular">{product.currentStock}</span> {product.unit}s
                   </p>
-                  <p className="text-gray-600">
-                    💰 Cost: {product.costPrice} ৳ | Sell: {product.sellingPrice} ৳
-                  </p>
-                  <p className="text-gray-600">
-                    💵 Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳
-                  </p>
+                  <p className="tabular">Cost: {product.costPrice} ৳ · Sell: {product.sellingPrice} ৳</p>
+                  <p className="tabular">Value: {(product.currentStock * product.costPrice).toFixed(0)} ৳</p>
                 </div>
-                {product.currentStock === 0 && <p className="mt-2 text-xs text-red-600 font-semibold">⚠️ Out of stock!</p>}
+                {product.currentStock === 0 && (
+                  <p className="mt-2 flex items-center gap-1 text-xs text-danger font-semibold"><AlertTriangle size={12} /> Out of stock</p>
+                )}
                 {product.currentStock < 10 && product.currentStock > 0 && (
-                  <p className="mt-2 text-xs text-yellow-700 font-semibold">⚠️ Low stock warning</p>
+                  <p className="mt-2 flex items-center gap-1 text-xs text-warning-ink font-semibold"><AlertTriangle size={12} /> Low stock warning</p>
                 )}
               </div>
             ))}
           </div>
         )}
 
-        <div className="mt-4 p-3 bg-gray-100 rounded-lg">
-          <p className="text-sm text-gray-700">
-            📦 <strong>{stats.inventory.totalProducts}</strong> products |{' '}
-            <strong>Total Inventory Value: {stats.inventory.totalInventoryValue.toFixed(0)} ৳</strong>
+        <div className="mt-4 p-3 bg-canvas rounded-card">
+          <p className="text-sm text-ink">
+            <strong className="tabular">{stats.inventory.totalProducts}</strong> products ·{' '}
+            <strong className="tabular">Total inventory value: {stats.inventory.totalInventoryValue.toFixed(0)} ৳</strong>
           </p>
         </div>
-      </div>
+      </Card>
 
       {/* Product Profit Breakdown */}
       {stats.productBreakdown.length > 0 && (
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">📈 Today's Performance by Product</h2>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b">
+        <Card title="Today's performance by product" icon={TrendingUp}>
+          <div className="table-shell -m-5 rounded-none border-0">
+            <table className="table-modern w-full">
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 text-left">Product</th>
-                  <th className="px-4 py-2 text-center">Stock</th>
-                  <th className="px-4 py-2 text-right">Sold Today</th>
-                  <th className="px-4 py-2 text-right">Revenue</th>
-                  <th className="px-4 py-2 text-right">Cost</th>
-                  <th className="px-4 py-2 text-right">Profit</th>
-                  <th className="px-4 py-2 text-right">Margin</th>
+                  <th>Product</th>
+                  <th className="text-center">Stock</th>
+                  <th className="text-right">Sold Today</th>
+                  <th className="text-right">Revenue</th>
+                  <th className="text-right">Cost</th>
+                  <th className="text-right">Profit</th>
+                  <th className="text-right">Margin</th>
                 </tr>
               </thead>
               <tbody>
                 {stats.productBreakdown.map((item) => (
-                  <tr key={item.productId} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
-                    <td className="px-4 py-2 text-center text-gray-600">{item.currentStock} {item.currentStock === 1 ? 'unit' : 'units'}</td>
-                    <td className="px-4 py-2 text-right text-gray-600">{item.quantitySoldToday}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-primary">
+                  <tr key={item.productId}>
+                    <td className="font-semibold text-ink">{item.productName}</td>
+                    <td className="text-center">{item.currentStock} {item.currentStock === 1 ? 'unit' : 'units'}</td>
+                    <td className="text-right">{item.quantitySoldToday}</td>
+                    <td className="text-right font-semibold text-primary tabular">
                       {item.revenueToday.toFixed(0)} ৳
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-600">{item.totalCost ? item.totalCost.toFixed(0) : 0} ৳</td>
-                    <td className="px-4 py-2 text-right font-bold text-green-600">
+                    <td className="text-right tabular">{item.totalCost ? item.totalCost.toFixed(0) : 0} ৳</td>
+                    <td className="text-right font-bold text-success tabular">
                       {item.profitToday.toFixed(0)} ৳
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-600">{item.profitMarginToday}%</td>
+                    <td className="text-right">{item.profitMarginToday}%</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Sales History with Filters */}
-      <div className="bg-white border rounded-lg p-6">
-        <h2 className="text-lg font-semibold mb-4">📜 Sales History</h2>
-
+      <Card title="Sales history">
         {/* Filters */}
         <div className="mb-4 grid md:grid-cols-4 gap-3">
           <input
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
-            placeholder="Start Date"
+            className="input"
+            placeholder="Start date"
           />
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
-            placeholder="End Date"
+            className="input"
+            placeholder="End date"
           />
           <select
             value={filters.productId}
             onChange={(e) => setFilters({ ...filters, productId: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="select"
           >
-            <option value="">All Products</option>
+            <option value="">All products</option>
             {products.map((p) => (
               <option key={p._id} value={p._id}>
                 {p.name}
@@ -420,9 +381,9 @@ export default function BeverageSalesDashboard({ token }) {
           <select
             value={filters.paymentMethod}
             onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
-            className="border rounded-lg px-3 py-2 text-sm"
+            className="select"
           >
-            <option value="">All Payment Methods</option>
+            <option value="">All payment methods</option>
             <option value="Cash">Cash</option>
             <option value="Bank">Bank</option>
             <option value="bKash">bKash</option>
@@ -431,23 +392,21 @@ export default function BeverageSalesDashboard({ token }) {
 
         {/* Sales List */}
         {sales.length === 0 ? (
-          <div className="text-center p-8 text-gray-500">
-            <p>No sales recorded yet.</p>
-          </div>
+          <EmptyState title="No sales recorded yet" message="Sales you record will show up here." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b">
+          <div className="table-shell -m-5 mt-0 rounded-none border-0">
+            <table className="table-modern w-full">
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 text-left">Date & Time</th>
-                  <th className="px-4 py-2 text-left">Receipt</th>
-                  <th className="px-4 py-2 text-left">Product</th>
-                  <th className="px-4 py-2 text-center">Qty</th>
-                  <th className="px-4 py-2 text-right">Price/Unit</th>
-                  <th className="px-4 py-2 text-right">Line Total</th>
-                  <th className="px-4 py-2 text-right">Profit</th>
-                  <th className="px-4 py-2 text-center">Payment</th>
-                  <th className="px-4 py-2 text-center">Action</th>
+                  <th>Date &amp; Time</th>
+                  <th>Receipt</th>
+                  <th>Product</th>
+                  <th className="text-center">Qty</th>
+                  <th className="text-right">Price/Unit</th>
+                  <th className="text-right">Line Total</th>
+                  <th className="text-right">Profit</th>
+                  <th className="text-center">Payment</th>
+                  <th className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -456,40 +415,39 @@ export default function BeverageSalesDashboard({ token }) {
                     return null;
                   }
                   return sale.items.map((item, itemIndex) => (
-                    <tr key={`${sale._id}-${itemIndex}`} className="border-b hover:bg-gray-50">
+                    <tr key={`${sale._id}-${itemIndex}`}>
                       {itemIndex === 0 && (
                         <>
-                          <td rowSpan={sale.items.length} className="px-4 py-2 text-gray-600">
+                          <td rowSpan={sale.items.length} className="text-ink-soft align-top">
                             <div className="text-sm">{formatDate(sale.date)}</div>
-                            <div className="text-xs text-gray-500">{formatTime(sale.date)}</div>
+                            <div className="text-xs text-ink-faint">{formatTime(sale.date)}</div>
                           </td>
-                          <td rowSpan={sale.items.length} className="px-4 py-2 font-mono text-xs text-gray-600">
+                          <td rowSpan={sale.items.length} className="font-mono text-xs text-ink-soft align-top">
                             {sale.receiptId}
                           </td>
                         </>
                       )}
-                      <td className="px-4 py-2 font-semibold text-gray-800">{item.productName}</td>
-                      <td className="px-4 py-2 text-center font-semibold">{item.quantity}</td>
-                      <td className="px-4 py-2 text-right text-gray-600">{item.sellingPricePerUnit} ৳</td>
-                      <td className="px-4 py-2 text-right font-semibold text-primary">
+                      <td className="font-semibold text-ink">{item.productName}</td>
+                      <td className="text-center font-semibold">{item.quantity}</td>
+                      <td className="text-right tabular">{item.sellingPricePerUnit} ৳</td>
+                      <td className="text-right font-semibold text-primary tabular">
                         {item.lineTotal.toFixed(0)} ৳
                       </td>
-                      <td className="px-4 py-2 text-right font-bold">
-                        <span className="text-green-600">{item.lineProfit.toFixed(0)} ৳</span>
+                      <td className="text-right font-bold text-success tabular">
+                        {item.lineProfit.toFixed(0)} ৳
                       </td>
                       {itemIndex === 0 && (
                         <>
-                          <td rowSpan={sale.items.length} className="px-4 py-2 text-center">
-                            <span className="bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
-                              {sale.paymentMethod}
-                            </span>
+                          <td rowSpan={sale.items.length} className="text-center align-top">
+                            <span className="badge-info">{sale.paymentMethod}</span>
                           </td>
-                          <td rowSpan={sale.items.length} className="px-4 py-2 text-center">
+                          <td rowSpan={sale.items.length} className="text-center align-top">
                             <button
                               onClick={() => handleDeleteSale(sale._id)}
-                              className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                              className="w-8 h-8 inline-flex items-center justify-center rounded-control text-danger hover:bg-danger-soft"
+                              aria-label="Delete sale"
                             >
-                              🗑️
+                              <Trash2 size={14} />
                             </button>
                           </td>
                         </>
@@ -501,7 +459,7 @@ export default function BeverageSalesDashboard({ token }) {
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Modals */}
       {activeModal === 'products' && (

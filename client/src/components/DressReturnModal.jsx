@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { Undo2, AlertTriangle } from 'lucide-react';
 import { apiRequest } from '../api';
 import Toast from './Toast';
+import Modal from './Modal';
+import Button from './Button';
 
 export default function DressReturnModal({ isOpen, dress, rental, token, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
@@ -23,25 +26,13 @@ export default function DressReturnModal({ isOpen, dress, rental, token, onClose
   const handleReturn = async () => {
     try {
       setLoading(true);
-      await apiRequest(`/dress-rentals/${dress._id}/return`, {
-        method: 'POST',
-        token,
-      });
+      await apiRequest(`/dress-rentals/${dress._id}/return`, { method: 'POST', token });
 
-      setToast({
-        type: 'success',
-        message: 'Dress returned successfully',
-      });
-
-      setTimeout(() => {
-        onSuccess();
-      }, 1000);
+      setToast({ type: 'success', message: 'Dress returned successfully' });
+      setTimeout(() => onSuccess(), 1000);
     } catch (error) {
       console.error('Error returning dress:', error);
-      setToast({
-        type: 'error',
-        message: error.message || 'Failed to return dress',
-      });
+      setToast({ type: 'error', message: error.message || 'Failed to return dress' });
     } finally {
       setLoading(false);
     }
@@ -51,119 +42,89 @@ export default function DressReturnModal({ isOpen, dress, rental, token, onClose
 
   if (!rental) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-          <p className="text-gray-600">No active rental found for this dress</p>
-          <button
-            onClick={onClose}
-            className="mt-4 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </div>
+      <Modal isOpen onClose={onClose} title="Return dress" size="sm" footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+        <p className="text-sm text-ink-soft">No active rental found for this dress.</p>
+      </Modal>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="border-b border-gray-200 p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-900">↩️ Return Dress</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl leading-none min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Dress:</span>
-              <span className="font-semibold text-gray-900">{dress.dressNumber}</span>
+    <>
+      <Modal
+        isOpen
+        onClose={onClose}
+        title="Return dress"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button variant="danger" onClick={handleReturn} loading={loading} icon={Undo2}>Confirm return</Button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <div className="bg-canvas rounded-card p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-ink-soft">Dress</span>
+              <span className="font-semibold text-ink">{dress.dressNumber}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Type:</span>
-              <span className="font-semibold text-gray-900">{dress.type}</span>
-            </div>
-          </div>
-
-          <div className="bg-primary/5 rounded-lg p-4 space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Member:</span>
-              <span className="font-semibold text-gray-900">{rental.memberName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Phone:</span>
-              <span className="font-semibold text-gray-900">{rental.memberPhone}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-ink-soft">Type</span>
+              <span className="font-semibold text-ink">{dress.type}</span>
             </div>
           </div>
 
-          <div className="bg-amber-50 rounded-lg p-4 space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Assigned Time:</span>
-              <span className="font-semibold text-gray-900">
-                {new Date(rental.assignedTime).toLocaleString()}
-              </span>
+          <div className="bg-primary-50 rounded-card p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-ink-soft">Member</span>
+              <span className="font-semibold text-ink">{rental.memberName}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Duration:</span>
-              <span className="font-semibold text-gray-900">{calculateDuration()}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-ink-soft">Phone</span>
+              <span className="font-semibold text-ink">{rental.memberPhone}</span>
+            </div>
+          </div>
+
+          <div className="bg-warning-soft rounded-card p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-ink-soft">Assigned time</span>
+              <span className="font-semibold text-ink">{new Date(rental.assignedTime).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-ink-soft">Duration</span>
+              <span className="font-semibold text-ink">{calculateDuration()}</span>
             </div>
           </div>
 
           {rental.chargeAmount > 0 && (
-            <div className="bg-green-50 rounded-lg p-4">
+            <div className="bg-success-soft rounded-card p-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Charge:</span>
-                <span className="font-bold text-green-600 text-lg">৳{rental.chargeAmount}</span>
+                <span className="text-ink-soft text-sm">Charge</span>
+                <span className="font-bold text-success text-lg tabular">৳{rental.chargeAmount}</span>
               </div>
-              <div className="mt-2 text-xs text-gray-600">
-                Charge Type: {rental.chargeType === 'SeparateTransaction' ? 'Separate Transaction' : 'Added to Bill'}
+              <div className="mt-2 text-xs text-ink-soft">
+                Charge type: {rental.chargeType === 'SeparateTransaction' ? 'Separate Transaction' : 'Added to Bill'}
               </div>
             </div>
           )}
 
           {rental.notes && (
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-1">Notes:</div>
-              <p className="text-sm text-gray-900">{rental.notes}</p>
+            <div className="bg-canvas rounded-card p-4">
+              <div className="text-sm text-ink-soft mb-1">Notes</div>
+              <p className="text-sm text-ink">{rental.notes}</p>
             </div>
           )}
 
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-700">
-              ⚠️ Confirming return will mark this dress as <strong>Available</strong> and close this session.
+          <div className="flex items-start gap-2 bg-danger-soft border border-danger/20 rounded-card p-4">
+            <AlertTriangle size={16} className="text-danger flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-danger-ink">
+              Confirming return will mark this dress as <strong>Available</strong> and close this session.
             </p>
           </div>
         </div>
+      </Modal>
 
-        <div className="border-t border-gray-200 p-4 flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleReturn}
-            disabled={loading}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 transition-colors"
-          >
-            {loading ? 'Returning...' : 'Confirm Return'}
-          </button>
-        </div>
-      </div>
-
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
-    </div>
+      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
+    </>
   );
 }

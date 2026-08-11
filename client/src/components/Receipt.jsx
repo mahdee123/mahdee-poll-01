@@ -38,7 +38,7 @@ export default function Receipt({ receipt, receiptDetails }) {
       <div className="receipt-wrapper">
         {/* Header */}
         <div className="receipt-header">
-          <h1 className="company-name">🏊 Raya Swimming Pool</h1>
+          <h1 className="company-name">Raya Swimming Pool</h1>
           <p className="company-address">Block#M, Road#10, Dhaka</p>
           <p className="company-phone">Phone: 01700-000000</p>
           <p className="company-email">Email: info@rayapool.com</p>

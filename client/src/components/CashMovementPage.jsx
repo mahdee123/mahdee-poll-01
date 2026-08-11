@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Plus, X, Check, Trash2, Wallet } from 'lucide-react';
 import { apiRequest } from '../api.js';
 import useConfirm from '../hooks/useConfirm';
+import Button from './Button.jsx';
+import EmptyState from './EmptyState.jsx';
 
 export default function CashMovementPage({ token, showToast }) {
   const [confirm, confirmDialog] = useConfirm();
@@ -128,7 +131,7 @@ export default function CashMovementPage({ token, showToast }) {
         },
       });
 
-      showToast(`✓ ${form.type} recorded successfully`);
+      showToast(`${form.type} recorded successfully`);
       setForm({
         date: new Date().toISOString().split('T')[0],
         type: 'DEPOSIT',
@@ -151,7 +154,7 @@ export default function CashMovementPage({ token, showToast }) {
     if (!(await confirm({ title: 'Delete this cash movement?', message: 'The cash balance will be recalculated.', confirmText: 'Delete', destructive: true }))) return;
     try {
       await apiRequest(`/cash-movements/${id}`, { method: 'DELETE', token });
-      showToast('✓ Movement deleted');
+      showToast('Movement deleted');
       loadMovements();
     } catch (err) {
       showToast(err.message);
@@ -183,37 +186,34 @@ export default function CashMovementPage({ token, showToast }) {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">💰 Cash Movements</h2>
-          <p className="text-gray-600">Track cash deposits and withdrawals</p>
+          <h2 className="text-xl font-semibold text-ink">Cash movements</h2>
+          <p className="muted mt-0.5">Track cash deposits and withdrawals</p>
         </div>
-        <button
+        <Button
+          variant={showForm ? 'secondary' : 'primary'}
+          icon={showForm ? X : Plus}
           onClick={() => setShowForm(!showForm)}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            showForm
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-primary text-white hover:bg-primary/90'
-          }`}
         >
-          {showForm ? '✕ Close' : '➕ Add Movement'}
-        </button>
+          {showForm ? 'Close' : 'Add movement'}
+        </Button>
       </div>
 
       {/* Form */}
       {showForm && (
         <div className="card p-6 space-y-4">
-          <h3 className="text-lg font-semibold">Record Cash Movement</h3>
+          <h3 className="section-title">Record cash movement</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+              <label className="label">Type *</label>
               <select
                 value={form.type}
                 onChange={(e) => {
                   setForm({ ...form, type: e.target.value, category: '' });
                   setFormErrors({ ...formErrors, type: '' });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="select"
               >
                 <option value="DEPOSIT">DEPOSIT (+)</option>
                 <option value="WITHDRAWAL">WITHDRAWAL (-)</option>
@@ -222,16 +222,16 @@ export default function CashMovementPage({ token, showToast }) {
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+              <label className="label">Category *</label>
               <select
                 value={form.category}
                 onChange={(e) => {
                   setForm({ ...form, category: e.target.value });
                   setFormErrors({ ...formErrors, category: '' });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="select"
               >
-                <option value="">Select category...</option>
+                <option value="">Select category…</option>
                 {categories.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
@@ -242,7 +242,7 @@ export default function CashMovementPage({ token, showToast }) {
 
             {/* Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+              <label className="label">Date *</label>
               <input
                 type="date"
                 value={form.date}
@@ -250,14 +250,14 @@ export default function CashMovementPage({ token, showToast }) {
                   setForm({ ...form, date: e.target.value });
                   setFormErrors({ ...formErrors, date: '' });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
-              {formErrors.date && <p className="text-xs text-red-600 mt-1">{formErrors.date}</p>}
+              {formErrors.date && <p className="field-error">{formErrors.date}</p>}
             </div>
 
             {/* Amount */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount (৳) *</label>
+              <label className="label">Amount (৳) *</label>
               <input
                 type="number"
                 value={form.amount}
@@ -268,18 +268,18 @@ export default function CashMovementPage({ token, showToast }) {
                 placeholder="0"
                 min="0"
                 step="1"
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
-              {formErrors.amount && <p className="text-xs text-red-600 mt-1">{formErrors.amount}</p>}
+              {formErrors.amount && <p className="field-error">{formErrors.amount}</p>}
             </div>
 
             {/* Method */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
+              <label className="label">Method</label>
               <select
                 value={form.method}
                 onChange={(e) => setForm({ ...form, method: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="select"
               >
                 <option value="Cash">Cash</option>
                 <option value="Bank">Bank</option>
@@ -291,20 +291,20 @@ export default function CashMovementPage({ token, showToast }) {
 
             {/* Reference */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reference (Cheque #, TxID)</label>
+              <label className="label">Reference (Cheque #, TxID)</label>
               <input
                 type="text"
                 value={form.reference}
                 onChange={(e) => setForm({ ...form, reference: e.target.value })}
                 placeholder="e.g., CHQ12345"
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
             </div>
           </div>
 
           {/* Reason */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
+            <label className="label">Reason *</label>
             <input
               type="text"
               value={form.reason}
@@ -313,37 +313,27 @@ export default function CashMovementPage({ token, showToast }) {
                 setFormErrors({ ...formErrors, reason: '' });
               }}
               placeholder="Why this movement?"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+              className="input"
             />
-            {formErrors.reason && <p className="text-xs text-red-600 mt-1">{formErrors.reason}</p>}
+            {formErrors.reason && <p className="field-error">{formErrors.reason}</p>}
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <label className="label">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Additional details..."
+              placeholder="Additional details…"
               rows="2"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary resize-none"
+              className="textarea"
             />
           </div>
 
           {/* Submit */}
           <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
-            >
-              ✓ Record
-            </button>
+            <Button variant="secondary" onClick={() => setShowForm(false)}>Cancel</Button>
+            <Button icon={Check} onClick={handleSubmit}>Record</Button>
           </div>
         </div>
       )}
@@ -351,69 +341,53 @@ export default function CashMovementPage({ token, showToast }) {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card p-4">
-            <p className="text-sm text-gray-600">Total Deposits</p>
-            <p className="text-2xl font-bold text-green-600">
-              ৳ {summary.totalDeposits.toLocaleString()}
-            </p>
+          <div className="stat-card">
+            <span className="stat-label">Total deposits</span>
+            <span className="stat-value text-success">৳ {summary.totalDeposits.toLocaleString()}</span>
           </div>
-          <div className="card p-4">
-            <p className="text-sm text-gray-600">Total Withdrawals</p>
-            <p className="text-2xl font-bold text-red-600">
-              ৳ {summary.totalWithdrawals.toLocaleString()}
-            </p>
+          <div className="stat-card">
+            <span className="stat-label">Total withdrawals</span>
+            <span className="stat-value text-danger">৳ {summary.totalWithdrawals.toLocaleString()}</span>
           </div>
-          <div className="card p-4">
-            <p className="text-sm text-gray-600">Net Movement</p>
-            <p className={`text-2xl font-bold ${summary.netMovement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div className="stat-card">
+            <span className="stat-label">Net movement</span>
+            <span className={`stat-value ${summary.netMovement >= 0 ? 'text-success' : 'text-danger'}`}>
               {summary.netMovement >= 0 ? '+' : ''} ৳ {summary.netMovement.toLocaleString()}
-            </p>
+            </span>
           </div>
         </div>
       )}
 
       {/* Date Range Filter */}
       <div className="card p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {['today', 'yesterday', 'last7days', 'thisMonth'].map((r) => (
-            <button
-              key={r}
-              onClick={() => setDateRange(r)}
-              className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
-                dateRange === r
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              {r === 'last7days' ? 'Last 7 Days' : r === 'thisMonth' ? 'This Month' : r.charAt(0).toUpperCase() + r.slice(1)}
-            </button>
-          ))}
-          <button
-            onClick={() => setDateRange('custom')}
-            className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${
-              dateRange === 'custom'
-                ? 'bg-primary text-white'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-            }`}
-          >
-            Custom
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="segmented">
+            {['today', 'yesterday', 'last7days', 'thisMonth', 'custom'].map((r) => (
+              <button
+                key={r}
+                onClick={() => setDateRange(r)}
+                className={dateRange === r ? 'segmented-item-active' : 'segmented-item'}
+              >
+                {r === 'last7days' ? 'Last 7 Days' : r === 'thisMonth' ? 'This Month' : r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {dateRange === 'custom' && (
-          <div className="flex gap-2 border rounded-lg p-2 bg-gray-50">
+          <div className="flex items-center gap-2">
             <input
               type="date"
               value={customRange.start}
               onChange={(e) => setCustomRange({ ...customRange, start: e.target.value })}
-              className="flex-1 px-2 py-1 border rounded text-sm"
+              className="input w-auto"
             />
-            <span className="text-gray-400 px-2 py-1">-</span>
+            <span className="text-ink-faint text-sm">to</span>
             <input
               type="date"
               value={customRange.end}
               onChange={(e) => setCustomRange({ ...customRange, end: e.target.value })}
-              className="flex-1 px-2 py-1 border rounded text-sm"
+              className="input w-auto"
             />
           </div>
         )}
@@ -424,25 +398,27 @@ export default function CashMovementPage({ token, showToast }) {
         {/* Mobile card view */}
         <div className="md:hidden p-4 space-y-3">
           {loading ? (
-            <div className="text-center py-6 text-gray-500">Loading...</div>
+            <div className="text-center py-6 text-sm text-ink-soft">Loading…</div>
           ) : movements.length === 0 ? (
-            <div className="text-center py-6 text-gray-500">No cash movements recorded</div>
+            <EmptyState icon={Wallet} title="No cash movements recorded" message="Deposits and withdrawals you record will show up here." />
           ) : (
             movements.map((mov) => (
-              <div key={mov._id} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+              <div key={mov._id} className="bg-white rounded-card border border-line p-3 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-xs text-gray-500">{mov.date.split('T')[0]}</span>
-                    <p className="text-sm font-medium">{mov.category}</p>
-                    <p className="text-xs text-gray-500">{mov.reason}</p>
+                    <span className="text-xs text-ink-soft">{mov.date.split('T')[0]}</span>
+                    <p className="text-sm font-medium text-ink">{mov.category}</p>
+                    <p className="text-xs text-ink-soft">{mov.reason}</p>
                   </div>
                   <div className="text-right">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${mov.type === 'DEPOSIT' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{mov.type}</span>
-                    <p className={`text-sm font-semibold mt-1 ${mov.type === 'DEPOSIT' ? 'text-green-600' : 'text-red-600'}`}>{mov.type === 'DEPOSIT' ? '+' : '-'} ৳ {mov.amount.toLocaleString()}</p>
+                    <span className={mov.type === 'DEPOSIT' ? 'badge-success' : 'badge-danger'}>{mov.type}</span>
+                    <p className={`text-sm font-semibold mt-1 tabular ${mov.type === 'DEPOSIT' ? 'text-success' : 'text-danger'}`}>{mov.type === 'DEPOSIT' ? '+' : '-'} ৳ {mov.amount.toLocaleString()}</p>
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <button onClick={() => handleDelete(mov._id)} className="text-red-600 hover:text-red-700 font-medium text-xs min-h-[36px]">🗑 Delete</button>
+                  <button onClick={() => handleDelete(mov._id)} className="flex items-center gap-1 text-danger hover:text-danger-ink font-medium text-xs min-h-[36px]">
+                    <Trash2 size={13} /> Delete
+                  </button>
                 </div>
               </div>
             ))
@@ -450,60 +426,51 @@ export default function CashMovementPage({ token, showToast }) {
         </div>
         {/* Desktop table view */}
         <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+        <table className="table-modern w-full">
+          <thead>
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Type</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Category</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Reason</th>
-              <th className="px-4 py-3 text-right font-semibold text-gray-700">Amount</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">Action</th>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Category</th>
+              <th>Reason</th>
+              <th className="text-right">Amount</th>
+              <th className="text-center">Action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
-                  Loading...
+                <td colSpan="6" className="text-center text-ink-soft">
+                  Loading…
                 </td>
               </tr>
             ) : movements.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
-                  No cash movements recorded
+                <td colSpan="6" className="p-0">
+                  <EmptyState icon={Wallet} title="No cash movements recorded" message="Deposits and withdrawals you record will show up here." />
                 </td>
               </tr>
             ) : (
               movements.map((mov) => (
-                <tr key={mov._id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-800">{mov.date.split('T')[0]}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
-                        mov.type === 'DEPOSIT'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {mov.type}
-                    </span>
+                <tr key={mov._id}>
+                  <td className="text-ink">{mov.date.split('T')[0]}</td>
+                  <td>
+                    <span className={mov.type === 'DEPOSIT' ? 'badge-success' : 'badge-danger'}>{mov.type}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{mov.category}</td>
-                  <td className="px-4 py-3 text-gray-700">{mov.reason}</td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold">
-                    <span
-                      className={mov.type === 'DEPOSIT' ? 'text-green-600' : 'text-red-600'}
-                    >
+                  <td className="text-ink">{mov.category}</td>
+                  <td className="text-ink">{mov.reason}</td>
+                  <td className="text-right font-semibold tabular">
+                    <span className={mov.type === 'DEPOSIT' ? 'text-success' : 'text-danger'}>
                       {mov.type === 'DEPOSIT' ? '+' : '-'} ৳ {mov.amount.toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="text-center">
                     <button
                       onClick={() => handleDelete(mov._id)}
-                      className="text-red-600 hover:text-red-700 font-medium text-xs"
+                      className="w-8 h-8 inline-flex items-center justify-center rounded-control text-danger hover:bg-danger-soft"
+                      aria-label="Delete movement"
                     >
-                      🗑 Delete
+                      <Trash2 size={14} />
                     </button>
                   </td>
                 </tr>

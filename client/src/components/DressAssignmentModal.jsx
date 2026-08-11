@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Waves } from 'lucide-react';
 import { apiRequest } from '../api';
 import Toast from './Toast';
+import Modal from './Modal';
+import Button from './Button';
 
 export default function DressAssignmentModal({ isOpen, dress, allDresses, token, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
@@ -190,8 +193,7 @@ export default function DressAssignmentModal({ isOpen, dress, allDresses, token,
         token,
       });
 
-      const msg = 'Dress assigned successfully';
-      setToast({ type: 'success', message: msg });
+      setToast({ type: 'success', message: 'Dress assigned successfully' });
       setTimeout(() => onSuccess(), 1000);
     } catch (error) {
       console.error('Error assigning dress:', error);
@@ -208,290 +210,275 @@ export default function DressAssignmentModal({ isOpen, dress, allDresses, token,
     : ['Select Member', 'Billing', 'Confirm'];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        {/* Header */}
-        <div className="border-b border-gray-200 p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-900">👗 Assign Dress</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl leading-none min-h-[44px] min-w-[44px] flex items-center justify-center">×</button>
-        </div>
+    <>
+      <Modal
+        isOpen
+        onClose={onClose}
+        title="Assign dress"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { if (step > 1) setStep(step - 1); else onClose(); }}>
+              {step === 1 ? 'Cancel' : 'Back'}
+            </Button>
 
+            {needsDressSelection && step === 1 && (
+              <Button onClick={() => { if (!selectedDress) { setToast({ type: 'error', message: 'Please select a dress' }); return; } setStep(2); }}>
+                Next
+              </Button>
+            )}
+
+            {((needsDressSelection && step === 2) || (!needsDressSelection && step === 1)) && (
+              <Button
+                onClick={() => {
+                  if (!selectedMember) { setToast({ type: 'error', message: 'Please select a member' }); return; }
+                  const nextStep = needsDressSelection ? 3 : 2;
+                  setStep(nextStep);
+                  if (!needsDressSelection && !isBillPayerAssignment) fetchExistingBills();
+                }}
+              >
+                Next
+              </Button>
+            )}
+
+            {((needsDressSelection && step === 3) || (!needsDressSelection && step === 2)) && (
+              <Button onClick={handleNextToConfirm}>Next</Button>
+            )}
+
+            {((needsDressSelection && step === 4) || (!needsDressSelection && step === 3)) && (
+              <Button variant="primary" className="!bg-success hover:!bg-success/90" onClick={handleAssign} loading={loading}>
+                Assign dress
+              </Button>
+            )}
+          </>
+        }
+      >
         {/* Progress Indicator */}
-        <div className="flex gap-2 px-6 py-4 border-b border-gray-200">
+        <div className="flex gap-2 mb-1.5 -mt-1">
           {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
-            <div key={s} className={`h-2 flex-1 rounded ${step >= s ? 'bg-primary' : 'bg-gray-200'}`} />
+            <div key={s} className={`h-1.5 flex-1 rounded-full ${step >= s ? 'bg-primary' : 'bg-line'}`} />
           ))}
         </div>
 
         {/* Step Labels */}
-        <div className="flex px-6 pb-2">
+        <div className="flex mb-5">
           {stepLabels.map((label, i) => (
-            <div key={i} className={`flex-1 text-xs text-center ${step >= i + 1 ? 'text-primary font-medium' : 'text-gray-400'}`}>
+            <div key={i} className={`flex-1 text-xs text-center ${step >= i + 1 ? 'text-primary font-medium' : 'text-ink-faint'}`}>
               {label}
             </div>
           ))}
         </div>
 
-        {/* Content */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
+        {/* Step 1: Dress Selection (only when no dress pre-selected) */}
+        {needsDressSelection && step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <label className="label">Search dress</label>
+              <input
+                type="text"
+                placeholder="Dress number or type…"
+                value={dressSearch}
+                onChange={(e) => setDressSearch(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div className="max-h-64 overflow-y-auto border border-line rounded-card divide-y divide-line">
+              {getFilteredDresses().length > 0 ? (
+                getFilteredDresses().map((d) => (
+                  <button
+                    key={d._id}
+                    onClick={() => handleSelectDress(d)}
+                    className="w-full text-left px-4 py-3 hover:bg-primary-50 transition-colors"
+                  >
+                    <div className="font-medium text-ink">#{d.dressNumber}</div>
+                    <div className="text-sm text-ink-soft">{d.type} — ৳{d.chargeAmount || 0}</div>
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-sm text-ink-soft">No available dresses</div>
+              )}
+            </div>
+          </div>
+        )}
 
-          {/* Step 1: Dress Selection (only when no dress pre-selected) */}
-          {needsDressSelection && step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search Dress</label>
-                <input
-                  type="text"
-                  placeholder="Dress number or type..."
-                  value={dressSearch}
-                  onChange={(e) => setDressSearch(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                />
-              </div>
-              <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
-                {getFilteredDresses().length > 0 ? (
-                  getFilteredDresses().map((d) => (
-                    <button
-                      key={d._id}
-                      onClick={() => handleSelectDress(d)}
-                      className="w-full text-left px-4 py-3 hover:bg-primary/5 border-b border-gray-100 transition-colors"
-                    >
-                      <div className="font-medium text-gray-900">#{d.dressNumber}</div>
-                      <div className="text-sm text-gray-600">{d.type} — ৳{d.chargeAmount || 0}</div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-gray-500">No available dresses</div>
-                )}
+        {/* Step 1 or 2: Member Selection */}
+        {((needsDressSelection && step === 2) || (!needsDressSelection && step === 1)) && (
+          <div className="space-y-4">
+            <div>
+              <label className="label">Member type</label>
+              <div className="segmented w-full">
+                {['Member', 'Student', 'BillPayer'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => { setMemberType(type); setSelectedMember(null); setMemberSearch(''); setIsBillPayerAssignment(false); }}
+                    className={`flex-1 flex items-center justify-center gap-1 ${memberType === type ? 'segmented-item-active' : 'segmented-item'}`}
+                  >
+                    {type === 'BillPayer' && <Waves size={13} />} {type === 'BillPayer' ? 'Hourly' : type}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
+            <div>
+              <label className="label">Search {memberType === 'BillPayer' ? 'hourly swimmer' : memberType.toLowerCase()}</label>
+              <input
+                type="text"
+                placeholder="Name or phone…"
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div className="max-h-64 overflow-y-auto border border-line rounded-card divide-y divide-line">
+              {membersLoading ? (
+                <div className="p-4 text-center text-sm text-ink-soft">Loading…</div>
+              ) : getFilteredMembers().length > 0 ? (
+                getFilteredMembers().map((member) => (
+                  <button
+                    key={memberType === 'BillPayer' ? member.sessionId : member._id}
+                    onClick={() => handleSelectMember(member)}
+                    className="w-full text-left px-4 py-3 hover:bg-primary-50 transition-colors"
+                  >
+                    <div className="font-medium text-ink">{member.name}</div>
+                    <div className="text-sm text-ink-soft">{member.phone}</div>
+                  </button>
+                ))
+              ) : (
+                <div className="p-4 text-center text-sm text-ink-soft">
+                  No {memberType === 'BillPayer' ? 'hourly swimmers' : memberType.toLowerCase() + 's'} found
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-          {/* Step 1 or 2: Member Selection */}
-          {((needsDressSelection && step === 2) || (!needsDressSelection && step === 1)) && (
-            <div className="space-y-4">
+        {/* Billing Step */}
+        {((needsDressSelection && step === 3) || (!needsDressSelection && step === 2)) && (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-soft">
+              Dress: <strong className="text-ink">#{selectedDress?.dressNumber}</strong> ({selectedDress?.type})
+            </p>
+            <p className="text-sm text-ink-soft">
+              Member: <strong className="text-ink">{selectedMember?.memberName}</strong>
+            </p>
+
+            {isBillPayerAssignment && (
+              <div className="flex items-start gap-2 bg-warning-soft border border-warning/20 rounded-card p-3">
+                <Waves size={15} className="text-warning-ink flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-warning-ink">Active hourly swimmer</p>
+                  <p className="text-xs text-warning-ink mt-0.5">
+                    Charge will be automatically attached to their hourly session billing.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!isBillPayerAssignment && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Member Type</label>
-                <div className="flex gap-2">
-                  {['Member', 'Student', 'BillPayer'].map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => { setMemberType(type); setSelectedMember(null); setMemberSearch(''); setIsBillPayerAssignment(false); }}
-                      className={`flex-1 px-3 py-2 rounded-lg font-medium transition-colors text-sm ${memberType === type ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                    >
-                      {type === 'BillPayer' ? '🏊 Hourly' : type}
-                    </button>
+                <label className="label">Charge type</label>
+                <div className="space-y-2">
+                  {['None', 'SeparateTransaction', 'AttachedToExistingBill'].map((type) => (
+                    <label key={type} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="chargeType"
+                        value={type}
+                        checked={chargeType === type}
+                        onChange={(e) => { setChargeType(e.target.value); if (e.target.value === 'None') setSelectedBill(null); }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-ink">
+                        {type === 'None' && 'No charge'}
+                        {type === 'SeparateTransaction' && 'Create separate transaction'}
+                        {type === 'AttachedToExistingBill' && 'Add to existing bill'}
+                      </span>
+                    </label>
                   ))}
                 </div>
               </div>
+            )}
+
+            {isBillPayerAssignment && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search {memberType === 'BillPayer' ? 'Hourly Swimmer' : memberType}
-                </label>
+                <label className="label">Dress charge (৳)</label>
                 <input
-                  type="text"
-                  placeholder="Name or phone..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                  type="number"
+                  value={chargeAmount}
+                  onChange={(e) => setChargeAmount(parseFloat(e.target.value) || 0)}
+                  className="input"
                 />
               </div>
-              <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
-                {membersLoading ? (
-                  <div className="p-4 text-center text-gray-500">Loading...</div>
-                ) : getFilteredMembers().length > 0 ? (
-                  getFilteredMembers().map((member) => (
-                    <button
-                      key={memberType === 'BillPayer' ? member.sessionId : member._id}
-                      onClick={() => handleSelectMember(member)}
-                      className="w-full text-left px-4 py-3 hover:bg-primary/5 border-b border-gray-100 transition-colors"
-                    >
-                      <div className="font-medium text-gray-900">{member.name}</div>
-                      <div className="text-sm text-gray-600">{member.phone}</div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-gray-500">
-                    No {memberType === 'BillPayer' ? 'hourly swimmers' : memberType.toLowerCase() + 's'} found
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Billing Step */}
-          {((needsDressSelection && step === 3) || (!needsDressSelection && step === 2)) && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Dress: <strong>#{selectedDress?.dressNumber}</strong> ({selectedDress?.type})
-              </p>
-              <p className="text-sm text-gray-600">
-                Member: <strong>{selectedMember?.memberName}</strong>
-              </p>
-
-              {isBillPayerAssignment && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-sm text-orange-800">
-                    <strong>Active Hourly Swimmer</strong>
-                  </p>
-                  <p className="text-xs text-orange-700 mt-1">
-                    Charge will be automatically attached to their hourly session billing
-                  </p>
-                </div>
-              )}
-
-              {!isBillPayerAssignment && (
+            {!isBillPayerAssignment && chargeType !== 'None' && (
+              <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Charge Type</label>
-                  <div className="space-y-2">
-                    {['None', 'SeparateTransaction', 'AttachedToExistingBill'].map((type) => (
-                      <label key={type} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="chargeType"
-                          value={type}
-                          checked={chargeType === type}
-                          onChange={(e) => { setChargeType(e.target.value); if (e.target.value === 'None') setSelectedBill(null); }}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {type === 'None' && 'No Charge'}
-                          {type === 'SeparateTransaction' && 'Create Separate Transaction'}
-                          {type === 'AttachedToExistingBill' && 'Add to Existing Bill'}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {isBillPayerAssignment && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Dress Charge (৳)</label>
+                  <label className="label">Charge amount (৳)</label>
                   <input
                     type="number"
                     value={chargeAmount}
                     onChange={(e) => setChargeAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                    className="input"
                   />
                 </div>
-              )}
-
-              {!isBillPayerAssignment && chargeType !== 'None' && (
-                <>
+                {chargeType === 'AttachedToExistingBill' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Charge Amount (৳)</label>
-                    <input
-                      type="number"
-                      value={chargeAmount}
-                      onChange={(e) => setChargeAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                    />
+                    <label className="label">Select bill</label>
+                    <select
+                      value={selectedBill?._id || ''}
+                      onChange={(e) => { const bill = existingBills.find((b) => b._id === e.target.value); setSelectedBill(bill); }}
+                      className="select"
+                    >
+                      <option value="">Select a bill…</option>
+                      {existingBills.map((bill) => (
+                        <option key={bill._id} value={bill._id}>Bill #{bill.receiptId} - ৳{bill.amount}</option>
+                      ))}
+                    </select>
+                    {existingBills.length === 0 && <p className="field-hint">No unpaid bills found</p>}
                   </div>
-                  {chargeType === 'AttachedToExistingBill' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Select Bill</label>
-                      <select
-                        value={selectedBill?._id || ''}
-                        onChange={(e) => { const bill = existingBills.find((b) => b._id === e.target.value); setSelectedBill(bill); }}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                      >
-                        <option value="">Select a bill...</option>
-                        {existingBills.map((bill) => (
-                          <option key={bill._id} value={bill._id}>Bill #{bill.receiptId} - ৳{bill.amount}</option>
-                        ))}
-                      </select>
-                      {existingBills.length === 0 && <p className="text-xs text-gray-500 mt-1">No unpaid bills found</p>}
-                    </div>
-                  )}
-                </>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add any notes..."
-                  rows="3"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none resize-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Confirm Step */}
-          {((needsDressSelection && step === 4) || (!needsDressSelection && step === 3)) && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">Dress: <strong>#{selectedDress?.dressNumber}</strong> ({selectedDress?.type})</p>
-              <p className="text-sm text-gray-600">Member: <strong>{selectedMember?.memberName}</strong></p>
-              <p className="text-sm text-gray-600">Phone: <strong>{selectedMember?.memberPhone}</strong></p>
-              <p className="text-sm text-gray-600">Member Type: <strong>{isBillPayerAssignment ? 'Hourly Swimmer' : memberType}</strong></p>
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-2">
-                <p className="text-sm text-gray-600">
-                  Charge Type: <strong>{isBillPayerAssignment ? 'Attached to Hourly Session' : chargeType === 'None' ? 'No Charge' : chargeType === 'SeparateTransaction' ? 'Separate Transaction' : 'Attached to Existing Bill'}</strong>
-                </p>
-                {chargeType !== 'None' && <p className="text-sm text-gray-600">Amount: <strong>৳{chargeAmount}</strong></p>}
-                {chargeType === 'AttachedToExistingBill' && selectedBill && (
-                  <p className="text-sm text-gray-600">Bill: <strong>#{selectedBill.receiptId || selectedBill.name || 'Session'}</strong></p>
                 )}
-              </div>
-              {notes && (
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <p className="text-sm text-gray-600">Notes: <strong>{notes}</strong></p>
-                </div>
+              </>
+            )}
+
+            <div>
+              <label className="label">Notes (optional)</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any notes…"
+                rows="3"
+                className="textarea"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Step */}
+        {((needsDressSelection && step === 4) || (!needsDressSelection && step === 3)) && (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-soft">Dress: <strong className="text-ink">#{selectedDress?.dressNumber}</strong> ({selectedDress?.type})</p>
+            <p className="text-sm text-ink-soft">Member: <strong className="text-ink">{selectedMember?.memberName}</strong></p>
+            <p className="text-sm text-ink-soft">Phone: <strong className="text-ink">{selectedMember?.memberPhone}</strong></p>
+            <p className="text-sm text-ink-soft">Member type: <strong className="text-ink">{isBillPayerAssignment ? 'Hourly Swimmer' : memberType}</strong></p>
+            <div className="border border-line rounded-card p-4 bg-canvas space-y-2">
+              <p className="text-sm text-ink-soft">
+                Charge type: <strong className="text-ink">{isBillPayerAssignment ? 'Attached to Hourly Session' : chargeType === 'None' ? 'No Charge' : chargeType === 'SeparateTransaction' ? 'Separate Transaction' : 'Attached to Existing Bill'}</strong>
+              </p>
+              {chargeType !== 'None' && <p className="text-sm text-ink-soft">Amount: <strong className="text-ink tabular">৳{chargeAmount}</strong></p>}
+              {chargeType === 'AttachedToExistingBill' && selectedBill && (
+                <p className="text-sm text-ink-soft">Bill: <strong className="text-ink">#{selectedBill.receiptId || selectedBill.name || 'Session'}</strong></p>
               )}
             </div>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="border-t border-gray-200 p-4 flex gap-3 justify-end">
-          <button
-            onClick={() => { if (step > 1) setStep(step - 1); else onClose(); }}
-            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            {step === 1 ? 'Cancel' : 'Back'}
-          </button>
-
-          {needsDressSelection && step === 1 && (
-            <button
-              onClick={() => { if (!selectedDress) { setToast({ type: 'error', message: 'Please select a dress' }); return; } setStep(2); }}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Next
-            </button>
-          )}
-
-          {((needsDressSelection && step === 2) || (!needsDressSelection && step === 1)) && (
-            <button
-              onClick={() => {
-                if (!selectedMember) { setToast({ type: 'error', message: 'Please select a member' }); return; }
-                const nextStep = needsDressSelection ? 3 : 2;
-                setStep(nextStep);
-                if (!needsDressSelection && !isBillPayerAssignment) fetchExistingBills();
-              }}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Next
-            </button>
-          )}
-
-          {((needsDressSelection && step === 3) || (!needsDressSelection && step === 2)) && (
-            <button onClick={handleNextToConfirm} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-              Next
-            </button>
-          )}
-
-          {((needsDressSelection && step === 4) || (!needsDressSelection && step === 3)) && (
-            <button onClick={handleAssign} disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors">
-              {loading ? 'Assigning...' : 'Assign Dress'}
-            </button>
-          )}
-        </div>
-      </div>
+            {notes && (
+              <div className="border border-line rounded-card p-4 bg-canvas">
+                <p className="text-sm text-ink-soft">Notes: <strong className="text-ink">{notes}</strong></p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
-    </div>
+    </>
   );
 }

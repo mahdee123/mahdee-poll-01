@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { ShoppingCart, Plus, Trash2, AlertCircle, Receipt, Link2 } from 'lucide-react';
+import Modal from './Modal';
+import Button from './Button';
+import EmptyState from './EmptyState';
+
+const PAYMENT_METHODS = ['Cash', 'Bank', 'bKash'];
 
 export default function BeverageSalesForm({ products = [], activeSessions = [], onClose, onSave }) {
   // Form state for adding items
@@ -175,8 +181,7 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
       notes: shared.notes,
       ...(shared.hourlySessionId && { hourlySessionId: shared.hourlySessionId }),
     };
-    
-    console.log('[Debug] BeverageSalesForm submitting:', saleData);
+
     onSave(saleData);
 
     // Reset form
@@ -202,260 +207,215 @@ export default function BeverageSalesForm({ products = [], activeSessions = [], 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] sm:max-h-screen overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">💰 Record Beverage Sale</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center">
-            ✕
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Error Alert */}
-          {error && (
-            <div className="p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm">
-              ⚠️ {error}
-            </div>
-          )}
-
-          {/* Add Product Section */}
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <h3 className="font-semibold text-gray-800 mb-4">🛒 Add Product</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {/* Product Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">🧃 Select Product *</label>
-                <select
-                  name="productId"
-                  value={staging.productId}
-                  onChange={handleStagingChange}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">-- Choose a product --</option>
-                  {products.map((product) => (
-                    <option key={product._id} value={product._id}>
-                      {product.name} ({product.unit}) - Stock: {product.currentStock}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quantity Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">📍 Quantity *</label>
-                <input
-                  type="number"
-                  name="quantity"
-                  value={staging.quantity}
-                  onChange={handleStagingChange}
-                  placeholder="0"
-                  min="1"
-                  step="1"
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  disabled={!selectedProduct}
-                />
-              </div>
-
-              {/* Selling Price */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  💵 Selling Price per {selectedProduct?.unit} (Taka) *
-                </label>
-                <input
-                  type="number"
-                  name="sellingPricePerUnit"
-                  value={staging.sellingPricePerUnit}
-                  onChange={handleStagingChange}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  disabled={!selectedProduct}
-                />
-              </div>
-
-              {/* Stock Info */}
-              {selectedProduct && (
-                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
-                  <p className="text-gray-700">
-                    <strong>Cost Price:</strong> ৳{selectedProduct.costPrice}
-                  </p>
-                  <p className={`text-gray-700 ${selectedProduct.currentStock === 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}`}>
-                    <strong>Available Stock:</strong> {selectedProduct.currentStock} {selectedProduct.unit}s
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Add Button */}
-            <button
-              type="button"
-              onClick={handleAddItem}
-              disabled={!selectedProduct || selectedProduct.currentStock === 0}
-              className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              ➕ Add to Cart
-            </button>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Record beverage sale"
+      description="Add products to the cart, then confirm the sale."
+      size="xl"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="beverage-sale-form" disabled={items.length === 0}>
+            Record sale · ৳{calculation.totalAmount.toFixed(2)}
+          </Button>
+        </>
+      }
+    >
+      <form id="beverage-sale-form" onSubmit={handleSubmit}>
+        {error && (
+          <div className="flex items-start gap-2 bg-danger-soft border border-danger/20 text-danger-ink px-3.5 py-3 rounded-control mb-5 text-sm">
+            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
+        )}
 
-          {/* Items Table */}
-          {items.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-100 border-b-2 border-gray-300">
-                    <th className="border px-3 py-2 text-left text-sm font-semibold">Product</th>
-                    <th className="border px-3 py-2 text-center text-sm font-semibold">Qty</th>
-                    <th className="border px-3 py-2 text-right text-sm font-semibold">Cost/Unit</th>
-                    <th className="border px-3 py-2 text-right text-sm font-semibold">Price/Unit</th>
-                    <th className="border px-3 py-2 text-right text-sm font-semibold">Line Total</th>
-                    <th className="border px-3 py-2 text-right text-sm font-semibold">Line Profit</th>
-                    <th className="border px-3 py-2 text-center text-sm font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, index) => (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="border px-3 py-2 text-sm">{item.productName}</td>
-                      <td className="border px-3 py-2 text-center text-sm">{item.quantity} {item.unit}</td>
-                      <td className="border px-3 py-2 text-right text-sm">৳{item.costPricePerUnit}</td>
-                      <td className="border px-3 py-2 text-right text-sm">৳{item.sellingPricePerUnit}</td>
-                      <td className="border px-3 py-2 text-right text-sm font-semibold">৳{item.lineTotal.toFixed(2)}</td>
-                      <td className="border px-3 py-2 text-right text-sm font-semibold text-green-600">৳{item.lineProfit.toFixed(2)}</td>
-                      <td className="border px-3 py-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div className="grid lg:grid-cols-[1fr,320px] gap-6 items-start">
+          {/* Left: product picker + sale details */}
+          <div className="space-y-5 min-w-0">
+            <div className="border border-line rounded-card p-4 bg-canvas">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-ink mb-3">
+                <ShoppingCart size={16} className="text-primary" /> Add product
+              </h3>
 
-          {/* Shared Transaction Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">📅 Sale Date</label>
-              <input
-                type="date"
-                name="date"
-                value={shared.date}
-                onChange={handleSharedChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
-              />
-            </div>
+              <div className="grid sm:grid-cols-2 gap-3 mb-3">
+                <div className="sm:col-span-2">
+                  <label className="label">Product</label>
+                  <select name="productId" value={staging.productId} onChange={handleStagingChange} className="select">
+                    <option value="">— Choose a product —</option>
+                    {products.map((product) => (
+                      <option key={product._id} value={product._id}>
+                        {product.name} ({product.unit}) — Stock: {product.currentStock}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">💳 Payment Method</label>
-              <div className="flex gap-3 mt-2">
-                {['Cash', 'Bank', 'bKash'].map((method) => (
-                  <label key={method} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method}
-                      checked={shared.paymentMethod === method}
-                      onChange={handleSharedChange}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">{method}</span>
-                  </label>
-                ))}
+                <div>
+                  <label className="label">Quantity</label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    value={staging.quantity}
+                    onChange={handleStagingChange}
+                    placeholder="0"
+                    min="1"
+                    step="1"
+                    className="input"
+                    disabled={!selectedProduct}
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Price / {selectedProduct?.unit || 'unit'} (৳)</label>
+                  <input
+                    type="number"
+                    name="sellingPricePerUnit"
+                    value={staging.sellingPricePerUnit}
+                    onChange={handleStagingChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="input"
+                    disabled={!selectedProduct}
+                  />
+                </div>
+
+                {selectedProduct && (
+                  <div className="sm:col-span-2 flex items-center justify-between px-3.5 py-2.5 bg-white border border-line rounded-control text-sm">
+                    <span className="text-ink-soft">Cost price: <span className="text-ink font-medium tabular">৳{selectedProduct.costPrice}</span></span>
+                    <span className={selectedProduct.currentStock === 0 ? 'text-danger font-semibold' : 'text-success font-semibold'}>
+                      {selectedProduct.currentStock} {selectedProduct.unit}s in stock
+                    </span>
+                  </div>
+                )}
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">🏊 Link to Active Session (Optional)</label>
-              <select
-                name="hourlySessionId"
-                value={shared.hourlySessionId}
-                onChange={handleSharedChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+              <Button
+                type="button"
+                onClick={handleAddItem}
+                disabled={!selectedProduct || selectedProduct.currentStock === 0}
+                icon={Plus}
+                className="w-full"
+                variant="secondary"
               >
-                <option value="">Standalone beverage sale</option>
-                {activeSessions.map((session) => (
-                  <option key={session._id} value={session._id}>
-                    {session.customerName} - remaining {session.remainingMinutes <= 0 ? 'over time' : `${session.remainingMinutes} min`}
-                  </option>
+                Add to cart
+              </Button>
+            </div>
+
+            <div className="border border-line rounded-card p-4">
+              <h3 className="text-sm font-semibold text-ink mb-3">Sale details</h3>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Sale date</label>
+                  <input type="date" name="date" value={shared.date} onChange={handleSharedChange} className="input" required />
+                </div>
+
+                <div>
+                  <label className="label">Payment method</label>
+                  <div className="segmented w-full">
+                    {PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setShared({ ...shared, paymentMethod: method })}
+                        className={`flex-1 ${shared.paymentMethod === method ? 'segmented-item-active' : 'segmented-item'}`}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="label flex items-center gap-1.5"><Link2 size={13} /> Link to active session (optional)</label>
+                  <select
+                    name="hourlySessionId"
+                    value={shared.hourlySessionId}
+                    onChange={handleSharedChange}
+                    className="select"
+                  >
+                    <option value="">Standalone beverage sale</option>
+                    {activeSessions.map((session) => (
+                      <option key={session._id} value={session._id}>
+                        {session.customerName} — remaining {session.remainingMinutes <= 0 ? 'over time' : `${session.remainingMinutes} min`}
+                      </option>
+                    ))}
+                  </select>
+                  {shared.hourlySessionId ? (
+                    <p className="field-hint text-primary">
+                      Beverage amount will be added to the selected swimmer account and settled with the session.
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="label">Notes (optional)</label>
+                  <textarea
+                    name="notes"
+                    value={shared.notes}
+                    onChange={handleSharedChange}
+                    placeholder="e.g., Customer name, special notes"
+                    rows="2"
+                    className="textarea"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: running cart */}
+          <div className="border border-line rounded-card overflow-hidden lg:sticky lg:top-0">
+            <div className="px-4 py-3 border-b border-line bg-canvas flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-ink">Cart</h3>
+              <span className="badge-neutral">{items.length} item{items.length === 1 ? '' : 's'}</span>
+            </div>
+
+            {items.length === 0 ? (
+              <div className="py-8">
+                <EmptyState icon={ShoppingCart} title="Cart is empty" message="Add products from the left to build the sale." />
+              </div>
+            ) : (
+              <ul className="divide-y divide-line max-h-72 overflow-y-auto">
+                {items.map((item, index) => (
+                  <li key={index} className="px-4 py-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-ink truncate">{item.productName}</p>
+                      <p className="text-xs text-ink-faint">{item.quantity} {item.unit} × ৳{item.sellingPricePerUnit}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-sm font-semibold text-ink tabular">৳{item.lineTotal.toFixed(2)}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index)}
+                        className="w-7 h-7 flex items-center justify-center rounded-control text-ink-faint hover:text-danger hover:bg-danger-soft transition-colors"
+                        aria-label={`Remove ${item.productName}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </li>
                 ))}
-              </select>
-              {shared.hourlySessionId ? (
-                <p className="mt-2 text-xs text-primary">
-                  Beverage amount will be added to the selected swimmer account and settled with the session.
-                </p>
-              ) : null}
-            </div>
+              </ul>
+            )}
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">📝 Notes (Optional)</label>
-              <textarea
-                name="notes"
-                value={shared.notes}
-                onChange={handleSharedChange}
-                placeholder="e.g., Customer name, special notes"
-                rows="2"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Summary Box */}
-          {calculation.totalAmount > 0 && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-gray-800 mb-3">💹 Transaction Summary</h4>
-              <div className="space-y-2 text-sm mb-3">
-                <div className="flex justify-between">
-                  <span>Total Items:</span>
-                  <span className="font-semibold">{items.length} product(s)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Revenue:</span>
-                  <span className="font-semibold text-primary">৳{calculation.totalAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Cost:</span>
-                  <span className="font-semibold text-gray-600">৳{calculation.totalCost.toFixed(2)}</span>
-                </div>
+            <div className="px-4 py-3 border-t border-line bg-canvas space-y-1.5">
+              <div className="flex justify-between text-sm text-ink-soft">
+                <span>Revenue</span>
+                <span className="tabular text-ink">৳{calculation.totalAmount.toFixed(2)}</span>
               </div>
-              <div className="border-t pt-2 flex justify-between items-center bg-white p-2 rounded">
-                <span className="font-bold">💳 Total Payment:</span>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-green-600">৳{calculation.totalAmount.toFixed(2)}</p>
-                </div>
+              <div className="flex justify-between text-sm text-ink-soft">
+                <span>Cost</span>
+                <span className="tabular text-ink">৳{calculation.totalCost.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-semibold pt-1.5 border-t border-line">
+                <span className="flex items-center gap-1.5 text-ink"><Receipt size={14} className="text-primary" /> Total</span>
+                <span className="tabular text-ink">৳{calculation.totalAmount.toFixed(2)}</span>
               </div>
             </div>
-          )}
-
-          {/* Buttons */}
-          <div className="flex gap-2 justify-end pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={items.length === 0}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              ✓ Record Sale
-            </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Modal>
   );
 }

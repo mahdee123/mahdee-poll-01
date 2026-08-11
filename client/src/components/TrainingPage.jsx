@@ -7,7 +7,10 @@ import ActionDropdown from './ActionDropdown.jsx';
 import DateRangeFilter from './DateRangeFilter.jsx';
 import EmptyState from './EmptyState.jsx';
 import Button from './Button.jsx';
-import { Search, Settings, UserPlus, GraduationCap, CalendarPlus, Users } from 'lucide-react';
+import {
+  Search, Settings, UserPlus, GraduationCap, CalendarPlus, Users,
+  ArrowLeft, UserRound, Waves, Wallet, ClipboardList, Info, Printer, Check,
+} from 'lucide-react';
 
 const BATCH_PRESETS = {
   Regular: {
@@ -295,11 +298,11 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setViewMode('list')}
-            className="px-4 py-2 text-sm rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
+            className="btn-secondary"
           >
-            ← Back to List
+            <ArrowLeft size={16} /> Back to list
           </button>
-          <h2 className="text-2xl font-bold flex-1">Add New Student</h2>
+          <h2 className="text-xl font-semibold text-ink flex-1">Add new student</h2>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -307,16 +310,16 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
           <div className="card p-6 space-y-6">
             {/* Basic Info Section */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">👤 Basic Info</h3>
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink"><UserRound size={15} className="text-primary" /> Basic info</h3>
               <input
-                className="border rounded-lg px-3 py-2 w-full"
-                placeholder="Full Name"
+                className="input"
+                placeholder="Full name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
               <input
-                className="border rounded-lg px-3 py-2 w-full"
-                placeholder="Phone Number"
+                className="input"
+                placeholder="Phone number"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
@@ -324,9 +327,9 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
 
             {/* Training Details Section */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold">🏊 Training Details</h3>
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink"><Waves size={15} className="text-primary" /> Training details</h3>
               <select
-                className="border rounded-lg px-3 py-2 w-full"
+                className="select"
                 value={form.ageGroup}
                 onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
               >
@@ -338,7 +341,7 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
               </select>
 
               <select
-                className="border rounded-lg px-3 py-2 w-full"
+                className="select"
                 value={form.batchType}
                 onChange={(e) => setForm({ ...form, batchType: e.target.value })}
               >
@@ -351,7 +354,7 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <select
-                  className="border rounded-lg px-3 py-2"
+                  className="select"
                   value={form.timeSlot}
                   onChange={(e) => setForm({ ...form, timeSlot: e.target.value })}
                 >
@@ -359,7 +362,7 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
                   <option>Evening</option>
                 </select>
                 <select
-                  className="border rounded-lg px-3 py-2"
+                  className="select"
                   value={form.classSlot}
                   onChange={(e) => setForm({ ...form, classSlot: e.target.value })}
                 >
@@ -373,19 +376,19 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-600 block mb-1">Start Date</label>
+                  <label className="label">Start date</label>
                   <input
                     type="date"
-                    className="border rounded-lg px-3 py-2 w-full"
+                    className="input"
                     value={form.startDate}
                     onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 block mb-1">End Date (Auto)</label>
+                  <label className="label">End date (auto)</label>
                   <input
                     type="date"
-                    className="border rounded-lg px-3 py-2 w-full bg-gray-100"
+                    className="input bg-canvas"
                     value={deriveTraining.endDate}
                     readOnly
                   />
@@ -394,50 +397,50 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
             </div>
 
             {/* Payment Section */}
-            <div className="space-y-3 border-t pt-4">
-              <h3 className="text-lg font-semibold">💰 Payment</h3>
+            <div className="space-y-3 border-t border-line pt-4">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink"><Wallet size={15} className="text-primary" /> Payment</h3>
               <div className="grid sm:grid-cols-3 gap-3">
                 <div className="card p-3">
-                  <p className="text-xs text-gray-600">Price</p>
-                  <p className="text-xl font-bold text-secondary">৳ {deriveTraining.price.toLocaleString()}</p>
+                  <p className="text-xs text-ink-soft">Price</p>
+                  <p className="text-xl font-bold text-ink tabular">৳ {deriveTraining.price.toLocaleString()}</p>
                 </div>
                 <div className="card p-3">
-                  <p className="text-xs text-gray-600">Discount</p>
+                  <p className="text-xs text-ink-soft">Discount</p>
                   <input
                     type="number"
-                    className="w-full border rounded px-2 py-1 mt-1"
+                    className="input mt-1 py-1"
                     placeholder="0"
                     value={form.discount}
                     onChange={(e) => setForm({ ...form, discount: e.target.value })}
                   />
                 </div>
-                <div className="card p-3 bg-green-50">
-                  <p className="text-xs text-gray-600">Final Amount</p>
-                  <p className="text-xl font-bold text-green-700">৳ {finalAmount.toLocaleString()}</p>
+                <div className="card p-3 bg-success-soft">
+                  <p className="text-xs text-ink-soft">Final amount</p>
+                  <p className="text-xl font-bold text-success-ink tabular">৳ {finalAmount.toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-600 block mb-2">Amount Paid (Optional)</label>
+                  <label className="label">Amount paid (optional)</label>
                   <input
                     type="number"
-                    className="border rounded-lg px-3 py-2 w-full"
+                    className="input"
                     placeholder={finalAmount.toLocaleString()}
                     value={form.amountPaid ?? ''}
                     onChange={(e) => setForm({ ...form, amountPaid: e.target.value === '' ? null : e.target.value })}
                   />
                 </div>
-                <div className={`card p-3 ${dueAmount > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
-                  <p className="text-xs text-gray-600">Remaining Due</p>
-                  <p className={`text-xl font-bold ${dueAmount > 0 ? 'text-orange-700' : 'text-green-700'}`}>৳ {dueAmount.toLocaleString()}</p>
+                <div className={`card p-3 ${dueAmount > 0 ? 'bg-warning-soft border border-warning/20' : 'bg-success-soft border border-success/20'}`}>
+                  <p className="text-xs text-ink-soft">Remaining due</p>
+                  <p className={`text-xl font-bold tabular ${dueAmount > 0 ? 'text-warning-ink' : 'text-success-ink'}`}>৳ {dueAmount.toLocaleString()}</p>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-gray-600 block mb-2">Payment Method</label>
+                <label className="label">Payment method</label>
                 <select
-                  className="border rounded-lg px-3 py-2 w-full"
+                  className="select"
                   value={form.paymentMethod}
                   onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
                 >
@@ -451,79 +454,79 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
 
           {/* SUMMARY CARD */}
           <div className="space-y-3">
-            <div className="card p-4 space-y-2 bg-primary/5">
-              <h3 className="text-lg font-semibold">📋 Summary</h3>
+            <div className="card p-4 space-y-2 bg-primary-50">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink"><ClipboardList size={15} className="text-primary" /> Summary</h3>
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Name:</span>
+                  <span className="text-ink-soft">Name:</span>
                   <span className="font-semibold">{form.name || '—'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Phone:</span>
+                  <span className="text-ink-soft">Phone:</span>
                   <span className="font-semibold">{form.phone || '—'}</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Age Group:</span>
+                  <span className="text-ink-soft">Age Group:</span>
                   <span className="font-semibold">
                     {AGE_GROUPS.find((a) => a.value === form.ageGroup)?.label || '—'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Batch:</span>
+                  <span className="text-ink-soft">Batch:</span>
                   <span className="font-semibold">{form.batchType}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Class Slot:</span>
+                  <span className="text-ink-soft">Class Slot:</span>
                   <span className="font-semibold">{CLASS_SLOTS[form.classSlot].label}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Start Date:</span>
+                  <span className="text-ink-soft">Start Date:</span>
                   <span className="font-semibold">{formatDate(form.startDate)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">End Date:</span>
+                  <span className="text-ink-soft">End Date:</span>
                   <span className="font-semibold">{formatDate(deriveTraining.endDate)}</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Classes:</span>
+                  <span className="text-ink-soft">Total Classes:</span>
                   <span className="font-semibold text-lg">{deriveTraining.totalClasses}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Duration:</span>
+                  <span className="text-ink-soft">Duration:</span>
                   <span className="font-semibold">{deriveTraining.durationDays} days</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between text-lg">
-                  <span className="text-gray-600 font-semibold">Price:</span>
-                  <span className="font-bold text-secondary">৳ {deriveTraining.price.toLocaleString()}</span>
+                  <span className="text-ink-soft font-semibold">Price:</span>
+                  <span className="font-bold text-ink">৳ {deriveTraining.price.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-lg">
-                  <span className="text-gray-600 font-semibold">Discount:</span>
-                  <span className="font-bold text-orange-600">-৳ {Number(form.discount || 0).toLocaleString()}</span>
+                  <span className="text-ink-soft font-semibold">Discount:</span>
+                  <span className="font-bold text-warning">-৳ {Number(form.discount || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-xl bg-green-100 p-2 rounded font-semibold">
+                <div className="flex justify-between text-xl bg-success-soft p-2 rounded font-semibold">
                   <span>Final Amount:</span>
-                  <span className="text-green-700">৳ {finalAmount.toLocaleString()}</span>
+                  <span className="text-success-ink">৳ {finalAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-lg">
-                  <span className="text-gray-600 font-semibold">Amount Paid:</span>
+                  <span className="text-ink-soft font-semibold">Amount Paid:</span>
                   <span className="font-bold text-primary">৳ {paidAmount.toLocaleString()}</span>
                 </div>
-                <div className={`flex justify-between text-xl p-2 rounded font-semibold ${dueAmount > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                <div className={`flex justify-between text-xl p-2 rounded font-semibold ${dueAmount > 0 ? 'bg-warning-soft text-warning-ink' : 'bg-success-soft text-success-ink'}`}>
                   <span>Remaining Due:</span>
                   <span>৳ {dueAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Payment Method:</span>
+                  <span className="text-ink-soft">Payment Method:</span>
                   <span className="font-semibold">{form.paymentMethod}</span>
                 </div>
               </div>
             </div>
 
-            <div className="card p-4 bg-amber-50 text-sm text-amber-800">
-              <p className="font-semibold mb-2">ℹ️ Important Notes:</p>
+            <div className="card p-4 bg-warning-soft text-sm text-warning-ink">
+              <p className="flex items-center gap-1.5 font-semibold mb-2"><Info size={15} /> Important notes</p>
               <ul className="space-y-1 list-disc list-inside">
                 <li>Max 2 makeup classes allowed per student</li>
                 <li>Class slot capacity: {DYNAMIC_SLOT_LIMIT} students</li>
@@ -533,18 +536,12 @@ export default function TrainingPage({ token, showToast, setLastReceipt }) {
             </div>
 
             <div className="flex flex-col gap-2">
-              <button
-                onClick={submitStudent}
-                className="btn-primary w-full py-3 text-lg font-semibold"
-              >
-                🔵 Save Student
-              </button>
-              <button
-                onClick={submitAndPrint}
-                className="btn-primary bg-green-600 hover:bg-green-700 w-full py-3 text-lg font-semibold no-print"
-              >
-                🖨 Save & Print Receipt
-              </button>
+              <Button onClick={submitStudent} size="lg" icon={Check} className="w-full">
+                Save student
+              </Button>
+              <Button onClick={submitAndPrint} variant="secondary" size="lg" icon={Printer} className="w-full no-print">
+                Save &amp; print receipt
+              </Button>
             </div>
           </div>
         </div>
