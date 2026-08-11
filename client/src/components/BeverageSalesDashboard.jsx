@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, NetworkError } from '../api';
 import BeverageProductManager from './BeverageProductManager';
 import InventoryPurchaseForm from './InventoryPurchaseForm';
 import BeverageSalesForm from './BeverageSalesForm';
@@ -30,18 +30,25 @@ export default function BeverageSalesDashboard({ token }) {
 
   // Helper function to make authenticated requests
   const fetchWithToken = async (url, options = {}) => {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-    });
+    let response;
+
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+          ...options.headers,
+        },
+      });
+    } catch {
+      // The request never reached the server.
+      throw new NetworkError();
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const error = new Error(errorData.message || errorData.error || `API error: ${response.status}`);
+      const error = new Error(errorData.message || errorData.error || `Request failed (${response.status}).`);
       error.statusCode = response.status;
       error.responseData = errorData;
       throw error;

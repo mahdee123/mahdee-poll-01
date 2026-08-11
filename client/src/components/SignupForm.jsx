@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { apiRequest } from '../api';
 
 export default function SignupForm() {
   useDocumentTitle('Create Account');
@@ -53,31 +54,23 @@ export default function SignupForm() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register-company`, {
+      const { token, user, company } = await apiRequest('/auth/register-company', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           companyName: formData.companyName,
           ownerName: formData.ownerName,
           email: formData.email,
-          password: formData.password
-        })
+          password: formData.password,
+        },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      const { token, user, company } = await response.json();
-      
       // Update auth context
       setAuth(token, user, company);
 
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'An error occurred during registration');
+      setError(err.message || 'Something went wrong creating your account. Please try again.');
     } finally {
       setLoading(false);
     }

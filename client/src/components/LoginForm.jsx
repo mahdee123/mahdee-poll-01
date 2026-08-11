@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { apiRequest } from '../api';
 
 export default function LoginForm() {
   useDocumentTitle('Sign In');
@@ -38,29 +39,18 @@ export default function LoginForm() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+      const { token, user, company } = await apiRequest('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
+        body: { email: formData.email, password: formData.password },
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Login failed');
-      }
-
-      const { token, user, company } = await response.json();
-      
       // Update auth context
       setAuth(token, user, company);
 
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'An error occurred during login');
+      setError(err.message || 'Something went wrong signing in. Please try again.');
     } finally {
       setLoading(false);
     }
